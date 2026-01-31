@@ -1,0 +1,25 @@
+# Runtime state
+.dual-agent/
+.dual-agent-archive/
+.ralph-loop-pp/
+
+# Node modules
+node_modules/
+package-lock.json
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Test artifacts
+*.log
+*.tmp
+
+# Claude/Codex local files
+.claude/

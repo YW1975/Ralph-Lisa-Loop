@@ -1,0 +1,26 @@
+{
+  "name": "ralph-lisa-loop",
+  "version": "1.0.0",
+  "description": "Ralph Lisa Dual-Agent Loop - Minimal collaboration framework",
+  "commands": [
+    "dual-init",
+    "dual-ralph",
+    "dual-lisa",
+    "dual-wait",
+    "dual-status",
+    "dual-history",
+    "dual-next",
+    "dual-archive"
+  ],
+  "agents": ["ralph", "lisa"],
+  "files": {
+    "work.md": "Ralph's current round output",
+    "review.md": "Lisa's current round feedback",
+    "history.md": "Cumulative history (append-only)"
+  },
+  "notes": {
+    "design": "Scripts handle I/O only. Workflow rules are in agent prompts.",
+    "consensus": "Both parties must agree before proceeding to next step.",
+    "deadlock": "After 5 rounds, use OVERRIDE or HANDOFF."
+  }
+}
