@@ -71,13 +71,13 @@ echo "[Skills] Copying communication skills..."
 # Skills for Claude Code
 CLAUDE_SKILLS_DIR="$PROJECT_DIR/.claude/skills"
 mkdir -p "$CLAUDE_SKILLS_DIR"
-cp "$SCRIPT_DIR/skills/"*.md "$CLAUDE_SKILLS_DIR/"
+cp "$SCRIPT_DIR/skills/"*.md "$CLAUDE_SKILLS_DIR/" 2>/dev/null || true
 echo "[Skills] Copied to $CLAUDE_SKILLS_DIR/"
 
 # Skills for Codex
 CODEX_SKILLS_DIR="$PROJECT_DIR/.codex/skills"
 mkdir -p "$CODEX_SKILLS_DIR"
-cp "$SCRIPT_DIR/skills/"*.md "$CODEX_SKILLS_DIR/"
+cp "$SCRIPT_DIR/skills/"*.md "$CODEX_SKILLS_DIR/" 2>/dev/null || true
 echo "[Skills] Copied to $CODEX_SKILLS_DIR/"
 
 #===========================================
@@ -85,10 +85,8 @@ echo "[Skills] Copied to $CODEX_SKILLS_DIR/"
 #===========================================
 echo "[I/O] Copying io.sh to project..."
 mkdir -p "$PROJECT_DIR/mini-skill"
-# Skip if same file (running from within the project)
-if [[ "$SCRIPT_DIR/io.sh" != "$PROJECT_DIR/mini-skill/io.sh" ]]; then
-  cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/"
-fi
+# Use cp -n to avoid overwriting, ignore errors for same file
+cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/" 2>/dev/null || true
 chmod +x "$PROJECT_DIR/mini-skill/io.sh"
 echo "[I/O] Done."
 
