@@ -67,8 +67,8 @@ RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Comm
 
 # Lisa (Codex)
 # - CODEX.md loaded via -i flag as instructions
-# - .codex/skills/ loaded via --skills-path flag
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'Skills: check-turn, submit-review, view-status, read-work' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md --skills-path .codex/skills"
+# - Skills in .codex/skills/ should be auto-discovered
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."

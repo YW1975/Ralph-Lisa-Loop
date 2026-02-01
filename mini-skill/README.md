@@ -32,9 +32,8 @@ Or manually:
 claude
 
 # Terminal 2 (Lisa)
-# - CODEX.md loaded via -i flag
-# - .codex/skills/ loaded via --skills-path
-codex -i CODEX.md --skills-path .codex/skills
+# - CODEX.md loaded via -i flag as instructions
+codex -i CODEX.md
 ```
 
 ## Turn-Based Workflow
