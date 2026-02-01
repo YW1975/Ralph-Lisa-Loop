@@ -140,6 +140,50 @@ mini-skill/                     # Skill definition
 
 **Workflow control is in agent prompts, scripts only transfer files.**
 
+## Cross-Agent Usage (Claude Code + Codex)
+
+You can run Ralph on Claude Code and Lisa on Codex (or vice versa).
+
+### Setup
+
+**Terminal 1 - Claude Code (Ralph)**:
+```bash
+cd your-project
+claude
+# Send: Read mini-skill/claude-ralph-prompt.md, you are Ralph.
+# Or use skill commands: /dual-init, /dual-ralph, etc.
+```
+
+**Terminal 2 - Codex (Lisa)**:
+```bash
+cd your-project
+codex
+# Send: Read mini-skill/codex-lisa-prompt.md, you are Lisa.
+# Then: ./mini-skill/io.sh wait work.md
+```
+
+### Prompt Files
+
+| File | Agent | Usage |
+|------|-------|-------|
+| `claude-ralph-prompt.md` | Claude Code | Skill commands (/dual-*) |
+| `claude-ralph-direct.md` | Claude Code | Direct script (io.sh) |
+| `codex-lisa-prompt.md` | Codex | Direct script (io.sh) |
+
+### Communication Flow
+
+```
+┌─────────────────┐              ┌─────────────────┐
+│  Claude (Ralph) │              │  Codex (Lisa)   │
+├─────────────────┤              ├─────────────────┤
+│ /dual-ralph     │──▶ work.md ──│ io.sh wait      │
+│ /dual-wait      │◀── review.md─│ io.sh lisa      │
+└─────────────────┘              └─────────────────┘
+         │                              │
+         └──────── .dual-agent/ ────────┘
+                  (shared directory)
+```
+
 ## Important Notes
 
 - **Before new task**: Run `/dual-archive` or `io.sh clean` to avoid overwriting
