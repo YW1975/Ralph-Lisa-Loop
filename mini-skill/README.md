@@ -27,10 +27,14 @@ cd your-project
 Or manually:
 ```bash
 # Terminal 1 (Ralph)
+# - CLAUDE.md auto-loaded as instructions
+# - .claude/commands/ auto-loaded as slash commands (/check-turn, etc.)
 claude
 
 # Terminal 2 (Lisa)
-codex -i CODEX.md
+# - CODEX.md loaded via -i flag
+# - .codex/skills/ loaded via --skills-path
+codex -i CODEX.md --skills-path .codex/skills
 ```
 
 ## Turn-Based Workflow

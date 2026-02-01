@@ -60,11 +60,15 @@ fi
 # Launch commands
 #===========================================
 
-# Ralph (Claude) - reads CLAUDE.md automatically
-RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'First: /check-turn' && echo '' && claude"
+# Ralph (Claude Code)
+# - CLAUDE.md auto-read as project instructions
+# - .claude/commands/ auto-loaded as slash commands
+RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude"
 
-# Lisa (Codex) - specify CODEX.md with -i flag
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md"
+# Lisa (Codex)
+# - CODEX.md loaded via -i flag as instructions
+# - .codex/skills/ loaded via --skills-path flag
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'Skills: check-turn, submit-review, view-status, read-work' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md --skills-path .codex/skills"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."
