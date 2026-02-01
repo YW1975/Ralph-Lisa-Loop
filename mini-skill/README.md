@@ -32,8 +32,9 @@ Or manually:
 claude
 
 # Terminal 2 (Lisa)
-# - CODEX.md loaded via -i flag as instructions
-codex -i CODEX.md
+# - --instructions CODEX.md: load Lisa role definition
+# - --enable skills: enable skills feature (loads ~/.codex/skills/)
+codex --instructions CODEX.md --enable skills
 ```
 
 ## Turn-Based Workflow

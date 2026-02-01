@@ -66,9 +66,9 @@ fi
 RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude"
 
 # Lisa (Codex)
-# - CODEX.md loaded via -i flag as instructions
-# - Skills in .codex/skills/ should be auto-discovered
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md"
+# - --instructions CODEX.md: load Lisa role definition
+# - --enable skills: enable skills feature
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex --instructions CODEX.md --enable skills"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."

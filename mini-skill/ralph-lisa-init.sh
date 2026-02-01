@@ -69,13 +69,48 @@ cp "$SCRIPT_DIR/claude-commands/"*.md "$CLAUDE_CMD_DIR/" 2>/dev/null || true
 echo "[Claude] Commands copied."
 
 #===========================================
-# 4. Copy Codex skills
+# 4. Copy Codex skills (to ~/.codex/skills/)
 #===========================================
-echo "[Codex] Copying skills to .codex/skills/..."
-CODEX_SKILL_DIR="$PROJECT_DIR/.codex/skills"
-mkdir -p "$CODEX_SKILL_DIR"
-cp "$SCRIPT_DIR/codex-skills/"*.md "$CODEX_SKILL_DIR/" 2>/dev/null || true
-echo "[Codex] Skills copied."
+echo "[Codex] Setting up skills in ~/.codex/skills/ralph-lisa-loop/..."
+CODEX_GLOBAL_SKILL_DIR="$HOME/.codex/skills/ralph-lisa-loop"
+mkdir -p "$CODEX_GLOBAL_SKILL_DIR"
+
+# Create SKILL.md for the ralph-lisa-loop skill
+cat > "$CODEX_GLOBAL_SKILL_DIR/SKILL.md" << 'SKILLEOF'
+# Ralph Lisa Loop - Lisa Skills
+
+This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
+
+## Available Commands
+
+### Check Turn
+```bash
+./mini-skill/io.sh whose-turn
+```
+Check if it's your turn before taking action.
+
+### Submit Review
+```bash
+./mini-skill/io.sh submit-lisa "[TAG] summary
+
+detailed content..."
+```
+Submit your review. Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS
+
+### View Status
+```bash
+./mini-skill/io.sh status
+```
+View current task, turn, and last action.
+
+### Read Ralph's Work
+```bash
+./mini-skill/io.sh read work.md
+```
+Read Ralph's latest submission.
+SKILLEOF
+
+echo "[Codex] Skill created at $CODEX_GLOBAL_SKILL_DIR/"
 
 #===========================================
 # 5. Copy io.sh to project
@@ -107,7 +142,7 @@ echo "  - .dual-agent/"
 echo ""
 echo "Start agents:"
 echo "  Terminal 1: claude"
-echo "  Terminal 2: codex -i CODEX.md"
+echo "  Terminal 2: codex --instructions CODEX.md --enable skills"
 echo ""
 echo "Or run: ralph-lisa-start.sh \"your task\""
 echo "========================================"
