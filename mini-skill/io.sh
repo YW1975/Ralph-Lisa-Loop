@@ -7,7 +7,7 @@
 #   review.md  - Lisa's current round feedback
 #   history.md - Cumulative history (append-only)
 #
-# Role definitions are in agents/ralph.md and agents/lisa.md (not output files)
+# Role definitions are in CLAUDE.md (Ralph) and CODEX.md (Lisa)
 
 set -euo pipefail
 
@@ -96,7 +96,7 @@ EOF
     echo "  review.md  - Lisa's feedback"
     echo "  history.md - Cumulative history"
     echo ""
-    echo "Role definitions: agents/ralph.md, agents/lisa.md"
+    echo "Role definitions: CLAUDE.md (Ralph), CODEX.md (Lisa)"
     echo "========================================"
     ;;
 

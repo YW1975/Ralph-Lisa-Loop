@@ -171,9 +171,12 @@ project/
 ## Important Notes
 
 - **Consensus is key**: Never call `/next-round` without both parties agreeing
+- **Resume session**: To resume existing work, run start script WITHOUT task argument
+- **New task overwrites**: Passing task argument to start script will overwrite current session
 - **Before new task**: Use `/archive` to save current session
 - **Wait timeout**: Default 300s for `io.sh wait`
 - **Deadlock rule**: After 5 rounds, use OVERRIDE or HANDOFF
+- **Role files**: Roles are in CLAUDE.md/CODEX.md, not in separate skill files
 
 ---
 
