@@ -85,7 +85,10 @@ echo "[Skills] Copied to $CODEX_SKILLS_DIR/"
 #===========================================
 echo "[I/O] Copying io.sh to project..."
 mkdir -p "$PROJECT_DIR/mini-skill"
-cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/"
+# Skip if same file (running from within the project)
+if [[ "$SCRIPT_DIR/io.sh" != "$PROJECT_DIR/mini-skill/io.sh" ]]; then
+  cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/"
+fi
 chmod +x "$PROJECT_DIR/mini-skill/io.sh"
 echo "[I/O] Done."
 
