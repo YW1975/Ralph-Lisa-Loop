@@ -2,7 +2,36 @@
 
 Minimal dual-agent collaboration framework for Ralph (developer) and Lisa (reviewer). Scripts handle I/O only; workflow rules are in agent prompts.
 
-## Quick Start
+## Quick Start (Automated)
+
+### 1. Initialize Project
+
+```bash
+cd your-project
+./path/to/mini-skill/ralph-lisa-init.sh
+```
+
+This will:
+- Append Ralph role to `CLAUDE.md` (for Claude Code)
+- Create Lisa skill at `.codex/skills/ralph-lisa-loop/SKILL.md` (for Codex)
+- Initialize `.dual-agent/` session directory
+
+### 2. Start Both Agents
+
+```bash
+./path/to/mini-skill/ralph-lisa-start.sh "Implement feature X"
+```
+
+This will:
+- Open Terminal 1: Claude Code (Ralph)
+- Open Terminal 2: Codex with Lisa skill
+- Initialize the task
+
+Supports: macOS Terminal, iTerm2, tmux
+
+---
+
+## Manual Quick Start
 
 ### Terminal 1 (Ralph - Lead Developer)
 
@@ -140,44 +169,14 @@ mini-skill/                     # Skill definition
 
 **Workflow control is in agent prompts, scripts only transfer files.**
 
-## Cross-Agent Usage (Claude Code + Codex)
-
-You can run Ralph on Claude Code and Lisa on Codex (or vice versa).
-
-### Setup
-
-**Terminal 1 - Claude Code (Ralph)**:
-```bash
-cd your-project
-claude
-# Send: Read mini-skill/claude-ralph-prompt.md, you are Ralph.
-# Or use skill commands: /dual-init, /dual-ralph, etc.
-```
-
-**Terminal 2 - Codex (Lisa)**:
-```bash
-cd your-project
-codex
-# Send: Read mini-skill/codex-lisa-prompt.md, you are Lisa.
-# Then: ./mini-skill/io.sh wait work.md
-```
-
-### Prompt Files
-
-| File | Agent | Usage |
-|------|-------|-------|
-| `claude-ralph-prompt.md` | Claude Code | Skill commands (/dual-*) |
-| `claude-ralph-direct.md` | Claude Code | Direct script (io.sh) |
-| `codex-lisa-prompt.md` | Codex | Direct script (io.sh) |
-
-### Communication Flow
+## Communication Flow
 
 ```
 ┌─────────────────┐              ┌─────────────────┐
 │  Claude (Ralph) │              │  Codex (Lisa)   │
 ├─────────────────┤              ├─────────────────┤
-│ /dual-ralph     │──▶ work.md ──│ io.sh wait      │
-│ /dual-wait      │◀── review.md─│ io.sh lisa      │
+│ io.sh ralph     │──▶ work.md ──│ io.sh wait      │
+│ io.sh wait      │◀── review.md─│ io.sh lisa      │
 └─────────────────┘              └─────────────────┘
          │                              │
          └──────── .dual-agent/ ────────┘
