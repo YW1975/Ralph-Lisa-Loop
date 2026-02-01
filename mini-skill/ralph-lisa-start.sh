@@ -18,6 +18,17 @@ echo "========================================"
 echo "Project: $PROJECT_DIR"
 echo ""
 
+# Check prerequisites
+if ! command -v claude &> /dev/null; then
+  echo "Error: 'claude' command not found. Install Claude Code first."
+  exit 1
+fi
+
+if ! command -v codex &> /dev/null; then
+  echo "Error: 'codex' command not found. Install Codex CLI first."
+  exit 1
+fi
+
 # Check if initialized
 if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]] || ! grep -q "RALPH-LISA-LOOP" "$PROJECT_DIR/CLAUDE.md" 2>/dev/null; then
   echo "Error: Not initialized. Run ./ralph-lisa-init.sh first."
@@ -26,6 +37,18 @@ fi
 
 # Initialize task if provided
 if [[ -n "$TASK" ]]; then
+  # Warn if session exists
+  if [[ -d "$PROJECT_DIR/.dual-agent" ]] && [[ -f "$PROJECT_DIR/.dual-agent/task.md" ]]; then
+    echo "Warning: Existing session will be overwritten."
+    echo "Run './mini-skill/io.sh archive' first to save current session."
+    echo ""
+    read -p "Continue? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Aborted."
+      exit 0
+    fi
+  fi
   echo "Task: $TASK"
   "$SCRIPT_DIR/io.sh" init "$TASK"
   echo ""

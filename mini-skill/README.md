@@ -183,9 +183,16 @@ mini-skill/                     # Skill definition
                   (shared directory)
 ```
 
+## Prerequisites
+
+- **Claude Code**: Install from https://claude.ai/code
+- **Codex CLI**: Install from https://github.com/openai/codex
+- **macOS**: Terminal, iTerm2, or tmux for dual-terminal launch
+
 ## Important Notes
 
 - **Before new task**: Run `/dual-archive` or `io.sh clean` to avoid overwriting
 - **Wait timeout**: Default 300s, pass custom value: `/dual-wait work.md 600`
 - **Max rounds**: Not enforced by script; follow 5-round rule in agent prompts
 - **Plan consensus**: Use `plan.md` to record agreed plan before implementation
+- **File creation**: Init script creates `CLAUDE.md` and `.codex/` if they don't exist
