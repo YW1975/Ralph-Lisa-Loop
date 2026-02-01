@@ -1,19 +1,23 @@
 #!/bin/bash
 # Ralph Lisa Dual-Agent Loop - I/O Script
-# Handles file read/write/wait operations for Ralph-Lisa collaboration
+# Handles communication between Ralph and Lisa with turn-based control
 #
-# Files:
-#   work.md    - Ralph's current round output
-#   review.md  - Lisa's current round feedback
-#   history.md - Cumulative history (append-only)
+# State files:
+#   turn.txt   - Whose turn: "ralph" or "lisa"
+#   work.md    - Ralph's submissions
+#   review.md  - Lisa's submissions
+#   history.md - Full history
 #
-# Role definitions are in CLAUDE.md (Ralph) and CODEX.md (Lisa)
+# Tags: [PLAN] [CODE] [FIX] [PASS] [NEEDS_WORK] [DISCUSS] [QUESTION] [CONSENSUS]
 
 set -euo pipefail
 
 STATE_DIR=".dual-agent"
 CMD="${1:-}"
 shift || true
+
+# Valid tags
+VALID_TAGS="PLAN|CODE|FIX|PASS|NEEDS_WORK|DISCUSS|QUESTION|CONSENSUS"
 
 check_session() {
   if [[ ! -d "$STATE_DIR" ]]; then
@@ -22,10 +26,41 @@ check_session() {
   fi
 }
 
-# Append to history
+# Get whose turn it is
+get_turn() {
+  cat "$STATE_DIR/turn.txt" 2>/dev/null || echo "ralph"
+}
+
+# Set whose turn it is
+set_turn() {
+  echo "$1" > "$STATE_DIR/turn.txt"
+}
+
+# Extract tag from content
+extract_tag() {
+  local content="$1"
+  local first_line=$(echo "$content" | head -1)
+  if [[ "$first_line" =~ ^\[($VALID_TAGS)\] ]]; then
+    echo "${BASH_REMATCH[1]}"
+  else
+    echo ""
+  fi
+}
+
+# Extract summary from content (first line after tag)
+extract_summary() {
+  local content="$1"
+  local first_line=$(echo "$content" | head -1)
+  # Remove tag and get the rest of first line
+  echo "$first_line" | sed -E "s/^\[($VALID_TAGS)\]\s*//"
+}
+
+# Append to history with tag and summary
 append_history() {
   local role="$1"
   local content="$2"
+  local tag=$(extract_tag "$content")
+  local summary=$(extract_summary "$content")
   local round=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "?")
   local step=$(cat "$STATE_DIR/step.txt" 2>/dev/null || echo "?")
   local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
@@ -34,12 +69,24 @@ append_history() {
 
 ---
 
-## [$role] Round $round | Step: $step
+## [$role] [$tag] Round $round | Step: $step
 **Time**: $timestamp
+**Summary**: $summary
 
 $content
 
 EOF
+}
+
+# Update last action file for status display
+update_last_action() {
+  local role="$1"
+  local content="$2"
+  local tag=$(extract_tag "$content")
+  local summary=$(extract_summary "$content")
+  local timestamp=$(date '+%H:%M:%S')
+
+  echo "[$tag] $summary (by $role, $timestamp)" > "$STATE_DIR/last_action.txt"
 }
 
 case "$CMD" in
@@ -69,11 +116,13 @@ EOF
 
     echo "1" > "$STATE_DIR/round.txt"
     echo "planning" > "$STATE_DIR/step.txt"
+    echo "ralph" > "$STATE_DIR/turn.txt"
+    echo "(No action yet)" > "$STATE_DIR/last_action.txt"
 
     cat > "$STATE_DIR/plan.md" << EOF
 # Plan
 
-(To be drafted by Ralph and reviewed by Lisa before implementation)
+(To be drafted by Ralph and reviewed by Lisa)
 EOF
 
     echo -e "# Ralph Work\n\n(Waiting for Ralph to submit)" > "$STATE_DIR/work.md"
@@ -90,68 +139,168 @@ EOF
     echo "Session Initialized"
     echo "========================================"
     echo "Task: $TASK"
+    echo "Turn: ralph"
     echo ""
-    echo "Files:"
-    echo "  work.md    - Ralph's output"
-    echo "  review.md  - Lisa's feedback"
-    echo "  history.md - Cumulative history"
-    echo ""
-    echo "Role definitions: CLAUDE.md (Ralph), CODEX.md (Lisa)"
+    echo "Ralph should start with: io.sh submit-ralph \"[PLAN] summary...\""
     echo "========================================"
     ;;
 
-  ralph)
+  whose-turn)
+    check_session
+    TURN=$(get_turn)
+    echo "$TURN"
+    ;;
+
+  submit-ralph)
     check_session
     CONTENT="${1:-}"
+
     if [[ -z "$CONTENT" ]]; then
-      echo "Usage: io.sh ralph \"content\""
+      echo "Usage: io.sh submit-ralph \"[TAG] summary\n\ndetails...\""
+      echo ""
+      echo "Valid tags: PLAN, CODE, FIX, DISCUSS, QUESTION, CONSENSUS"
+      exit 1
+    fi
+
+    # Check turn
+    TURN=$(get_turn)
+    if [[ "$TURN" != "ralph" ]]; then
+      echo "Error: It's Lisa's turn. Wait for her response."
+      echo "Run: io.sh whose-turn"
+      exit 1
+    fi
+
+    # Validate tag
+    TAG=$(extract_tag "$CONTENT")
+    if [[ -z "$TAG" ]]; then
+      echo "Error: Content must start with a valid tag."
+      echo "Format: [TAG] One line summary"
+      echo ""
+      echo "Valid tags: PLAN, CODE, FIX, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
     ROUND=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "?")
     STEP=$(cat "$STATE_DIR/step.txt" 2>/dev/null || echo "?")
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+    SUMMARY=$(extract_summary "$CONTENT")
 
+    # Write to work.md
     cat > "$STATE_DIR/work.md" << EOF
 # Ralph Work
 
-## Round $ROUND | Step: $STEP
+## [$TAG] Round $ROUND | Step: $STEP
 **Updated**: $TIMESTAMP
+**Summary**: $SUMMARY
 
 $CONTENT
 EOF
 
+    # Append to history
     append_history "Ralph" "$CONTENT"
 
-    echo "Written: work.md (Round $ROUND)"
-    echo "Appended: history.md"
+    # Update last action
+    update_last_action "Ralph" "$CONTENT"
+
+    # Switch turn to Lisa
+    set_turn "lisa"
+
+    echo "========================================"
+    echo "Submitted: [$TAG] $SUMMARY"
+    echo "Turn passed to: Lisa"
+    echo "========================================"
+    echo ""
+    echo "Now wait for Lisa. Check with: io.sh whose-turn"
     ;;
 
-  lisa)
+  submit-lisa)
     check_session
     CONTENT="${1:-}"
+
     if [[ -z "$CONTENT" ]]; then
-      echo "Usage: io.sh lisa \"content\""
+      echo "Usage: io.sh submit-lisa \"[TAG] summary\n\ndetails...\""
+      echo ""
+      echo "Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS"
+      exit 1
+    fi
+
+    # Check turn
+    TURN=$(get_turn)
+    if [[ "$TURN" != "lisa" ]]; then
+      echo "Error: It's Ralph's turn. Wait for his submission."
+      echo "Run: io.sh whose-turn"
+      exit 1
+    fi
+
+    # Validate tag
+    TAG=$(extract_tag "$CONTENT")
+    if [[ -z "$TAG" ]]; then
+      echo "Error: Content must start with a valid tag."
+      echo "Format: [TAG] One line summary"
+      echo ""
+      echo "Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
     ROUND=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "?")
     STEP=$(cat "$STATE_DIR/step.txt" 2>/dev/null || echo "?")
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+    SUMMARY=$(extract_summary "$CONTENT")
 
+    # Write to review.md
     cat > "$STATE_DIR/review.md" << EOF
 # Lisa Review
 
-## Round $ROUND | Step: $STEP
+## [$TAG] Round $ROUND | Step: $STEP
 **Updated**: $TIMESTAMP
+**Summary**: $SUMMARY
 
 $CONTENT
 EOF
 
+    # Append to history
     append_history "Lisa" "$CONTENT"
 
-    echo "Written: review.md (Round $ROUND)"
-    echo "Appended: history.md"
+    # Update last action
+    update_last_action "Lisa" "$CONTENT"
+
+    # Switch turn to Ralph
+    set_turn "ralph"
+
+    # Increment round
+    NEXT_ROUND=$((ROUND + 1))
+    echo "$NEXT_ROUND" > "$STATE_DIR/round.txt"
+
+    echo "========================================"
+    echo "Submitted: [$TAG] $SUMMARY"
+    echo "Turn passed to: Ralph"
+    echo "Round: $ROUND -> $NEXT_ROUND"
+    echo "========================================"
+    echo ""
+    echo "Now wait for Ralph. Check with: io.sh whose-turn"
+    ;;
+
+  status)
+    if [[ ! -d "$STATE_DIR" ]]; then
+      echo "Status: Not initialized"
+      exit 0
+    fi
+
+    TURN=$(get_turn)
+    ROUND=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "?")
+    STEP=$(cat "$STATE_DIR/step.txt" 2>/dev/null || echo "?")
+    LAST=$(cat "$STATE_DIR/last_action.txt" 2>/dev/null || echo "None")
+    TASK=$(sed -n '3p' "$STATE_DIR/task.md" 2>/dev/null || echo "Unknown")
+
+    echo "========================================"
+    echo "Ralph Lisa Dual-Agent Loop"
+    echo "========================================"
+    echo "Task: $TASK"
+    echo "Round: $ROUND | Step: $STEP"
+    echo ""
+    echo ">>> Turn: $TURN <<<"
+    echo "Last: $LAST"
+    echo "========================================"
     ;;
 
   read)
@@ -161,7 +310,6 @@ EOF
       echo "Usage: io.sh read <file>"
       echo "  work.md    - Ralph's work"
       echo "  review.md  - Lisa's feedback"
-      echo "  history.md - Full history"
       exit 1
     fi
 
@@ -172,93 +320,6 @@ EOF
     fi
     ;;
 
-  wait)
-    check_session
-    FILE="${1:-}"
-    TIMEOUT="${2:-300}"
-
-    if [[ -z "$FILE" ]]; then
-      echo "Usage: io.sh wait <work.md|review.md> [timeout_seconds]"
-      echo "  Default timeout: 300s"
-      exit 1
-    fi
-
-    TARGET="$STATE_DIR/$FILE"
-
-    LAST_MTIME=""
-    if [[ -f "$TARGET" ]]; then
-      LAST_MTIME=$(stat -f %m "$TARGET" 2>/dev/null || stat -c %Y "$TARGET" 2>/dev/null || echo "0")
-    else
-      echo "Note: $FILE does not exist yet, waiting for creation..."
-    fi
-
-    echo "Waiting for $FILE to change... (timeout: ${TIMEOUT}s)"
-
-    START=$(date +%s)
-    while true; do
-      ELAPSED=$(($(date +%s) - START))
-      if [[ $ELAPSED -ge $TIMEOUT ]]; then
-        echo ""
-        echo "Timeout (${TIMEOUT}s)"
-        exit 1
-      fi
-
-      if [[ -f "$TARGET" ]]; then
-        CURRENT=$(stat -f %m "$TARGET" 2>/dev/null || stat -c %Y "$TARGET" 2>/dev/null || echo "0")
-        if [[ "$CURRENT" != "$LAST_MTIME" ]]; then
-          echo ""
-          echo "========================================"
-          cat "$TARGET"
-          echo "========================================"
-          exit 0
-        fi
-      fi
-
-      printf "\rWaiting... %ds / %ds  " "$ELAPSED" "$TIMEOUT"
-      sleep 2
-    done
-    ;;
-
-  status)
-    if [[ ! -d "$STATE_DIR" ]]; then
-      echo "Status: Not initialized"
-      exit 0
-    fi
-
-    echo "========================================"
-    echo "Ralph Lisa Dual-Agent Loop Status"
-    echo "========================================"
-
-    if [[ -f "$STATE_DIR/task.md" ]]; then
-      echo "Task: $(sed -n '3p' $STATE_DIR/task.md)"
-    fi
-
-    ROUND=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "?")
-    STEP=$(cat "$STATE_DIR/step.txt" 2>/dev/null || echo "?")
-    echo "Round: $ROUND | Step: $STEP"
-    echo ""
-
-    echo "--- Ralph (work.md) ---"
-    if [[ -f "$STATE_DIR/work.md" ]]; then
-      head -20 "$STATE_DIR/work.md"
-    fi
-    echo ""
-
-    echo "--- Lisa (review.md) ---"
-    if [[ -f "$STATE_DIR/review.md" ]]; then
-      head -20 "$STATE_DIR/review.md"
-    fi
-    echo "========================================"
-    ;;
-
-  next)
-    check_session
-    ROUND=$(cat "$STATE_DIR/round.txt" 2>/dev/null || echo "0")
-    NEXT=$((ROUND + 1))
-    echo "$NEXT" > "$STATE_DIR/round.txt"
-    echo "Round: $ROUND -> $NEXT"
-    ;;
-
   step)
     check_session
     STEP_NAME="${1:-}"
@@ -266,12 +327,20 @@ EOF
       echo "Usage: io.sh step \"step name\""
       exit 1
     fi
+
     echo "$STEP_NAME" > "$STATE_DIR/step.txt"
     echo "1" > "$STATE_DIR/round.txt"
 
     echo -e "\n---\n\n# Step: $STEP_NAME\n\nStarted: $(date '+%Y-%m-%d %H:%M:%S')\n" >> "$STATE_DIR/history.md"
 
     echo "Entered step: $STEP_NAME (round reset to 1)"
+    ;;
+
+  history)
+    check_session
+    if [[ -f "$STATE_DIR/history.md" ]]; then
+      cat "$STATE_DIR/history.md"
+    fi
     ;;
 
   archive)
@@ -290,32 +359,25 @@ EOF
     fi
     ;;
 
-  history)
-    check_session
-    if [[ -f "$STATE_DIR/history.md" ]]; then
-      cat "$STATE_DIR/history.md"
-    fi
-    ;;
-
   *)
     echo "Ralph Lisa Dual-Agent Loop - I/O"
     echo ""
-    echo "Commands:"
-    echo "  io.sh init \"task\"        Initialize session"
-    echo "  io.sh ralph \"content\"    Ralph writes to work.md"
-    echo "  io.sh lisa \"content\"     Lisa writes to review.md"
-    echo "  io.sh read <file>         Read file"
-    echo "  io.sh wait <file> [secs]  Wait for file change"
-    echo "  io.sh status              Show current status"
-    echo "  io.sh history             Show full history"
-    echo "  io.sh next                Increment round"
-    echo "  io.sh step \"name\"        Switch to new step"
-    echo "  io.sh archive [name]      Archive session"
-    echo "  io.sh clean               Clean session"
+    echo "Turn Control:"
+    echo "  io.sh whose-turn              Check whose turn"
+    echo "  io.sh submit-ralph \"[TAG]...\" Ralph submits (passes turn to Lisa)"
+    echo "  io.sh submit-lisa \"[TAG]...\"  Lisa submits (passes turn to Ralph)"
     echo ""
-    echo "Files:"
-    echo "  work.md    - Ralph's current round output"
-    echo "  review.md  - Lisa's current round feedback"
-    echo "  history.md - Cumulative history"
+    echo "Tags:"
+    echo "  Ralph: [PLAN] [CODE] [FIX] [DISCUSS] [QUESTION] [CONSENSUS]"
+    echo "  Lisa:  [PASS] [NEEDS_WORK] [DISCUSS] [QUESTION] [CONSENSUS]"
+    echo ""
+    echo "Other Commands:"
+    echo "  io.sh init \"task\"       Initialize session"
+    echo "  io.sh status             Show current status"
+    echo "  io.sh read <file>        Read work.md or review.md"
+    echo "  io.sh step \"name\"        Enter new step"
+    echo "  io.sh history            Show full history"
+    echo "  io.sh archive [name]     Archive session"
+    echo "  io.sh clean              Clean session"
     ;;
 esac

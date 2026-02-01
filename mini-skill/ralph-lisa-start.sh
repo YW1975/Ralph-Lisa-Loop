@@ -1,8 +1,8 @@
 #!/bin/bash
 # Ralph Lisa Dual-Agent Loop - Start Script
 #
-# Launches Claude (Ralph) and Codex (Lisa) in two terminal windows.
-# Optionally initializes a new task.
+# Launches Claude (Ralph) and Codex (Lisa) in two terminals.
+# Codex is started with -i CODEX.md to load Lisa's instructions.
 #
 # Usage: ./ralph-lisa-start.sh [task-description]
 #
@@ -39,18 +39,15 @@ fi
 
 # Initialize task if provided
 if [[ -n "$TASK" ]]; then
-  # Warn if session exists
   if [[ -d "$PROJECT_DIR/.dual-agent" ]] && [[ -f "$PROJECT_DIR/.dual-agent/task.md" ]]; then
     EXISTING_TASK=$(sed -n '3p' "$PROJECT_DIR/.dual-agent/task.md" 2>/dev/null || echo "unknown")
     echo "Warning: Existing session will be overwritten."
     echo "Current task: $EXISTING_TASK"
     echo ""
-    echo "Run './mini-skill/io.sh archive' first to save current session."
-    echo ""
     read -p "Continue and overwrite? [y/N] " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "Aborted. Use without task argument to resume existing session."
+      echo "Aborted."
       exit 0
     fi
   fi
@@ -60,28 +57,28 @@ if [[ -n "$TASK" ]]; then
 fi
 
 #===========================================
-# Detect terminal and launch
+# Launch commands
 #===========================================
 
-# Commands to run in each terminal
-RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Role: Lead Developer' && echo 'Run: ./mini-skill/io.sh status' && echo '' && claude"
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'Role: Code Reviewer' && echo 'Run: ./mini-skill/io.sh status' && echo '' && codex"
+# Ralph (Claude) - reads CLAUDE.md automatically
+RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'First: /check-turn' && echo '' && claude"
+
+# Lisa (Codex) - specify CODEX.md with -i flag
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex -i CODEX.md"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."
 
-  # Terminal 1: Ralph (Claude)
   osascript << EOF
 tell application "Terminal"
   activate
-  set ralphWindow to do script "$RALPH_CMD"
+  do script "$RALPH_CMD"
   set custom title of front window to "Ralph (Claude)"
 end tell
 EOF
 
   sleep 1
 
-  # Terminal 2: Lisa (Codex)
   osascript << EOF
 tell application "Terminal"
   activate
@@ -97,15 +94,11 @@ launch_iterm2() {
   osascript << EOF
 tell application "iTerm"
   activate
-
-  -- Create new window for Ralph
   set ralphWindow to (create window with default profile)
   tell current session of ralphWindow
     write text "$RALPH_CMD"
     set name to "Ralph (Claude)"
   end tell
-
-  -- Create new tab for Lisa
   tell current window
     set lisaTab to (create tab with default profile)
     tell current session of lisaTab
@@ -119,38 +112,25 @@ EOF
 
 launch_tmux() {
   echo "Launching with tmux..."
-
   SESSION_NAME="ralph-lisa"
-
-  # Kill existing session if any
   tmux kill-session -t "$SESSION_NAME" 2>/dev/null || true
-
-  # Create new session with Ralph
   tmux new-session -d -s "$SESSION_NAME" -n "Ralph" "bash -c '$RALPH_CMD; exec bash'"
-
-  # Create Lisa pane (split vertically)
   tmux split-window -h -t "$SESSION_NAME" "bash -c '$LISA_CMD; exec bash'"
-
-  # Attach to session
   tmux attach-session -t "$SESSION_NAME"
 }
 
 launch_generic() {
-  echo "No supported terminal detected."
+  echo "Please manually open two terminals:"
   echo ""
-  echo "Please manually open two terminals and run:"
-  echo ""
-  echo "Terminal 1 (Ralph/Claude):"
+  echo "Terminal 1 (Ralph):"
   echo "  cd $PROJECT_DIR && claude"
   echo ""
-  echo "Terminal 2 (Lisa/Codex):"
-  echo "  cd $PROJECT_DIR && codex"
-  echo ""
+  echo "Terminal 2 (Lisa):"
+  echo "  cd $PROJECT_DIR && codex -i CODEX.md"
 }
 
 # Detect and launch
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  # macOS
   if pgrep -x "iTerm2" > /dev/null || [[ -d "/Applications/iTerm.app" ]]; then
     launch_iterm2
   else
@@ -167,17 +147,11 @@ echo "========================================"
 echo "Both agents launched!"
 echo "========================================"
 echo ""
-echo "Ralph (Claude): Lead Developer"
-echo "  - Plans, codes, writes tests"
-echo "  - Uses /notify-lisa to submit work"
+echo "Turn-based workflow:"
+echo "  1. Check turn: ./mini-skill/io.sh whose-turn"
+echo "  2. Submit: ./mini-skill/io.sh submit-ralph/lisa \"[TAG]...\""
+echo "  3. Turn auto-passes to partner"
+echo "  4. STOP and wait"
 echo ""
-echo "Lisa (Codex): Code Reviewer"
-echo "  - Reviews code, provides feedback"
-echo "  - Uses /notify-ralph to send verdict"
-echo ""
-echo "Communication: .dual-agent/"
-echo "  - work.md:   Ralph → Lisa"
-echo "  - review.md: Lisa → Ralph"
-echo ""
-echo "Remember: Consensus required before /next-round"
+echo "Current turn: $(cat "$PROJECT_DIR/.dual-agent/turn.txt" 2>/dev/null || echo 'ralph')"
 echo "========================================"

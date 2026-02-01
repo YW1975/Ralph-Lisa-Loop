@@ -1,26 +1,23 @@
 {
   "name": "ralph-lisa-loop",
-  "version": "2.0.0",
-  "description": "Consensus-driven dual-agent collaboration framework",
-  "design": "Agent-driven decisions, skills are communication tools only",
+  "version": "3.0.0",
+  "description": "Turn-based dual-agent collaboration with enforced handoff",
+  "design": {
+    "turn_control": "Agents must check whose-turn before any action",
+    "auto_handoff": "submit-ralph/lisa automatically passes turn",
+    "tags": "Every submission requires [TAG] and summary"
+  },
   "roles": {
     "ralph": "Lead Developer - plans, codes, tests",
     "lisa": "Code Reviewer - reviews, provides advisory verdicts"
   },
-  "skills": [
-    "notify-lisa",
-    "notify-ralph",
-    "check-status",
-    "view-history",
-    "next-round",
-    "new-step",
-    "init-session",
-    "archive"
-  ],
-  "files": {
-    "work.md": "Ralph's latest submission",
-    "review.md": "Lisa's latest response",
-    "history.md": "Full collaboration history"
+  "tags": {
+    "ralph": ["PLAN", "CODE", "FIX", "DISCUSS", "QUESTION", "CONSENSUS"],
+    "lisa": ["PASS", "NEEDS_WORK", "DISCUSS", "QUESTION", "CONSENSUS"]
+  },
+  "commands": {
+    "claude": ["check-turn", "submit-work", "view-status", "read-review", "next-step"],
+    "codex": ["check-turn", "submit-review", "view-status", "read-work"]
   },
   "rules": {
     "consensus": "Both parties must agree before proceeding",

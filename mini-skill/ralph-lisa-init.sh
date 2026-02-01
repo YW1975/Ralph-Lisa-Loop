@@ -3,9 +3,11 @@
 #
 # This script:
 # 1. Appends Ralph role to CLAUDE.md
-# 2. Appends Lisa role to CODEX.md
-# 3. Copies communication skills to .claude/skills/ and .codex/skills/
-# 4. Initializes .dual-agent/ session directory
+# 2. Creates/updates CODEX.md with Lisa role
+# 3. Copies Claude commands to .claude/commands/
+# 4. Copies Codex skills to .codex/skills/
+# 5. Copies io.sh to project
+# 6. Initializes .dual-agent/ session
 #
 # Usage: ./ralph-lisa-init.sh [project-dir]
 
@@ -32,68 +34,62 @@ if [[ -f "$CLAUDE_MD" ]] && grep -q "$MARKER" "$CLAUDE_MD"; then
   echo "[Claude] Ralph role already in CLAUDE.md, skipping..."
 else
   echo "[Claude] Appending Ralph role to CLAUDE.md..."
-
-  # Add newlines if file exists and doesn't end with newline
   if [[ -f "$CLAUDE_MD" ]]; then
     echo "" >> "$CLAUDE_MD"
     echo "" >> "$CLAUDE_MD"
   fi
-
   cat "$SCRIPT_DIR/roles/ralph.md" >> "$CLAUDE_MD"
   echo "[Claude] Done."
 fi
 
 #===========================================
-# 2. Append Lisa role to CODEX.md
+# 2. Create/update CODEX.md with Lisa role
 #===========================================
 CODEX_MD="$PROJECT_DIR/CODEX.md"
 
 if [[ -f "$CODEX_MD" ]] && grep -q "$MARKER" "$CODEX_MD"; then
   echo "[Codex] Lisa role already in CODEX.md, skipping..."
 else
-  echo "[Codex] Appending Lisa role to CODEX.md..."
-
-  # Add newlines if file exists and doesn't end with newline
+  echo "[Codex] Creating CODEX.md with Lisa role..."
   if [[ -f "$CODEX_MD" ]]; then
     echo "" >> "$CODEX_MD"
     echo "" >> "$CODEX_MD"
   fi
-
   cat "$SCRIPT_DIR/roles/lisa.md" >> "$CODEX_MD"
   echo "[Codex] Done."
 fi
 
 #===========================================
-# 3. Copy skills to project
+# 3. Copy Claude commands
 #===========================================
-echo "[Skills] Copying communication skills..."
-
-# Skills for Claude Code
-CLAUDE_SKILLS_DIR="$PROJECT_DIR/.claude/skills"
-mkdir -p "$CLAUDE_SKILLS_DIR"
-cp "$SCRIPT_DIR/skills/"*.md "$CLAUDE_SKILLS_DIR/" 2>/dev/null || true
-echo "[Skills] Copied to $CLAUDE_SKILLS_DIR/"
-
-# Skills for Codex
-CODEX_SKILLS_DIR="$PROJECT_DIR/.codex/skills"
-mkdir -p "$CODEX_SKILLS_DIR"
-cp "$SCRIPT_DIR/skills/"*.md "$CODEX_SKILLS_DIR/" 2>/dev/null || true
-echo "[Skills] Copied to $CODEX_SKILLS_DIR/"
+echo "[Claude] Copying commands to .claude/commands/..."
+CLAUDE_CMD_DIR="$PROJECT_DIR/.claude/commands"
+mkdir -p "$CLAUDE_CMD_DIR"
+cp "$SCRIPT_DIR/claude-commands/"*.md "$CLAUDE_CMD_DIR/" 2>/dev/null || true
+echo "[Claude] Commands copied."
 
 #===========================================
-# 4. Copy io.sh to project
+# 4. Copy Codex skills
+#===========================================
+echo "[Codex] Copying skills to .codex/skills/..."
+CODEX_SKILL_DIR="$PROJECT_DIR/.codex/skills"
+mkdir -p "$CODEX_SKILL_DIR"
+cp "$SCRIPT_DIR/codex-skills/"*.md "$CODEX_SKILL_DIR/" 2>/dev/null || true
+echo "[Codex] Skills copied."
+
+#===========================================
+# 5. Copy io.sh to project
 #===========================================
 echo "[I/O] Copying io.sh to project..."
 mkdir -p "$PROJECT_DIR/mini-skill"
-# Use cp -n to avoid overwriting, ignore errors for same file
 cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/" 2>/dev/null || true
 chmod +x "$PROJECT_DIR/mini-skill/io.sh"
 echo "[I/O] Done."
 
 #===========================================
-# 5. Initialize session state
+# 6. Initialize session state
 #===========================================
-echo "[Session] Initializing .dual-agent/ directory..."
+echo "[Session] Initializing .dual-agent/..."
 "$PROJECT_DIR/mini-skill/io.sh" init "Waiting for task assignment" 2>/dev/null || true
 
 echo ""
@@ -102,16 +98,16 @@ echo "Initialization Complete"
 echo "========================================"
 echo ""
 echo "Files created/updated:"
-echo "  - CLAUDE.md (Ralph role appended)"
-echo "  - CODEX.md (Lisa role appended)"
-echo "  - .claude/skills/ (communication skills)"
-echo "  - .codex/skills/ (communication skills)"
-echo "  - mini-skill/io.sh (I/O script)"
-echo "  - .dual-agent/ (session state)"
+echo "  - CLAUDE.md (Ralph role)"
+echo "  - CODEX.md (Lisa role)"
+echo "  - .claude/commands/ (Claude slash commands)"
+echo "  - .codex/skills/ (Codex skills)"
+echo "  - mini-skill/io.sh"
+echo "  - .dual-agent/"
 echo ""
-echo "Next steps:"
-echo "  Terminal 1 (Ralph): claude"
-echo "  Terminal 2 (Lisa):  codex"
+echo "Start agents:"
+echo "  Terminal 1: claude"
+echo "  Terminal 2: codex -i CODEX.md"
 echo ""
-echo "Or run: ./mini-skill/ralph-lisa-start.sh \"your task\""
+echo "Or run: ralph-lisa-start.sh \"your task\""
 echo "========================================"

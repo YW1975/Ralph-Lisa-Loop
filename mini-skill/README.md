@@ -1,211 +1,143 @@
 # Ralph Lisa Dual-Agent Loop
 
-A minimal dual-agent collaboration framework where Ralph (developer) and Lisa (reviewer) work together through consensus-driven workflow.
+Turn-based dual-agent collaboration framework with enforced handoff.
 
-## Design Philosophy
+## Key Features
 
-- **Agent-driven decisions**: Agents decide autonomously what to do and when
-- **Skills as tools**: Communication skills are pure tools, not flow controllers
-- **Consensus required**: Both parties must agree before proceeding
-- **Advisory verdicts**: Lisa's PASS/NEEDS_WORK is an opinion, not a command
+- **Turn Control**: Agents must check `whose-turn` before any action
+- **Auto Handoff**: `submit-ralph/lisa` automatically passes turn
+- **Tag System**: Every submission requires `[TAG]` and summary
+- **Consensus Required**: Both parties must agree before proceeding
 
 ## Quick Start
 
-### 1. Initialize Project
+### 1. Initialize
 
 ```bash
 cd your-project
 /path/to/mini-skill/ralph-lisa-init.sh
 ```
 
-This will:
-- Append Ralph role to `CLAUDE.md`
-- Append Lisa role to `CODEX.md`
-- Copy communication skills to `.claude/skills/` and `.codex/skills/`
-- Copy `io.sh` to `mini-skill/`
-- Initialize `.dual-agent/` session directory
+### 2. Start Agents
 
-### 2. Start Both Agents
-
-**Terminal 1 (Ralph - Claude Code)**:
 ```bash
-cd your-project
+/path/to/mini-skill/ralph-lisa-start.sh "your task"
+```
+
+Or manually:
+```bash
+# Terminal 1 (Ralph)
 claude
+
+# Terminal 2 (Lisa)
+codex -i CODEX.md
 ```
 
-**Terminal 2 (Lisa - Codex)**:
+## Turn-Based Workflow
+
+```
+Ralph checks: ./mini-skill/io.sh whose-turn
+  → "ralph" → Work
+  → "lisa"  → STOP
+
+Ralph submits: ./mini-skill/io.sh submit-ralph "[PLAN] summary..."
+  → Auto passes turn to Lisa
+  → Ralph STOPS
+
+Lisa checks: ./mini-skill/io.sh whose-turn
+  → "lisa"  → Review
+  → "ralph" → STOP
+
+Lisa submits: ./mini-skill/io.sh submit-lisa "[PASS] summary..."
+  → Auto passes turn to Ralph
+  → Lisa STOPS
+
+...repeat...
+```
+
+## Tags
+
+### Ralph's Tags
+| Tag | Use |
+|-----|-----|
+| `[PLAN]` | Submitting a plan |
+| `[CODE]` | Submitting code |
+| `[FIX]` | Submitting fixes |
+| `[DISCUSS]` | Disagreeing with Lisa |
+| `[QUESTION]` | Asking clarification |
+| `[CONSENSUS]` | Confirming agreement |
+
+### Lisa's Tags
+| Tag | Use |
+|-----|-----|
+| `[PASS]` | Work approved |
+| `[NEEDS_WORK]` | Issues found |
+| `[DISCUSS]` | Responding to Ralph |
+| `[QUESTION]` | Asking clarification |
+| `[CONSENSUS]` | Confirming agreement |
+
+## Commands
+
+### io.sh Commands
 ```bash
-cd your-project
-codex
+./mini-skill/io.sh whose-turn              # Check whose turn
+./mini-skill/io.sh submit-ralph "[TAG]..." # Ralph submits
+./mini-skill/io.sh submit-lisa "[TAG]..."  # Lisa submits
+./mini-skill/io.sh status                  # View status
+./mini-skill/io.sh read work.md            # Read Ralph's work
+./mini-skill/io.sh read review.md          # Read Lisa's review
+./mini-skill/io.sh step "name"             # Enter new step
+./mini-skill/io.sh history                 # View full history
+./mini-skill/io.sh archive [name]          # Archive session
 ```
 
-Or use the start script:
-```bash
-/path/to/mini-skill/ralph-lisa-start.sh "your task description"
+### Claude Slash Commands
 ```
-
----
-
-## Roles
-
-### Ralph (Lead Developer)
-
-**Responsibilities**:
-- Planning, coding, unit testing
-- Evaluating Lisa's feedback
-- Confirming consensus before proceeding
-
-**Key Rule**: Lisa's PASS/NEEDS_WORK is advisory. You must evaluate it and either agree (then proceed) or disagree (then discuss).
-
-### Lisa (Code Reviewer)
-
-**Responsibilities**:
-- Triple cross-check (code vs plan vs requirements)
-- Code review checklist
-- Test review checklist
-- Providing PASS/NEEDS_WORK opinion
-
-**Key Rule**: Your verdict is a professional opinion, not a command. Ralph may agree or disagree. Consensus is required to proceed.
-
----
-
-## Communication Skills
-
-| Skill | Caller | Purpose |
-|-------|--------|---------|
-| `/notify-lisa` | Ralph | Send work to Lisa |
-| `/notify-ralph` | Lisa | Send review to Ralph |
-| `/check-status` | Both | View current status |
-| `/view-history` | Both | View full history |
-| `/next-round` | Both | Proceed (requires consensus) |
-| `/new-step` | Ralph | Enter new phase |
-| `/init-session` | Ralph | Initialize session |
-| `/archive` | Both | Archive session |
-
-### Direct io.sh Usage
-
-```bash
-# Initialize
-./mini-skill/io.sh init "task description"
-
-# Submit work (Ralph)
-./mini-skill/io.sh ralph "content"
-
-# Submit review (Lisa)
-./mini-skill/io.sh lisa "content"
-
-# View status
-./mini-skill/io.sh status
-
-# View history
-./mini-skill/io.sh history
-
-# Next round (after consensus)
-./mini-skill/io.sh next
-
-# New step
-./mini-skill/io.sh step "step name"
-
-# Archive
-./mini-skill/io.sh archive [name]
+/check-turn          Check whose turn
+/submit-work "..."   Submit and pass turn
+/view-status         View status
+/read-review         Read Lisa's review
+/next-step "name"    Enter new step
 ```
-
----
-
-## Consensus Workflow
-
-```
-Lisa gives opinion (PASS/NEEDS_WORK)
-            │
-            ▼
-Ralph evaluates the opinion
-            │
-            ▼
-┌────────────────────────────────────────┐
-│ Agree → Confirm consensus → /next-round │
-│ Disagree → Explain reasoning → Discuss  │
-│ Deadlock (5 rounds) → OVERRIDE/HANDOFF  │
-└────────────────────────────────────────┘
-```
-
-### Key Principles
-
-| Principle | Description |
-|-----------|-------------|
-| Equal Voice | Lisa's verdict = professional opinion, not a command |
-| Consensus Required | Both parties must agree before proceeding |
-| Discussion First | Disagreements lead to discussion, not deadlock |
-| Deadlock Exit | OVERRIDE (Ralph decides) or HANDOFF (human decides) |
-
----
 
 ## File Structure
 
 ```
 project/
-├── CLAUDE.md              # Ralph role definition
-├── CODEX.md               # Lisa role definition
-├── .claude/skills/        # Skills for Claude Code
-├── .codex/skills/         # Skills for Codex
+├── CLAUDE.md              # Ralph's role (auto-read by Claude)
+├── CODEX.md               # Lisa's role (loaded with -i flag)
+├── .claude/commands/      # Claude slash commands
+├── .codex/skills/         # Codex skills
 ├── mini-skill/
-│   └── io.sh              # I/O script
-└── .dual-agent/           # Session state
-    ├── task.md            # Task description
-    ├── work.md            # Ralph's latest submission
-    ├── review.md          # Lisa's latest response
-    ├── history.md         # Full history
-    ├── round.txt          # Current round
-    └── step.txt           # Current phase
+│   └── io.sh              # I/O and turn control
+└── .dual-agent/
+    ├── turn.txt           # Whose turn: "ralph" or "lisa"
+    ├── work.md            # Ralph's submissions
+    ├── review.md          # Lisa's submissions
+    ├── last_action.txt    # Last action summary
+    └── history.md         # Full history
 ```
 
----
+## Status Display
 
-## Prerequisites
-
-- **Claude Code**: Install from https://claude.ai/code
-- **Codex CLI**: Install from https://github.com/openai/codex
-- **Bash**: For io.sh script execution
-
----
-
-## Important Notes
-
-- **Consensus is key**: Never call `/next-round` without both parties agreeing
-- **Resume session**: To resume existing work, run start script WITHOUT task argument
-- **New task overwrites**: Passing task argument to start script will overwrite current session
-- **Before new task**: Use `/archive` to save current session
-- **Wait timeout**: Default 300s for `io.sh wait`
-- **Deadlock rule**: After 5 rounds, use OVERRIDE or HANDOFF
-- **Role files**: Roles are in CLAUDE.md/CODEX.md, not in separate skill files
-
----
-
-## Example Workflow
-
-**Ralph**:
 ```
-1. /init-session "Create login form"
-2. Draft plan
-3. /notify-lisa "## Plan\n1. Create form\n2. Add validation..."
-4. Wait for Lisa's opinion
-5. Receive PASS → "I agree, proceeding" → /next-round
-6. Write code + tests
-7. /notify-lisa "## Code\n... ## Tests\n..."
-8. Receive NEEDS_WORK → Evaluate → Fix issues
-9. /notify-lisa "## Fixed\n..."
-10. Receive PASS → "I agree" → /next-round
+$ ./mini-skill/io.sh status
+
+========================================
+Ralph Lisa Dual-Agent Loop
+========================================
+Task: Implement login feature
+Round: 3 | Step: implement
+
+>>> Turn: lisa <<<
+Last: [CODE] Implemented login form (by Ralph, 14:23:05)
+========================================
 ```
 
-**Lisa**:
-```
-1. /check-status (see plan)
-2. Review: cross-check against requirements
-3. /notify-ralph "### Verdict: PASS\nPlan is good..."
-4. Wait for Ralph's code
-5. /check-status (see code)
-6. Review: triple cross-check + checklists
-7. Found issue → /notify-ralph "### Verdict: NEEDS_WORK\n..."
-8. Wait for fix
-9. /check-status (see fix)
-10. Issue resolved → /notify-ralph "### Verdict: PASS\n..."
-```
+## Important Rules
+
+1. **Always check turn first** - Never skip `whose-turn`
+2. **Use tags** - Every submission needs `[TAG] summary`
+3. **Stop after submit** - Turn auto-passes, you must wait
+4. **Consensus required** - Both agree before `/next-step`
+5. **Deadlock escape** - After 5 rounds: OVERRIDE or HANDOFF
