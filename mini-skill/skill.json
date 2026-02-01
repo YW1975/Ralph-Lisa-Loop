@@ -1,26 +1,30 @@
 {
   "name": "ralph-lisa-loop",
-  "version": "1.0.0",
-  "description": "Ralph Lisa Dual-Agent Loop - Minimal collaboration framework",
-  "commands": [
-    "dual-init",
-    "dual-ralph",
-    "dual-lisa",
-    "dual-wait",
-    "dual-status",
-    "dual-history",
-    "dual-next",
-    "dual-archive"
-  ],
-  "agents": ["ralph", "lisa"],
-  "files": {
-    "work.md": "Ralph's current round output",
-    "review.md": "Lisa's current round feedback",
-    "history.md": "Cumulative history (append-only)"
+  "version": "2.0.0",
+  "description": "Consensus-driven dual-agent collaboration framework",
+  "design": "Agent-driven decisions, skills are communication tools only",
+  "roles": {
+    "ralph": "Lead Developer - plans, codes, tests",
+    "lisa": "Code Reviewer - reviews, provides advisory verdicts"
   },
-  "notes": {
-    "design": "Scripts handle I/O only. Workflow rules are in agent prompts.",
-    "consensus": "Both parties must agree before proceeding to next step.",
-    "deadlock": "After 5 rounds, use OVERRIDE or HANDOFF."
+  "skills": [
+    "notify-lisa",
+    "notify-ralph",
+    "check-status",
+    "view-history",
+    "next-round",
+    "new-step",
+    "init-session",
+    "archive"
+  ],
+  "files": {
+    "work.md": "Ralph's latest submission",
+    "review.md": "Lisa's latest response",
+    "history.md": "Full collaboration history"
+  },
+  "rules": {
+    "consensus": "Both parties must agree before proceeding",
+    "verdict": "PASS/NEEDS_WORK is advisory, not a command",
+    "deadlock": "After 5 rounds, use OVERRIDE or HANDOFF"
   }
 }

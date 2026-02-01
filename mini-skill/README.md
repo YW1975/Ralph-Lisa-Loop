@@ -1,198 +1,208 @@
 # Ralph Lisa Dual-Agent Loop
 
-Minimal dual-agent collaboration framework for Ralph (developer) and Lisa (reviewer). Scripts handle I/O only; workflow rules are in agent prompts.
+A minimal dual-agent collaboration framework where Ralph (developer) and Lisa (reviewer) work together through consensus-driven workflow.
 
-## Quick Start (Automated)
+## Design Philosophy
+
+- **Agent-driven decisions**: Agents decide autonomously what to do and when
+- **Skills as tools**: Communication skills are pure tools, not flow controllers
+- **Consensus required**: Both parties must agree before proceeding
+- **Advisory verdicts**: Lisa's PASS/NEEDS_WORK is an opinion, not a command
+
+## Quick Start
 
 ### 1. Initialize Project
 
 ```bash
 cd your-project
-./path/to/mini-skill/ralph-lisa-init.sh
+/path/to/mini-skill/ralph-lisa-init.sh
 ```
 
 This will:
-- Append Ralph role to `CLAUDE.md` (for Claude Code)
-- Create Lisa skill at `.codex/skills/ralph-lisa-loop/SKILL.md` (for Codex)
+- Append Ralph role to `CLAUDE.md`
+- Append Lisa role to `CODEX.md`
+- Copy communication skills to `.claude/skills/` and `.codex/skills/`
+- Copy `io.sh` to `mini-skill/`
 - Initialize `.dual-agent/` session directory
 
 ### 2. Start Both Agents
 
+**Terminal 1 (Ralph - Claude Code)**:
 ```bash
-./path/to/mini-skill/ralph-lisa-start.sh "Implement feature X"
+cd your-project
+claude
 ```
 
-This will:
-- Open Terminal 1: Claude Code (Ralph)
-- Open Terminal 2: Codex with Lisa skill
-- Initialize the task
+**Terminal 2 (Lisa - Codex)**:
+```bash
+cd your-project
+codex
+```
 
-Supports: macOS Terminal, iTerm2, tmux
+Or use the start script:
+```bash
+/path/to/mini-skill/ralph-lisa-start.sh "your task description"
+```
 
 ---
 
-## Manual Quick Start
+## Roles
 
-### Terminal 1 (Ralph - Lead Developer)
+### Ralph (Lead Developer)
+
+**Responsibilities**:
+- Planning, coding, unit testing
+- Evaluating Lisa's feedback
+- Confirming consensus before proceeding
+
+**Key Rule**: Lisa's PASS/NEEDS_WORK is advisory. You must evaluate it and either agree (then proceed) or disagree (then discuss).
+
+### Lisa (Code Reviewer)
+
+**Responsibilities**:
+- Triple cross-check (code vs plan vs requirements)
+- Code review checklist
+- Test review checklist
+- Providing PASS/NEEDS_WORK opinion
+
+**Key Rule**: Your verdict is a professional opinion, not a command. Ralph may agree or disagree. Consensus is required to proceed.
+
+---
+
+## Communication Skills
+
+| Skill | Caller | Purpose |
+|-------|--------|---------|
+| `/notify-lisa` | Ralph | Send work to Lisa |
+| `/notify-ralph` | Lisa | Send review to Ralph |
+| `/check-status` | Both | View current status |
+| `/view-history` | Both | View full history |
+| `/next-round` | Both | Proceed (requires consensus) |
+| `/new-step` | Ralph | Enter new phase |
+| `/init-session` | Ralph | Initialize session |
+| `/archive` | Both | Archive session |
+
+### Direct io.sh Usage
 
 ```bash
-# 1. Initialize
-/dual-init "Implement user login feature"
+# Initialize
+./mini-skill/io.sh init "task description"
 
-# 2. Draft plan
-/dual-ralph "## Plan\n1. Create login form\n2. Implement validation\n3. Add error handling"
+# Submit work (Ralph)
+./mini-skill/io.sh ralph "content"
 
-# 3. Wait for Lisa's feedback
-/dual-wait review.md
+# Submit review (Lisa)
+./mini-skill/io.sh lisa "content"
 
-# 4. View status
-/dual-status
+# View status
+./mini-skill/io.sh status
 
-# 5. Move to next step (after Lisa's PASS)
-/dual-next step "Create login form"
+# View history
+./mini-skill/io.sh history
+
+# Next round (after consensus)
+./mini-skill/io.sh next
+
+# New step
+./mini-skill/io.sh step "step name"
+
+# Archive
+./mini-skill/io.sh archive [name]
 ```
 
-### Terminal 2 (Lisa - Navigator/Reviewer)
+---
 
-```bash
-# 1. Wait for Ralph's submission
-/dual-wait work.md
+## Consensus Workflow
 
-# 2. Review and respond
-/dual-lisa "### Verdict: PASS\n### Feedback: Plan looks good, proceed"
-
-# 3. Wait for next round
-/dual-wait work.md
+```
+Lisa gives opinion (PASS/NEEDS_WORK)
+            │
+            ▼
+Ralph evaluates the opinion
+            │
+            ▼
+┌────────────────────────────────────────┐
+│ Agree → Confirm consensus → /next-round │
+│ Disagree → Explain reasoning → Discuss  │
+│ Deadlock (5 rounds) → OVERRIDE/HANDOFF  │
+└────────────────────────────────────────┘
 ```
 
-## Commands
+### Key Principles
 
-| Command | Purpose | Who |
-|---------|---------|-----|
-| `/dual-init "task"` | Initialize session | Ralph |
-| `/dual-ralph "content"` | Submit work | Ralph |
-| `/dual-lisa "content"` | Submit review | Lisa |
-| `/dual-wait <file>` | Wait for partner | Both |
-| `/dual-status` | View status | Both |
-| `/dual-history` | View full history | Both |
-| `/dual-next` | Increment round | Both |
-| `/dual-next step "name"` | Switch step | Ralph |
-| `/dual-archive [name]` | Archive session | Both |
+| Principle | Description |
+|-----------|-------------|
+| Equal Voice | Lisa's verdict = professional opinion, not a command |
+| Consensus Required | Both parties must agree before proceeding |
+| Discussion First | Disagreements lead to discussion, not deadlock |
+| Deadlock Exit | OVERRIDE (Ralph decides) or HANDOFF (human decides) |
+
+---
 
 ## File Structure
 
 ```
-.dual-agent/                    # Runtime state
-├── task.md                     # Task description
-├── plan.md                     # Agreed plan
-├── round.txt                   # Current round
-├── step.txt                    # Current step
-├── work.md                     # Ralph's current output
-├── review.md                   # Lisa's current feedback
-└── history.md                  # Cumulative history
-
-mini-skill/                     # Skill definition
-├── io.sh                       # Single I/O script
-├── skill.json                  # Metadata
-├── agents/
-│   ├── ralph.md                # Ralph role definition
-│   └── lisa.md                 # Lisa role definition
-└── commands/
-    └── *.md                    # Command definitions
+project/
+├── CLAUDE.md              # Ralph role definition
+├── CODEX.md               # Lisa role definition
+├── .claude/skills/        # Skills for Claude Code
+├── .codex/skills/         # Skills for Codex
+├── mini-skill/
+│   └── io.sh              # I/O script
+└── .dual-agent/           # Session state
+    ├── task.md            # Task description
+    ├── work.md            # Ralph's latest submission
+    ├── review.md          # Lisa's latest response
+    ├── history.md         # Full history
+    ├── round.txt          # Current round
+    └── step.txt           # Current phase
 ```
 
-## Core Rules (defined in agents/*.md)
-
-1. **Consensus First**: Every step requires mutual agreement before proceeding
-2. **Plan Before Execute**: Complex tasks require plan consensus before implementation
-3. **Deadlock Handling**: After 5 rounds, declare OVERRIDE or HANDOFF
-
-## Direct io.sh Usage
-
-```bash
-# Initialize
-./io.sh init "task description"
-
-# Write (role-specific)
-./io.sh ralph "content"
-./io.sh lisa "content"
-
-# Read
-./io.sh read work.md
-./io.sh read review.md
-
-# Wait for changes
-./io.sh wait review.md 300
-
-# Status
-./io.sh status
-./io.sh history
-
-# Round/Step management
-./io.sh next
-./io.sh step "step name"
-
-# Archive/Clean
-./io.sh archive my-feature
-./io.sh clean
-```
-
-## Design Philosophy
-
-```
-┌─────────────────────────────────────────────────┐
-│               Skill / Commands                   │
-│  dual-init, dual-ralph, dual-lisa, dual-wait   │
-│  Define command interface                        │
-└─────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────┐
-│               Agent Prompts                      │
-│  agents/ralph.md, agents/lisa.md                │
-│  Define roles, workflow, consensus rules         │
-└─────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────┐
-│                  I/O Layer                       │
-│  io.sh: write/read/wait/status/next/step        │
-│  Pure file operations, no business logic         │
-└─────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────┐
-│                 State Files                      │
-│  .dual-agent/work.md, review.md, history.md     │
-└─────────────────────────────────────────────────┘
-```
-
-**Workflow control is in agent prompts, scripts only transfer files.**
-
-## Communication Flow
-
-```
-┌─────────────────┐              ┌─────────────────┐
-│  Claude (Ralph) │              │  Codex (Lisa)   │
-├─────────────────┤              ├─────────────────┤
-│ io.sh ralph     │──▶ work.md ──│ io.sh wait      │
-│ io.sh wait      │◀── review.md─│ io.sh lisa      │
-└─────────────────┘              └─────────────────┘
-         │                              │
-         └──────── .dual-agent/ ────────┘
-                  (shared directory)
-```
+---
 
 ## Prerequisites
 
 - **Claude Code**: Install from https://claude.ai/code
 - **Codex CLI**: Install from https://github.com/openai/codex
-- **macOS**: Terminal, iTerm2, or tmux for dual-terminal launch
+- **Bash**: For io.sh script execution
+
+---
 
 ## Important Notes
 
-- **Before new task**: Run `/dual-archive` or `io.sh clean` to avoid overwriting
-- **Wait timeout**: Default 300s, pass custom value: `/dual-wait work.md 600`
-- **Max rounds**: Not enforced by script; follow 5-round rule in agent prompts
-- **Plan consensus**: Use `plan.md` to record agreed plan before implementation
-- **File creation**: Init script creates `CLAUDE.md` and `.codex/` if they don't exist
+- **Consensus is key**: Never call `/next-round` without both parties agreeing
+- **Before new task**: Use `/archive` to save current session
+- **Wait timeout**: Default 300s for `io.sh wait`
+- **Deadlock rule**: After 5 rounds, use OVERRIDE or HANDOFF
+
+---
+
+## Example Workflow
+
+**Ralph**:
+```
+1. /init-session "Create login form"
+2. Draft plan
+3. /notify-lisa "## Plan\n1. Create form\n2. Add validation..."
+4. Wait for Lisa's opinion
+5. Receive PASS → "I agree, proceeding" → /next-round
+6. Write code + tests
+7. /notify-lisa "## Code\n... ## Tests\n..."
+8. Receive NEEDS_WORK → Evaluate → Fix issues
+9. /notify-lisa "## Fixed\n..."
+10. Receive PASS → "I agree" → /next-round
+```
+
+**Lisa**:
+```
+1. /check-status (see plan)
+2. Review: cross-check against requirements
+3. /notify-ralph "### Verdict: PASS\nPlan is good..."
+4. Wait for Ralph's code
+5. /check-status (see code)
+6. Review: triple cross-check + checklists
+7. Found issue → /notify-ralph "### Verdict: NEEDS_WORK\n..."
+8. Wait for fix
+9. /check-status (see fix)
+10. Issue resolved → /notify-ralph "### Verdict: PASS\n..."
+```

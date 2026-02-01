@@ -1,10 +1,12 @@
 #!/bin/bash
 # Ralph Lisa Dual-Agent Loop - Start Script
-# Launches Claude (Ralph) and Codex (Lisa) in two terminal windows
+#
+# Launches Claude (Ralph) and Codex (Lisa) in two terminal windows.
+# Optionally initializes a new task.
 #
 # Usage: ./ralph-lisa-start.sh [task-description]
 #
-# Supports: macOS Terminal, iTerm2
+# Supports: macOS Terminal, iTerm2, tmux
 
 set -euo pipefail
 
@@ -31,7 +33,7 @@ fi
 
 # Check if initialized
 if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]] || ! grep -q "RALPH-LISA-LOOP" "$PROJECT_DIR/CLAUDE.md" 2>/dev/null; then
-  echo "Error: Not initialized. Run ./ralph-lisa-init.sh first."
+  echo "Error: Not initialized. Run ralph-lisa-init.sh first."
   exit 1
 fi
 
@@ -39,18 +41,21 @@ fi
 if [[ -n "$TASK" ]]; then
   # Warn if session exists
   if [[ -d "$PROJECT_DIR/.dual-agent" ]] && [[ -f "$PROJECT_DIR/.dual-agent/task.md" ]]; then
+    EXISTING_TASK=$(sed -n '3p' "$PROJECT_DIR/.dual-agent/task.md" 2>/dev/null || echo "unknown")
     echo "Warning: Existing session will be overwritten."
+    echo "Current task: $EXISTING_TASK"
+    echo ""
     echo "Run './mini-skill/io.sh archive' first to save current session."
     echo ""
-    read -p "Continue? [y/N] " -n 1 -r
+    read -p "Continue and overwrite? [y/N] " -n 1 -r
     echo ""
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "Aborted."
+      echo "Aborted. Use without task argument to resume existing session."
       exit 0
     fi
   fi
   echo "Task: $TASK"
-  "$SCRIPT_DIR/io.sh" init "$TASK"
+  "$PROJECT_DIR/mini-skill/io.sh" init "$TASK"
   echo ""
 fi
 
@@ -59,8 +64,8 @@ fi
 #===========================================
 
 # Commands to run in each terminal
-RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Run: ./mini-skill/io.sh status' && echo '' && claude"
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'Run: ./mini-skill/io.sh wait work.md' && echo '' && codex --skill ralph-lisa-loop"
+RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Role: Lead Developer' && echo 'Run: ./mini-skill/io.sh status' && echo '' && claude"
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'Role: Code Reviewer' && echo 'Run: ./mini-skill/io.sh status' && echo '' && codex"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."
@@ -139,7 +144,7 @@ launch_generic() {
   echo "  cd $PROJECT_DIR && claude"
   echo ""
   echo "Terminal 2 (Lisa/Codex):"
-  echo "  cd $PROJECT_DIR && codex --skill ralph-lisa-loop"
+  echo "  cd $PROJECT_DIR && codex"
   echo ""
 }
 
@@ -162,15 +167,17 @@ echo "========================================"
 echo "Both agents launched!"
 echo "========================================"
 echo ""
-echo "Ralph (Claude): Ready to develop"
-echo "Lisa (Codex):   Ready to review"
+echo "Ralph (Claude): Lead Developer"
+echo "  - Plans, codes, writes tests"
+echo "  - Uses /notify-lisa to submit work"
 echo ""
-echo "Communication via: $PROJECT_DIR/.dual-agent/"
-echo "  - work.md   : Ralph -> Lisa"
-echo "  - review.md : Lisa -> Ralph"
+echo "Lisa (Codex): Code Reviewer"
+echo "  - Reviews code, provides feedback"
+echo "  - Uses /notify-ralph to send verdict"
 echo ""
-if [[ -n "$TASK" ]]; then
-  echo "Task initialized: $TASK"
-  echo "Ralph should start planning now."
-fi
+echo "Communication: .dual-agent/"
+echo "  - work.md:   Ralph → Lisa"
+echo "  - review.md: Lisa → Ralph"
+echo ""
+echo "Remember: Consensus required before /next-round"
 echo "========================================"
