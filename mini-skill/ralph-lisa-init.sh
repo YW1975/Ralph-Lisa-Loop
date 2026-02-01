@@ -110,8 +110,11 @@ View current task, turn, and last action.
 Read Ralph's latest submission.
 SKILLEOF
 
-# Create .codex/config.toml to point to project skills
-cat > "$PROJECT_DIR/.codex/config.toml" << 'CONFIGEOF'
+# Create .codex/config.toml with instructions and skills
+cat > "$PROJECT_DIR/.codex/config.toml" << CONFIGEOF
+[instructions]
+default = "./CODEX.md"
+
 [skills]
 enabled = true
 path = ".codex/skills"

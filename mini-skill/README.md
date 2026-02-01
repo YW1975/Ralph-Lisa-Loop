@@ -32,9 +32,8 @@ Or manually:
 claude
 
 # Terminal 2 (Lisa)
-# - --instructions CODEX.md: load Lisa role definition
-# - --enable skills: enable skills (uses .codex/config.toml for path)
-codex --instructions CODEX.md --enable skills
+# - .codex/config.toml provides instructions and skills config
+codex
 ```
 
 ## Turn-Based Workflow

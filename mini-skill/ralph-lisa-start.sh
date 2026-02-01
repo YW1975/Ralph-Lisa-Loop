@@ -2,7 +2,7 @@
 # Ralph Lisa Dual-Agent Loop - Start Script
 #
 # Launches Claude (Ralph) and Codex (Lisa) in two terminals.
-# Codex is started with -i CODEX.md to load Lisa's instructions.
+# Codex reads .codex/config.toml for instructions and skills.
 #
 # Usage: ./ralph-lisa-start.sh [task-description]
 #
@@ -66,9 +66,8 @@ fi
 RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude"
 
 # Lisa (Codex)
-# - --instructions CODEX.md: load Lisa role definition
-# - --enable skills: enable skills feature
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex --instructions CODEX.md --enable skills"
+# - .codex/config.toml provides: instructions (CODEX.md) and skills path
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."
@@ -130,7 +129,7 @@ launch_generic() {
   echo "  cd $PROJECT_DIR && claude"
   echo ""
   echo "Terminal 2 (Lisa):"
-  echo "  cd $PROJECT_DIR && codex -i CODEX.md"
+  echo "  cd $PROJECT_DIR && codex"
 }
 
 # Detect and launch
