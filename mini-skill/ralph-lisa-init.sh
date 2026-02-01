@@ -69,14 +69,14 @@ cp "$SCRIPT_DIR/claude-commands/"*.md "$CLAUDE_CMD_DIR/" 2>/dev/null || true
 echo "[Claude] Commands copied."
 
 #===========================================
-# 4. Copy Codex skills (to ~/.codex/skills/)
+# 4. Copy Codex skills (project-level)
 #===========================================
-echo "[Codex] Setting up skills in ~/.codex/skills/ralph-lisa-loop/..."
-CODEX_GLOBAL_SKILL_DIR="$HOME/.codex/skills/ralph-lisa-loop"
-mkdir -p "$CODEX_GLOBAL_SKILL_DIR"
+echo "[Codex] Setting up skills in .codex/skills/ralph-lisa-loop/..."
+CODEX_SKILL_DIR="$PROJECT_DIR/.codex/skills/ralph-lisa-loop"
+mkdir -p "$CODEX_SKILL_DIR"
 
 # Create SKILL.md for the ralph-lisa-loop skill
-cat > "$CODEX_GLOBAL_SKILL_DIR/SKILL.md" << 'SKILLEOF'
+cat > "$CODEX_SKILL_DIR/SKILL.md" << 'SKILLEOF'
 # Ralph Lisa Loop - Lisa Skills
 
 This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
@@ -110,7 +110,15 @@ View current task, turn, and last action.
 Read Ralph's latest submission.
 SKILLEOF
 
-echo "[Codex] Skill created at $CODEX_GLOBAL_SKILL_DIR/"
+# Create .codex/config.toml to point to project skills
+cat > "$PROJECT_DIR/.codex/config.toml" << 'CONFIGEOF'
+[skills]
+enabled = true
+path = ".codex/skills"
+CONFIGEOF
+
+echo "[Codex] Skill created at $CODEX_SKILL_DIR/"
+echo "[Codex] Config created at $PROJECT_DIR/.codex/config.toml"
 
 #===========================================
 # 5. Copy io.sh to project

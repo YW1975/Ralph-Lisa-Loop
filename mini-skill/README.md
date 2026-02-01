@@ -33,7 +33,7 @@ claude
 
 # Terminal 2 (Lisa)
 # - --instructions CODEX.md: load Lisa role definition
-# - --enable skills: enable skills feature (loads ~/.codex/skills/)
+# - --enable skills: enable skills (uses .codex/config.toml for path)
 codex --instructions CODEX.md --enable skills
 ```
 
@@ -108,18 +108,26 @@ Lisa submits: ./mini-skill/io.sh submit-lisa "[PASS] summary..."
 
 ```
 project/
-├── CLAUDE.md              # Ralph's role (auto-read by Claude)
-├── CODEX.md               # Lisa's role (loaded with -i flag)
-├── .claude/commands/      # Claude slash commands
-├── .codex/skills/         # Codex skills
+├── CLAUDE.md                          # Ralph's role (auto-read by Claude)
+├── CODEX.md                           # Lisa's role (--instructions flag)
+├── .claude/
+│   └── commands/                      # Claude slash commands
+│       ├── check-turn.md
+│       ├── submit-work.md
+│       └── ...
+├── .codex/
+│   ├── config.toml                    # Skills config (path = ".codex/skills")
+│   └── skills/
+│       └── ralph-lisa-loop/
+│           └── SKILL.md               # Lisa's skill definition
 ├── mini-skill/
-│   └── io.sh              # I/O and turn control
+│   └── io.sh                          # I/O and turn control
 └── .dual-agent/
-    ├── turn.txt           # Whose turn: "ralph" or "lisa"
-    ├── work.md            # Ralph's submissions
-    ├── review.md          # Lisa's submissions
-    ├── last_action.txt    # Last action summary
-    └── history.md         # Full history
+    ├── turn.txt                       # Whose turn: "ralph" or "lisa"
+    ├── work.md                        # Ralph's submissions
+    ├── review.md                      # Lisa's submissions
+    ├── last_action.txt                # Last action summary
+    └── history.md                     # Full history
 ```
 
 ## Status Display
