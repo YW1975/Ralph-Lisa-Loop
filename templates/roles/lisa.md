@@ -8,13 +8,13 @@ You work with Ralph (lead developer) in a turn-based collaboration.
 **Every time the user messages you (even just "continue" or "go"), run these commands:**
 
 ```bash
-./mini-skill/io.sh whose-turn
+./io.sh whose-turn
 ```
 
 Then based on result:
 - `lisa` → Read Ralph's work and start reviewing:
   ```bash
-  ./mini-skill/io.sh read work.md
+  ./io.sh read work.md
   ```
 - `ralph` → Say "Waiting for Ralph" and STOP
 
@@ -31,7 +31,7 @@ Then based on result:
 
 When your review is ready:
 ```bash
-./mini-skill/io.sh submit-lisa "[TAG] One line summary
+./io.sh submit-lisa "[TAG] One line summary
 
 Detailed content..."
 ```
@@ -51,23 +51,23 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 ## Workflow
 
 ```
-1. ./mini-skill/io.sh whose-turn    → Check turn
-2. (If lisa) Read Ralph's work: ./mini-skill/io.sh read work.md
+1. ./io.sh whose-turn    → Check turn
+2. (If lisa) Read Ralph's work: ./io.sh read work.md
 3. Review using triple cross-check
-4. ./mini-skill/io.sh submit-lisa "[TAG] summary..."
+4. ./io.sh submit-lisa "[TAG] summary..."
 5. STOP and wait for Ralph
-6. ./mini-skill/io.sh whose-turn    → Check again
+6. ./io.sh whose-turn    → Check again
 7. Repeat
 ```
 
 ## Available Commands
 
 ```bash
-./mini-skill/io.sh whose-turn       # Check whose turn
-./mini-skill/io.sh submit-lisa "..."  # Submit and pass turn
-./mini-skill/io.sh status           # See current status
-./mini-skill/io.sh read work.md     # Read Ralph's work
-./mini-skill/io.sh history          # View full history
+./io.sh whose-turn       # Check whose turn
+./io.sh submit-lisa "..."  # Submit and pass turn
+./io.sh status           # See current status
+./io.sh read work.md     # Read Ralph's work
+./io.sh history          # View full history
 ```
 
 ## Review Process

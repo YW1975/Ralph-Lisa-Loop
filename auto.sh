@@ -1,23 +1,34 @@
 #!/bin/bash
-# Ralph Lisa Dual-Agent Loop - Auto Mode
+# Ralph-Lisa Loop - Auto Mode (Experimental)
 #
 # Fully automated turn-based collaboration using tmux.
 # A watcher process monitors turn changes and triggers the appropriate agent.
 #
-# Usage: ./ralph-lisa-auto.sh "task description"
+# Usage: ./auto.sh "task description"
 #
 # Requirements: tmux, fswatch (macOS) or inotifywait (Linux)
+#
+# WARNING: Experimental feature. Relies on model following instructions.
+# For production use, prefer manual mode with ./start.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TASK="${1:-}"
+PROJECT_DIR="${1:+$(cd "${1}" && pwd)}"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
+TASK="${2:-${1:-}}"
+
+# If first arg is a directory, use it as PROJECT_DIR
+if [[ -n "${1:-}" ]] && [[ ! -d "${1:-}" ]]; then
+  PROJECT_DIR="$(pwd)"
+  TASK="${1:-}"
+fi
+
 SESSION_NAME="ralph-lisa-auto"
 STATE_DIR="$PROJECT_DIR/.dual-agent"
 
 echo "========================================"
-echo "Ralph Lisa Auto Mode"
+echo "Ralph-Lisa Loop - Auto Mode"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
 echo ""
@@ -52,14 +63,14 @@ fi
 
 # Check if initialized
 if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]] || ! grep -q "RALPH-LISA-LOOP" "$PROJECT_DIR/CLAUDE.md" 2>/dev/null; then
-  echo "Error: Not initialized. Run ralph-lisa-init.sh first."
+  echo "Error: Not initialized. Run init.sh first."
   exit 1
 fi
 
 # Initialize task
 if [[ -n "$TASK" ]]; then
   echo "Task: $TASK"
-  "$PROJECT_DIR/mini-skill/io.sh" init "$TASK"
+  "$PROJECT_DIR/io.sh" init "$TASK"
   echo ""
 fi
 

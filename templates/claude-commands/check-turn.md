@@ -7,7 +7,7 @@ description: Check whose turn it is in Ralph-Lisa collaboration
 Check whose turn it is before taking any action.
 
 ```!
-./mini-skill/io.sh whose-turn
+./io.sh whose-turn
 ```
 
 ## Rules

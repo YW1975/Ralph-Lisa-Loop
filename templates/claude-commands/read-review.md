@@ -7,5 +7,5 @@ description: Read Lisa's latest review
 View Lisa's latest feedback.
 
 ```!
-./mini-skill/io.sh read review.md
+./io.sh read review.md
 ```

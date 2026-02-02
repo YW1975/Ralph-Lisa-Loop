@@ -1,5 +1,5 @@
 #!/bin/bash
-# Ralph Lisa Dual-Agent Loop - Initialization Script
+# Ralph-Lisa Loop - Initialization Script
 #
 # This script:
 # 1. Appends Ralph role to CLAUDE.md
@@ -9,7 +9,7 @@
 # 5. Copies io.sh to project
 # 6. Initializes .dual-agent/ session
 #
-# Usage: ./ralph-lisa-init.sh [project-dir]
+# Usage: ./init.sh [project-dir]
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${1:-$(pwd)}"
 
 echo "========================================"
-echo "Ralph Lisa Dual-Agent Loop - Init"
+echo "Ralph-Lisa Loop - Init"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
 echo ""
@@ -38,7 +38,7 @@ else
     echo "" >> "$CLAUDE_MD"
     echo "" >> "$CLAUDE_MD"
   fi
-  cat "$SCRIPT_DIR/roles/ralph.md" >> "$CLAUDE_MD"
+  cat "$SCRIPT_DIR/templates/roles/ralph.md" >> "$CLAUDE_MD"
   echo "[Claude] Done."
 fi
 
@@ -55,7 +55,7 @@ else
     echo "" >> "$CODEX_MD"
     echo "" >> "$CODEX_MD"
   fi
-  cat "$SCRIPT_DIR/roles/lisa.md" >> "$CODEX_MD"
+  cat "$SCRIPT_DIR/templates/roles/lisa.md" >> "$CODEX_MD"
   echo "[Codex] Done."
 fi
 
@@ -65,7 +65,7 @@ fi
 echo "[Claude] Copying commands to .claude/commands/..."
 CLAUDE_CMD_DIR="$PROJECT_DIR/.claude/commands"
 mkdir -p "$CLAUDE_CMD_DIR"
-cp "$SCRIPT_DIR/claude-commands/"*.md "$CLAUDE_CMD_DIR/" 2>/dev/null || true
+cp "$SCRIPT_DIR/templates/claude-commands/"*.md "$CLAUDE_CMD_DIR/" 2>/dev/null || true
 echo "[Claude] Commands copied."
 
 #===========================================
@@ -77,7 +77,7 @@ mkdir -p "$CODEX_SKILL_DIR"
 
 # Create SKILL.md for the ralph-lisa-loop skill
 cat > "$CODEX_SKILL_DIR/SKILL.md" << 'SKILLEOF'
-# Ralph Lisa Loop - Lisa Skills
+# Ralph-Lisa Loop - Lisa Skills
 
 This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
 
@@ -85,13 +85,13 @@ This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
 
 ### Check Turn
 ```bash
-./mini-skill/io.sh whose-turn
+./io.sh whose-turn
 ```
 Check if it's your turn before taking action.
 
 ### Submit Review
 ```bash
-./mini-skill/io.sh submit-lisa "[TAG] summary
+./io.sh submit-lisa "[TAG] summary
 
 detailed content..."
 ```
@@ -99,13 +99,13 @@ Submit your review. Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS
 
 ### View Status
 ```bash
-./mini-skill/io.sh status
+./io.sh status
 ```
 View current task, turn, and last action.
 
 ### Read Ralph's Work
 ```bash
-./mini-skill/io.sh read work.md
+./io.sh read work.md
 ```
 Read Ralph's latest submission.
 SKILLEOF
@@ -127,16 +127,15 @@ echo "[Codex] Config created at $PROJECT_DIR/.codex/config.toml"
 # 5. Copy io.sh to project
 #===========================================
 echo "[I/O] Copying io.sh to project..."
-mkdir -p "$PROJECT_DIR/mini-skill"
-cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/mini-skill/" 2>/dev/null || true
-chmod +x "$PROJECT_DIR/mini-skill/io.sh"
+cp "$SCRIPT_DIR/io.sh" "$PROJECT_DIR/io.sh" 2>/dev/null || true
+chmod +x "$PROJECT_DIR/io.sh"
 echo "[I/O] Done."
 
 #===========================================
 # 6. Initialize session state
 #===========================================
 echo "[Session] Initializing .dual-agent/..."
-"$PROJECT_DIR/mini-skill/io.sh" init "Waiting for task assignment" 2>/dev/null || true
+"$PROJECT_DIR/io.sh" init "Waiting for task assignment" 2>/dev/null || true
 
 echo ""
 echo "========================================"
@@ -148,12 +147,12 @@ echo "  - CLAUDE.md (Ralph role)"
 echo "  - CODEX.md (Lisa role)"
 echo "  - .claude/commands/ (Claude slash commands)"
 echo "  - .codex/skills/ (Codex skills)"
-echo "  - mini-skill/io.sh"
+echo "  - io.sh"
 echo "  - .dual-agent/"
 echo ""
 echo "Start agents:"
 echo "  Terminal 1: claude"
-echo "  Terminal 2: codex --instructions CODEX.md --enable skills"
+echo "  Terminal 2: codex"
 echo ""
-echo "Or run: ralph-lisa-start.sh \"your task\""
+echo "Or run: ./start.sh \"your task\""
 echo "========================================"

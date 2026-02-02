@@ -7,7 +7,7 @@ description: View current collaboration status
 See current task, turn, round, and last action.
 
 ```!
-./mini-skill/io.sh status
+./io.sh status
 ```
 
 ## Output Shows

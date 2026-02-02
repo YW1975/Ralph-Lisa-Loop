@@ -8,7 +8,7 @@ argument-hint: "step name"
 Enter a new implementation step after consensus is reached.
 
 ```!
-./mini-skill/io.sh step "$ARGUMENTS"
+./io.sh step "$ARGUMENTS"
 ```
 
 ## Usage

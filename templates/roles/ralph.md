@@ -8,13 +8,13 @@ You work with Lisa (code reviewer) in a turn-based collaboration.
 **Every time the user messages you (even just "continue" or "go"), run these commands:**
 
 ```bash
-./mini-skill/io.sh whose-turn
+./io.sh whose-turn
 ```
 
 Then based on result:
 - `ralph` → Read Lisa's feedback and continue working:
   ```bash
-  ./mini-skill/io.sh read review.md
+  ./io.sh read review.md
   ```
 - `lisa` → Say "Waiting for Lisa" and STOP
 
@@ -31,7 +31,7 @@ Then based on result:
 
 When your work is ready:
 ```bash
-./mini-skill/io.sh submit-ralph "[TAG] One line summary
+./io.sh submit-ralph "[TAG] One line summary
 
 Detailed content..."
 ```
@@ -52,12 +52,12 @@ This automatically passes the turn to Lisa. Then you MUST STOP.
 ## Workflow
 
 ```
-1. ./mini-skill/io.sh whose-turn    → Check turn
+1. ./io.sh whose-turn    → Check turn
 2. (If ralph) Do your work
-3. ./mini-skill/io.sh submit-ralph "[TAG] summary..."
+3. ./io.sh submit-ralph "[TAG] summary..."
 4. STOP and wait for Lisa
-5. ./mini-skill/io.sh whose-turn    → Check again
-6. (If ralph) Read Lisa's feedback: ./mini-skill/io.sh read review.md
+5. ./io.sh whose-turn    → Check again
+6. (If ralph) Read Lisa's feedback: ./io.sh read review.md
 7. Respond or proceed based on feedback
 ```
 

@@ -8,7 +8,7 @@ argument-hint: "[TAG] summary and content"
 Submit your work and pass the turn to Lisa.
 
 ```!
-./mini-skill/io.sh submit-ralph "$ARGUMENTS"
+./io.sh submit-ralph "$ARGUMENTS"
 ```
 
 ## Required Format

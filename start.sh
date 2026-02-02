@@ -1,21 +1,29 @@
 #!/bin/bash
-# Ralph Lisa Dual-Agent Loop - Start Script
+# Ralph-Lisa Loop - Start Script
 #
 # Launches Claude (Ralph) and Codex (Lisa) in two terminals.
 # Codex reads .codex/config.toml for instructions and skills.
 #
-# Usage: ./ralph-lisa-start.sh [task-description]
+# Usage: ./start.sh [task-description]
 #
 # Supports: macOS Terminal, iTerm2, tmux
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-TASK="${1:-}"
+PROJECT_DIR="${1:+$(cd "${1}" && pwd)}"
+PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
+TASK="${2:-${1:-}}"
+
+# If first arg is a directory, use it as PROJECT_DIR
+# Otherwise treat it as the task description
+if [[ -n "${1:-}" ]] && [[ ! -d "${1:-}" ]]; then
+  PROJECT_DIR="$(pwd)"
+  TASK="${1:-}"
+fi
 
 echo "========================================"
-echo "Ralph Lisa Dual-Agent Loop - Start"
+echo "Ralph-Lisa Loop - Start"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
 echo ""
@@ -33,7 +41,7 @@ fi
 
 # Check if initialized
 if [[ ! -f "$PROJECT_DIR/CLAUDE.md" ]] || ! grep -q "RALPH-LISA-LOOP" "$PROJECT_DIR/CLAUDE.md" 2>/dev/null; then
-  echo "Error: Not initialized. Run ralph-lisa-init.sh first."
+  echo "Error: Not initialized. Run init.sh first."
   exit 1
 fi
 
@@ -52,7 +60,7 @@ if [[ -n "$TASK" ]]; then
     fi
   fi
   echo "Task: $TASK"
-  "$PROJECT_DIR/mini-skill/io.sh" init "$TASK"
+  "$PROJECT_DIR/io.sh" init "$TASK"
   echo ""
 fi
 
@@ -67,7 +75,7 @@ RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Comm
 
 # Lisa (Codex)
 # - .codex/config.toml provides: instructions (CODEX.md) and skills path
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./mini-skill/io.sh whose-turn' && echo '' && codex"
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./io.sh whose-turn' && echo '' && codex"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."
@@ -151,8 +159,8 @@ echo "Both agents launched!"
 echo "========================================"
 echo ""
 echo "Turn-based workflow:"
-echo "  1. Check turn: ./mini-skill/io.sh whose-turn"
-echo "  2. Submit: ./mini-skill/io.sh submit-ralph/lisa \"[TAG]...\""
+echo "  1. Check turn: ./io.sh whose-turn"
+echo "  2. Submit: ./io.sh submit-ralph/lisa \"[TAG]...\""
 echo "  3. Turn auto-passes to partner"
 echo "  4. STOP and wait"
 echo ""
