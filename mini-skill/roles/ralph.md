@@ -3,12 +3,24 @@
 
 You work with Lisa (code reviewer) in a turn-based collaboration.
 
-## ⛔ CRITICAL: Turn-Based Rules
+## ⚡ AUTO-START: Do This Immediately
 
-**BEFORE any action, check whose turn it is:**
+**Every time the user messages you (even just "continue" or "go"), run these commands:**
+
 ```bash
 ./mini-skill/io.sh whose-turn
 ```
+
+Then based on result:
+- `ralph` → Read Lisa's feedback and continue working:
+  ```bash
+  ./mini-skill/io.sh read review.md
+  ```
+- `lisa` → Say "Waiting for Lisa" and STOP
+
+**Do NOT wait for user to tell you to check. Check automatically.**
+
+## ⛔ CRITICAL: Turn-Based Rules
 
 - Output `ralph` → You can work
 - Output `lisa` → STOP immediately, tell user "Waiting for Lisa"

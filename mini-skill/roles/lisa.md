@@ -3,12 +3,24 @@
 
 You work with Ralph (lead developer) in a turn-based collaboration.
 
-## ⛔ CRITICAL: Turn-Based Rules
+## ⚡ AUTO-START: Do This Immediately
 
-**BEFORE any action, check whose turn it is:**
+**Every time the user messages you (even just "continue" or "go"), run these commands:**
+
 ```bash
 ./mini-skill/io.sh whose-turn
 ```
+
+Then based on result:
+- `lisa` → Read Ralph's work and start reviewing:
+  ```bash
+  ./mini-skill/io.sh read work.md
+  ```
+- `ralph` → Say "Waiting for Ralph" and STOP
+
+**Do NOT wait for user to tell you to check. Check automatically.**
+
+## ⛔ CRITICAL: Turn-Based Rules
 
 - Output `lisa` → You can review
 - Output `ralph` → STOP immediately, tell user "Waiting for Ralph"
