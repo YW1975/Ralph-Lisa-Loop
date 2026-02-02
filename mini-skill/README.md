@@ -20,6 +20,13 @@ cd your-project
 
 ### 2. Start Agents
 
+**Auto Mode (Recommended)** - Fully automated, agents trigger each other:
+```bash
+/path/to/mini-skill/ralph-lisa-auto.sh "your task"
+```
+Requires: `tmux`, `fswatch` (macOS) or `inotifywait` (Linux)
+
+**Manual Mode** - User triggers each turn:
 ```bash
 /path/to/mini-skill/ralph-lisa-start.sh "your task"
 ```
