@@ -4,7 +4,10 @@
 # Fully automated turn-based collaboration using tmux.
 # A watcher process monitors turn changes and triggers the appropriate agent.
 #
-# Usage: ./auto.sh "task description"
+# Usage: ./auto.sh [--full-auto] "task description"
+#
+# Options:
+#   --full-auto    Skip all permission prompts (claude --dangerously-skip-permissions + codex --full-auto)
 #
 # Requirements: tmux, fswatch (macOS) or inotifywait (Linux)
 #
@@ -14,6 +17,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parse --full-auto flag
+FULL_AUTO=false
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --full-auto) FULL_AUTO=true ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 PROJECT_DIR="${1:+$(cd "${1}" && pwd)}"
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 TASK="${2:-${1:-}}"
@@ -24,6 +39,15 @@ if [[ -n "${1:-}" ]] && [[ ! -d "${1:-}" ]]; then
   TASK="${1:-}"
 fi
 
+# Build agent commands based on --full-auto
+if [[ "$FULL_AUTO" == true ]]; then
+  CLAUDE_CMD="claude --dangerously-skip-permissions"
+  CODEX_CMD="codex --full-auto"
+else
+  CLAUDE_CMD="claude"
+  CODEX_CMD="codex"
+fi
+
 SESSION_NAME="ralph-lisa-auto"
 STATE_DIR="$PROJECT_DIR/.dual-agent"
 
@@ -31,6 +55,9 @@ echo "========================================"
 echo "Ralph-Lisa Loop - Auto Mode"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
+if [[ "$FULL_AUTO" == true ]]; then
+  echo "Mode: FULL AUTO (no permission prompts)"
+fi
 echo ""
 
 # Check prerequisites
@@ -156,8 +183,8 @@ tmux split-window -v -t "$SESSION_NAME:0.0" -c "$PROJECT_DIR" -l 8
 tmux select-layout -t "$SESSION_NAME" main-vertical
 
 # Start agents and watcher
-tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && claude" Enter
-tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && codex" Enter
+tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && $CLAUDE_CMD" Enter
+tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
 tmux send-keys -t "$SESSION_NAME:0.2" "echo '=== Watcher ===' && $WATCHER_SCRIPT" Enter
 
 # Select Ralph pane
