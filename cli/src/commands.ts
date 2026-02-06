@@ -565,7 +565,12 @@ export function cmdInitProject(args: string[]): void {
   );
   fs.mkdirSync(codexSkillDir, { recursive: true });
 
-  const skillContent = `# Ralph-Lisa Loop - Lisa Skills
+  const skillContent = `---
+name: ralph-lisa-loop
+description: Lisa review commands for Ralph-Lisa dual-agent collaboration
+---
+
+# Ralph-Lisa Loop - Lisa Skills
 
 This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
 
