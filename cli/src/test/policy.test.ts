@@ -33,10 +33,52 @@ describe("checkRalph", () => {
     assert.strictEqual(violations[0].rule, "research-content");
   });
 
-  it("passes RESEARCH with 2+ fields", () => {
+  it("passes RESEARCH with 2+ fields (Chinese)", () => {
     const violations = checkRalph(
       "RESEARCH",
       "[RESEARCH] Done\n\n参考实现: file.ts\n关键类型: MyType\n验证方式: tested"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("passes RESEARCH with exactly 2 fields", () => {
+    // Bug fix: previously ceil(2/2)=1 incorrectly warned
+    const violations = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] Done\n\n参考实现: file.ts\n验证方式: curl tested"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("passes RESEARCH with 2 English fields", () => {
+    const violations = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] Done\n\nReference: file.ts\nVerification: tested"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("passes RESEARCH with mixed Chinese-English fields", () => {
+    const violations = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] Done\n\n参考实现: file.ts\nVerification: tested"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("warns RESEARCH with only 1 field", () => {
+    const violations = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] Done\n\n参考实现: file.ts"
+    );
+    // 1 field + only 2 lines = warns
+    assert.strictEqual(violations.length, 1);
+  });
+
+  it("passes RESEARCH with substantial content (>3 lines) even without fields", () => {
+    const violations = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] API analysis\n\nLine 1\nLine 2\nLine 3\nLine 4"
     );
     assert.strictEqual(violations.length, 0);
   });

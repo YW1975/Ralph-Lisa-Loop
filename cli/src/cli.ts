@@ -111,6 +111,7 @@ function showHelp(): void {
   console.log("");
   console.log("Project Setup:");
   console.log("  ralph-lisa init [dir]              Initialize project");
+  console.log("  ralph-lisa init --minimal [dir]    Minimal init (session only, no project files)");
   console.log("  ralph-lisa uninit                  Remove from project");
   console.log('  ralph-lisa start "task"             Launch both agents');
   console.log('  ralph-lisa auto "task"              Auto mode (tmux)');

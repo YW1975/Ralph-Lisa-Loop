@@ -24,7 +24,7 @@ import {
   appendHistory,
   updateLastAction,
 } from "./state.js";
-import { runPolicyCheck } from "./policy.js";
+import { runPolicyCheck, checkRalph, checkLisa } from "./policy.js";
 
 function line(ch = "=", len = 40): string {
   return ch.repeat(len);
@@ -335,13 +335,24 @@ export function cmdUninit(): void {
     console.log("Removed: .dual-agent/");
   }
 
-  // Remove CODEX.md if it has our marker
+  // Clean CODEX.md marker block (same logic as CLAUDE.md — preserve pre-existing content)
   const codexMd = path.join(projectDir, "CODEX.md");
   if (fs.existsSync(codexMd)) {
     const content = fs.readFileSync(codexMd, "utf-8");
     if (content.includes(MARKER)) {
-      fs.unlinkSync(codexMd);
-      console.log("Removed: CODEX.md");
+      const markerIdx = content.indexOf(`<!-- ${MARKER} -->`);
+      if (markerIdx >= 0) {
+        const before = content.slice(0, markerIdx).trimEnd();
+        if (before) {
+          fs.writeFileSync(codexMd, before + "\n", "utf-8");
+          console.log("Cleaned: CODEX.md (removed Ralph-Lisa-Loop section)");
+        } else {
+          fs.unlinkSync(codexMd);
+          console.log(
+            "Removed: CODEX.md (was entirely Ralph-Lisa-Loop content)"
+          );
+        }
+      }
     }
   }
 
@@ -402,11 +413,44 @@ export function cmdUninit(): void {
     console.log("Cleaned: .claude/commands/");
   }
 
-  // Remove .codex/ directory
-  const codexDir = path.join(projectDir, ".codex");
-  if (fs.existsSync(codexDir)) {
-    fs.rmSync(codexDir, { recursive: true, force: true });
-    console.log("Removed: .codex/");
+  // Remove only our skill from .codex/ (preserve other content)
+  const codexSkillDir = path.join(
+    projectDir,
+    ".codex",
+    "skills",
+    "ralph-lisa-loop"
+  );
+  if (fs.existsSync(codexSkillDir)) {
+    fs.rmSync(codexSkillDir, { recursive: true, force: true });
+    console.log("Removed: .codex/skills/ralph-lisa-loop/");
+    // Clean up empty parent dirs
+    try {
+      const skillsDir = path.join(projectDir, ".codex", "skills");
+      if (fs.readdirSync(skillsDir).length === 0) {
+        fs.rmdirSync(skillsDir);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  // Remove .codex/config.toml only if it points to our instructions
+  const codexConfig = path.join(projectDir, ".codex", "config.toml");
+  if (fs.existsSync(codexConfig)) {
+    const configContent = fs.readFileSync(codexConfig, "utf-8");
+    if (configContent.includes("CODEX.md") || configContent.includes("ralph-lisa")) {
+      fs.unlinkSync(codexConfig);
+      console.log("Removed: .codex/config.toml");
+    }
+  }
+  // Remove .codex/ if empty
+  try {
+    const codexDir = path.join(projectDir, ".codex");
+    if (fs.existsSync(codexDir) && fs.readdirSync(codexDir).length === 0) {
+      fs.rmdirSync(codexDir);
+      console.log("Removed: .codex/ (empty)");
+    }
+  } catch {
+    // ignore
   }
 
   // Remove io.sh if it exists
@@ -423,7 +467,11 @@ export function cmdUninit(): void {
 // ─── init (project setup) ────────────────────────
 
 export function cmdInitProject(args: string[]): void {
-  const projectDir = args[0] || process.cwd();
+  // Parse --minimal flag
+  const minimal = args.includes("--minimal");
+  const filteredArgs = args.filter((a) => a !== "--minimal");
+
+  const projectDir = filteredArgs[0] || process.cwd();
   const resolvedDir = path.resolve(projectDir);
 
   if (!fs.existsSync(resolvedDir)) {
@@ -432,10 +480,33 @@ export function cmdInitProject(args: string[]): void {
   }
 
   console.log(line());
-  console.log("Ralph-Lisa Loop - Init");
+  console.log(`Ralph-Lisa Loop - Init${minimal ? " (minimal)" : ""}`);
   console.log(line());
   console.log(`Project: ${resolvedDir}`);
   console.log("");
+
+  if (minimal) {
+    // Minimal mode: only create .dual-agent/ session state.
+    // Use this when Claude Code plugin + Codex global config are installed.
+    console.log("[Session] Initializing .dual-agent/ (minimal mode)...");
+    const origCwd = process.cwd();
+    process.chdir(resolvedDir);
+    cmdInit(["Waiting for task assignment"]);
+    process.chdir(origCwd);
+
+    console.log("");
+    console.log(line());
+    console.log("Minimal Init Complete");
+    console.log(line());
+    console.log("");
+    console.log("Files created:");
+    console.log("  - .dual-agent/ (session state only)");
+    console.log("");
+    console.log("No project-level role/command files written.");
+    console.log("Requires: Claude Code plugin + Codex global config.");
+    console.log(line());
+    return;
+  }
 
   // Find templates directory (shipped inside npm package)
   const templatesDir = findTemplatesDir();
@@ -929,15 +1000,63 @@ export function cmdPolicy(args: string[]): void {
   checkSession();
   const dir = stateDir();
   const file = role === "ralph" ? "work.md" : "review.md";
-  const content = readFile(path.join(dir, file));
-  if (!content) {
+  const raw = readFile(path.join(dir, file));
+  if (!raw) {
     console.log("No submission to check.");
     return;
   }
 
-  const tag = extractTag(content);
-  const ok = runPolicyCheck(role, tag, content);
-  if (ok) {
-    console.log("Policy check passed.");
+  // work.md/review.md has headers before the actual submission content.
+  // The actual submission starts after the blank line following the metadata.
+  // Format:
+  //   # Ralph Work
+  //   ## [TAG] Round N | Step: ...
+  //   **Updated**: ...
+  //   **Summary**: ...
+  //   (blank line)
+  //   [TAG] actual content...
+  const content = extractSubmissionContent(raw);
+  if (!content) {
+    console.log("No submission content found.");
+    return;
   }
+
+  const tag = extractTag(content);
+  if (!tag) {
+    console.log("No valid tag found in submission.");
+    return;
+  }
+
+  const violations =
+    role === "ralph" ? checkRalph(tag, content) : checkLisa(tag, content);
+
+  if (violations.length === 0) {
+    console.log("Policy check passed.");
+    return;
+  }
+
+  console.error("");
+  console.error("⚠️  Policy warnings:");
+  for (const v of violations) {
+    console.error(`  - ${v.message}`);
+  }
+  console.error("");
+
+  // policy check as standalone command always uses non-zero exit for violations
+  process.exit(1);
+}
+
+/**
+ * Extract the actual submission content from work.md/review.md.
+ * The file has metadata headers; the submission content is the part
+ * that starts with a [TAG] line.
+ */
+function extractSubmissionContent(raw: string): string {
+  const lines = raw.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (extractTag(lines[i])) {
+      return lines.slice(i).join("\n");
+    }
+  }
+  return "";
 }

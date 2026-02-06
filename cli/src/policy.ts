@@ -46,26 +46,20 @@ export function checkRalph(
 
   // [RESEARCH] must have substance
   if (tag === "RESEARCH") {
-    const fields = [
-      "参考实现",
-      "Reference",
-      "关键类型",
-      "Key type",
-      "数据格式",
-      "Data format",
-      "数据结构",
-      "Data structure",
-      "验证方式",
-      "Verification",
+    // 4 distinct field groups, each with Chinese + English variants
+    const fieldGroups: string[][] = [
+      ["参考实现", "reference"],
+      ["关键类型", "key type"],
+      ["数据格式", "data format", "数据结构", "data structure"],
+      ["验证方式", "verification"],
     ];
-    const fieldCount = fields.filter((f) =>
-      content.toLowerCase().includes(f.toLowerCase())
+    const lc = content.toLowerCase();
+    const matchedFields = fieldGroups.filter((variants) =>
+      variants.some((v) => lc.includes(v.toLowerCase()))
     ).length;
-    // Each Chinese-English pair counts as 1 field
-    const uniqueFields = Math.ceil(fieldCount / 2);
     const hasSubstantialContent = content.split("\n").length > 3;
 
-    if (uniqueFields < 2 && !hasSubstantialContent) {
+    if (matchedFields < 2 && !hasSubstantialContent) {
       violations.push({
         rule: "research-content",
         message:
