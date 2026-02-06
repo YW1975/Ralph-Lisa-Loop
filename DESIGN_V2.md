@@ -1,5 +1,7 @@
 # Ralph Lisa Dual-Agent Loop - Design V2
 
+> **Note**: This document describes the V2 design. For the current V3 design with npm CLI, Policy layer, and plugin architecture, see [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md).
+
 ## Design Philosophy
 
 **Core Principle**: Agent-driven decisions, Skills are communication tools only.

@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "description": "Inject Ralph role context at session start",
+      "command": "cat \"$(dirname \"$(dirname \"$0\")\")/agents/ralph.md\""
+    }
+  ]
+}

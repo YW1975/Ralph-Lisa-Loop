@@ -1,0 +1,40 @@
+{
+  "name": "ralph-lisa-loop",
+  "version": "3.0.0",
+  "description": "Ralph-Lisa dual-agent collaboration plugin for Claude Code",
+  "skills": [
+    {
+      "name": "submit-work",
+      "description": "Submit your work to Lisa for review (Ralph only)",
+      "path": "skills/submit-work"
+    },
+    {
+      "name": "check-turn",
+      "description": "Check whose turn it is in Ralph-Lisa collaboration",
+      "path": "skills/check-turn"
+    },
+    {
+      "name": "view-status",
+      "description": "View current collaboration status",
+      "path": "skills/view-status"
+    },
+    {
+      "name": "read-review",
+      "description": "Read Lisa's latest review",
+      "path": "skills/read-review"
+    },
+    {
+      "name": "next-step",
+      "description": "Move to next implementation step after consensus",
+      "path": "skills/next-step"
+    }
+  ],
+  "hooks": "hooks/hooks.json",
+  "agents": [
+    {
+      "name": "ralph",
+      "description": "Ralph - Lead Developer agent for dual-agent collaboration",
+      "path": "agents/ralph.md"
+    }
+  ]
+}

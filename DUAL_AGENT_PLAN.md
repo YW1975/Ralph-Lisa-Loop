@@ -1,5 +1,7 @@
 # Ralph-Lisa Dual-Agent Collaboration Plan
 
+> **Note**: This document describes the original automation roadmap. The project has been upgraded to V3 with npm CLI (`ralph-lisa`), Policy layer, and plugin architecture. See [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md) for the current design.
+
 ## Overview
 
 Two-phase plan to achieve reliable dual-agent collaboration between Claude Code (Ralph) and Codex (Lisa).

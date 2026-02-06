@@ -1,0 +1,943 @@
+/**
+ * CLI commands for Ralph-Lisa Loop.
+ * Direct port of io.sh logic to Node/TS.
+ */
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+import {
+  STATE_DIR,
+  ARCHIVE_DIR,
+  stateDir,
+  checkSession,
+  readFile,
+  writeFile,
+  getTurn,
+  setTurn,
+  getRound,
+  setRound,
+  getStep,
+  setStep,
+  extractTag,
+  extractSummary,
+  timestamp,
+  appendHistory,
+  updateLastAction,
+} from "./state.js";
+import { runPolicyCheck } from "./policy.js";
+
+function line(ch = "=", len = 40): string {
+  return ch.repeat(len);
+}
+
+// ─── init ────────────────────────────────────────
+
+export function cmdInit(args: string[]): void {
+  const task = args.join(" ");
+  if (!task) {
+    console.error('Usage: ralph-lisa init "task description"');
+    process.exit(1);
+  }
+
+  const dir = stateDir();
+  if (fs.existsSync(dir)) {
+    console.log("Warning: Existing session will be overwritten");
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+
+  const ts = timestamp();
+
+  writeFile(
+    path.join(dir, "task.md"),
+    `# Task\n\n${task}\n\n---\nCreated: ${ts}\n`
+  );
+  writeFile(path.join(dir, "round.txt"), "1");
+  writeFile(path.join(dir, "step.txt"), "planning");
+  writeFile(path.join(dir, "turn.txt"), "ralph");
+  writeFile(path.join(dir, "last_action.txt"), "(No action yet)");
+  writeFile(
+    path.join(dir, "plan.md"),
+    "# Plan\n\n(To be drafted by Ralph and reviewed by Lisa)\n"
+  );
+  writeFile(
+    path.join(dir, "work.md"),
+    "# Ralph Work\n\n(Waiting for Ralph to submit)\n"
+  );
+  writeFile(
+    path.join(dir, "review.md"),
+    "# Lisa Review\n\n(Waiting for Lisa to respond)\n"
+  );
+  writeFile(
+    path.join(dir, "history.md"),
+    `# Collaboration History\n\n**Task**: ${task}\n**Started**: ${ts}\n`
+  );
+
+  console.log(line());
+  console.log("Session Initialized");
+  console.log(line());
+  console.log(`Task: ${task}`);
+  console.log("Turn: ralph");
+  console.log("");
+  console.log(
+    'Ralph should start with: ralph-lisa submit-ralph "[PLAN] summary..."'
+  );
+  console.log(line());
+}
+
+// ─── whose-turn ──────────────────────────────────
+
+export function cmdWhoseTurn(): void {
+  checkSession();
+  console.log(getTurn());
+}
+
+// ─── submit-ralph ────────────────────────────────
+
+export function cmdSubmitRalph(args: string[]): void {
+  checkSession();
+  const content = args.join(" ");
+  if (!content) {
+    console.error(
+      'Usage: ralph-lisa submit-ralph "[TAG] summary\\n\\ndetails..."'
+    );
+    console.error("");
+    console.error(
+      "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
+    );
+    process.exit(1);
+  }
+
+  const turn = getTurn();
+  if (turn !== "ralph") {
+    console.error("Error: It's Lisa's turn. Wait for her response.");
+    console.error("Run: ralph-lisa whose-turn");
+    process.exit(1);
+  }
+
+  const tag = extractTag(content);
+  if (!tag) {
+    console.error("Error: Content must start with a valid tag.");
+    console.error("Format: [TAG] One line summary");
+    console.error("");
+    console.error(
+      "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
+    );
+    process.exit(1);
+  }
+
+  // Policy check
+  if (!runPolicyCheck("ralph", tag, content)) {
+    process.exit(1);
+  }
+
+  const round = getRound();
+  const step = getStep();
+  const ts = timestamp();
+  const summary = extractSummary(content);
+  const dir = stateDir();
+
+  writeFile(
+    path.join(dir, "work.md"),
+    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
+  );
+
+  appendHistory("Ralph", content);
+  updateLastAction("Ralph", content);
+  setTurn("lisa");
+
+  console.log(line());
+  console.log(`Submitted: [${tag}] ${summary}`);
+  console.log("Turn passed to: Lisa");
+  console.log(line());
+  console.log("");
+  console.log("Now wait for Lisa. Check with: ralph-lisa whose-turn");
+}
+
+// ─── submit-lisa ─────────────────────────────────
+
+export function cmdSubmitLisa(args: string[]): void {
+  checkSession();
+  const content = args.join(" ");
+  if (!content) {
+    console.error(
+      'Usage: ralph-lisa submit-lisa "[TAG] summary\\n\\ndetails..."'
+    );
+    console.error("");
+    console.error(
+      "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
+    );
+    process.exit(1);
+  }
+
+  const turn = getTurn();
+  if (turn !== "lisa") {
+    console.error("Error: It's Ralph's turn. Wait for his submission.");
+    console.error("Run: ralph-lisa whose-turn");
+    process.exit(1);
+  }
+
+  const tag = extractTag(content);
+  if (!tag) {
+    console.error("Error: Content must start with a valid tag.");
+    console.error("Format: [TAG] One line summary");
+    console.error("");
+    console.error(
+      "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
+    );
+    process.exit(1);
+  }
+
+  // Policy check
+  if (!runPolicyCheck("lisa", tag, content)) {
+    process.exit(1);
+  }
+
+  const round = getRound();
+  const step = getStep();
+  const ts = timestamp();
+  const summary = extractSummary(content);
+  const dir = stateDir();
+
+  writeFile(
+    path.join(dir, "review.md"),
+    `# Lisa Review\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
+  );
+
+  appendHistory("Lisa", content);
+  updateLastAction("Lisa", content);
+  setTurn("ralph");
+
+  // Increment round
+  const nextRound = (parseInt(round, 10) || 0) + 1;
+  setRound(nextRound);
+
+  console.log(line());
+  console.log(`Submitted: [${tag}] ${summary}`);
+  console.log("Turn passed to: Ralph");
+  console.log(`Round: ${round} -> ${nextRound}`);
+  console.log(line());
+  console.log("");
+  console.log("Now wait for Ralph. Check with: ralph-lisa whose-turn");
+}
+
+// ─── status ──────────────────────────────────────
+
+export function cmdStatus(): void {
+  const dir = stateDir();
+  if (!fs.existsSync(dir)) {
+    console.log("Status: Not initialized");
+    return;
+  }
+
+  const turn = getTurn();
+  const round = getRound();
+  const step = getStep();
+  const last = readFile(path.join(dir, "last_action.txt")) || "None";
+  const taskFile = readFile(path.join(dir, "task.md"));
+  const taskLine = taskFile.split("\n")[2] || "Unknown";
+
+  console.log(line());
+  console.log("Ralph Lisa Dual-Agent Loop");
+  console.log(line());
+  console.log(`Task: ${taskLine}`);
+  console.log(`Round: ${round} | Step: ${step}`);
+  console.log("");
+  console.log(`>>> Turn: ${turn} <<<`);
+  console.log(`Last: ${last}`);
+  console.log(line());
+}
+
+// ─── read ────────────────────────────────────────
+
+export function cmdRead(args: string[]): void {
+  checkSession();
+  const file = args[0];
+  if (!file) {
+    console.error("Usage: ralph-lisa read <file>");
+    console.error("  work.md    - Ralph's work");
+    console.error("  review.md  - Lisa's feedback");
+    process.exit(1);
+  }
+
+  const filePath = path.join(stateDir(), file);
+  if (fs.existsSync(filePath)) {
+    console.log(fs.readFileSync(filePath, "utf-8"));
+  } else {
+    console.log(`(File ${file} does not exist)`);
+  }
+}
+
+// ─── step ────────────────────────────────────────
+
+export function cmdStep(args: string[]): void {
+  checkSession();
+  const stepName = args.join(" ");
+  if (!stepName) {
+    console.error('Usage: ralph-lisa step "step name"');
+    process.exit(1);
+  }
+
+  setStep(stepName);
+  setRound(1);
+
+  const dir = stateDir();
+  const ts = timestamp();
+  const entry = `\n---\n\n# Step: ${stepName}\n\nStarted: ${ts}\n\n`;
+  fs.appendFileSync(path.join(dir, "history.md"), entry, "utf-8");
+
+  console.log(`Entered step: ${stepName} (round reset to 1)`);
+}
+
+// ─── history ─────────────────────────────────────
+
+export function cmdHistory(): void {
+  checkSession();
+  const filePath = path.join(stateDir(), "history.md");
+  if (fs.existsSync(filePath)) {
+    console.log(fs.readFileSync(filePath, "utf-8"));
+  }
+}
+
+// ─── archive ─────────────────────────────────────
+
+export function cmdArchive(args: string[]): void {
+  checkSession();
+  const name = args[0] || new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const archiveDir = path.join(process.cwd(), ARCHIVE_DIR);
+  const dest = path.join(archiveDir, name);
+  fs.mkdirSync(dest, { recursive: true });
+  fs.cpSync(stateDir(), dest, { recursive: true });
+  console.log(`Archived: ${ARCHIVE_DIR}/${name}/`);
+}
+
+// ─── clean ───────────────────────────────────────
+
+export function cmdClean(): void {
+  const dir = stateDir();
+  if (fs.existsSync(dir)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    console.log("Session cleaned");
+  }
+}
+
+// ─── uninit ──────────────────────────────────────
+
+const MARKER = "RALPH-LISA-LOOP";
+
+export function cmdUninit(): void {
+  const projectDir = process.cwd();
+
+  // Remove .dual-agent/
+  const dualAgentDir = path.join(projectDir, STATE_DIR);
+  if (fs.existsSync(dualAgentDir)) {
+    fs.rmSync(dualAgentDir, { recursive: true, force: true });
+    console.log("Removed: .dual-agent/");
+  }
+
+  // Remove CODEX.md if it has our marker
+  const codexMd = path.join(projectDir, "CODEX.md");
+  if (fs.existsSync(codexMd)) {
+    const content = fs.readFileSync(codexMd, "utf-8");
+    if (content.includes(MARKER)) {
+      fs.unlinkSync(codexMd);
+      console.log("Removed: CODEX.md");
+    }
+  }
+
+  // Clean CLAUDE.md marker block
+  const claudeMd = path.join(projectDir, "CLAUDE.md");
+  if (fs.existsSync(claudeMd)) {
+    const content = fs.readFileSync(claudeMd, "utf-8");
+    if (content.includes(MARKER)) {
+      // Remove everything from <!-- RALPH-LISA-LOOP --> to end of file
+      // or to next <!-- end --> marker
+      const markerIdx = content.indexOf(`<!-- ${MARKER} -->`);
+      if (markerIdx >= 0) {
+        const before = content.slice(0, markerIdx).trimEnd();
+        if (before) {
+          fs.writeFileSync(claudeMd, before + "\n", "utf-8");
+          console.log("Cleaned: CLAUDE.md (removed Ralph-Lisa-Loop section)");
+        } else {
+          fs.unlinkSync(claudeMd);
+          console.log(
+            "Removed: CLAUDE.md (was entirely Ralph-Lisa-Loop content)"
+          );
+        }
+      }
+    }
+  }
+
+  // Remove .claude/commands/ (only our files)
+  const claudeCmdDir = path.join(projectDir, ".claude", "commands");
+  const ourCommands = [
+    "check-turn.md",
+    "next-step.md",
+    "read-review.md",
+    "submit-work.md",
+    "view-status.md",
+  ];
+  if (fs.existsSync(claudeCmdDir)) {
+    for (const cmd of ourCommands) {
+      const cmdPath = path.join(claudeCmdDir, cmd);
+      if (fs.existsSync(cmdPath)) {
+        fs.unlinkSync(cmdPath);
+      }
+    }
+    // Remove directory if empty
+    try {
+      const remaining = fs.readdirSync(claudeCmdDir);
+      if (remaining.length === 0) {
+        fs.rmdirSync(claudeCmdDir);
+        // Also remove .claude/ if empty
+        const claudeDir = path.join(projectDir, ".claude");
+        const claudeRemaining = fs.readdirSync(claudeDir);
+        if (claudeRemaining.length === 0) {
+          fs.rmdirSync(claudeDir);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    console.log("Cleaned: .claude/commands/");
+  }
+
+  // Remove .codex/ directory
+  const codexDir = path.join(projectDir, ".codex");
+  if (fs.existsSync(codexDir)) {
+    fs.rmSync(codexDir, { recursive: true, force: true });
+    console.log("Removed: .codex/");
+  }
+
+  // Remove io.sh if it exists
+  const ioSh = path.join(projectDir, "io.sh");
+  if (fs.existsSync(ioSh)) {
+    fs.unlinkSync(ioSh);
+    console.log("Removed: io.sh");
+  }
+
+  console.log("");
+  console.log("Ralph-Lisa Loop removed from this project.");
+}
+
+// ─── init (project setup) ────────────────────────
+
+export function cmdInitProject(args: string[]): void {
+  const projectDir = args[0] || process.cwd();
+  const resolvedDir = path.resolve(projectDir);
+
+  if (!fs.existsSync(resolvedDir)) {
+    console.error(`Error: Directory does not exist: ${resolvedDir}`);
+    process.exit(1);
+  }
+
+  console.log(line());
+  console.log("Ralph-Lisa Loop - Init");
+  console.log(line());
+  console.log(`Project: ${resolvedDir}`);
+  console.log("");
+
+  // Find templates directory (shipped inside npm package)
+  const templatesDir = findTemplatesDir();
+
+  // 1. Append Ralph role to CLAUDE.md
+  const claudeMd = path.join(resolvedDir, "CLAUDE.md");
+  if (fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER)) {
+    console.log("[Claude] Ralph role already in CLAUDE.md, skipping...");
+  } else {
+    console.log("[Claude] Appending Ralph role to CLAUDE.md...");
+    const ralphRole = readFile(path.join(templatesDir, "roles", "ralph.md"));
+    if (fs.existsSync(claudeMd)) {
+      fs.appendFileSync(claudeMd, "\n\n", "utf-8");
+    }
+    fs.appendFileSync(claudeMd, ralphRole, "utf-8");
+    console.log("[Claude] Done.");
+  }
+
+  // 2. Create/update CODEX.md with Lisa role
+  const codexMd = path.join(resolvedDir, "CODEX.md");
+  if (fs.existsSync(codexMd) && readFile(codexMd).includes(MARKER)) {
+    console.log("[Codex] Lisa role already in CODEX.md, skipping...");
+  } else {
+    console.log("[Codex] Creating CODEX.md with Lisa role...");
+    const lisaRole = readFile(path.join(templatesDir, "roles", "lisa.md"));
+    if (fs.existsSync(codexMd)) {
+      fs.appendFileSync(codexMd, "\n\n", "utf-8");
+    }
+    fs.appendFileSync(codexMd, lisaRole, "utf-8");
+    console.log("[Codex] Done.");
+  }
+
+  // 3. Copy Claude commands
+  console.log("[Claude] Copying commands to .claude/commands/...");
+  const claudeCmdDir = path.join(resolvedDir, ".claude", "commands");
+  fs.mkdirSync(claudeCmdDir, { recursive: true });
+  const cmdSrc = path.join(templatesDir, "claude-commands");
+  if (fs.existsSync(cmdSrc)) {
+    for (const f of fs.readdirSync(cmdSrc)) {
+      if (f.endsWith(".md")) {
+        fs.copyFileSync(path.join(cmdSrc, f), path.join(claudeCmdDir, f));
+      }
+    }
+  }
+  console.log("[Claude] Commands copied.");
+
+  // 4. Copy Codex skills
+  console.log(
+    "[Codex] Setting up skills in .codex/skills/ralph-lisa-loop/..."
+  );
+  const codexSkillDir = path.join(
+    resolvedDir,
+    ".codex",
+    "skills",
+    "ralph-lisa-loop"
+  );
+  fs.mkdirSync(codexSkillDir, { recursive: true });
+
+  const skillContent = `# Ralph-Lisa Loop - Lisa Skills
+
+This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
+
+## Available Commands
+
+### Check Turn
+\`\`\`bash
+ralph-lisa whose-turn
+\`\`\`
+Check if it's your turn before taking action.
+
+### Submit Review
+\`\`\`bash
+ralph-lisa submit-lisa "[TAG] summary
+
+detailed content..."
+\`\`\`
+Submit your review. Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS
+
+### View Status
+\`\`\`bash
+ralph-lisa status
+\`\`\`
+View current task, turn, and last action.
+
+### Read Ralph's Work
+\`\`\`bash
+ralph-lisa read work.md
+\`\`\`
+Read Ralph's latest submission.
+`;
+  writeFile(path.join(codexSkillDir, "SKILL.md"), skillContent);
+
+  // Create .codex/config.toml
+  const codexConfig = `[instructions]
+default = "./CODEX.md"
+
+[skills]
+enabled = true
+path = ".codex/skills"
+`;
+  writeFile(path.join(resolvedDir, ".codex", "config.toml"), codexConfig);
+  console.log(`[Codex] Skill created at ${codexSkillDir}/`);
+  console.log(
+    `[Codex] Config created at ${path.join(resolvedDir, ".codex", "config.toml")}`
+  );
+
+  // 5. Initialize session state
+  console.log("[Session] Initializing .dual-agent/...");
+  const origCwd = process.cwd();
+  process.chdir(resolvedDir);
+  cmdInit(["Waiting for task assignment"]);
+  process.chdir(origCwd);
+
+  console.log("");
+  console.log(line());
+  console.log("Initialization Complete");
+  console.log(line());
+  console.log("");
+  console.log("Files created/updated:");
+  console.log("  - CLAUDE.md (Ralph role)");
+  console.log("  - CODEX.md (Lisa role)");
+  console.log("  - .claude/commands/ (Claude slash commands)");
+  console.log("  - .codex/skills/ (Codex skills)");
+  console.log("  - .dual-agent/");
+  console.log("");
+  console.log("Start agents:");
+  console.log("  Terminal 1: claude");
+  console.log("  Terminal 2: codex");
+  console.log("");
+  console.log('Or run: ralph-lisa start "your task"');
+  console.log(line());
+}
+
+function findTemplatesDir(): string {
+  // Look for templates relative to the CLI package
+  const candidates = [
+    // When installed via npm (templates shipped in package)
+    path.join(__dirname, "..", "templates"),
+    // When running from repo
+    path.join(__dirname, "..", "..", "templates"),
+    // Repo root
+    path.join(__dirname, "..", "..", "..", "templates"),
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(c, "roles", "ralph.md"))) {
+      return c;
+    }
+  }
+
+  console.error(
+    "Error: Templates directory not found. Reinstall ralph-lisa-loop."
+  );
+  process.exit(1);
+}
+
+// ─── start ───────────────────────────────────────
+
+export function cmdStart(args: string[]): void {
+  const projectDir = process.cwd();
+  const task = args.join(" ");
+
+  console.log(line());
+  console.log("Ralph-Lisa Loop - Start");
+  console.log(line());
+  console.log(`Project: ${projectDir}`);
+  console.log("");
+
+  // Check prerequisites
+  const { execSync } = require("node:child_process");
+
+  try {
+    execSync("which claude", { stdio: "pipe" });
+  } catch {
+    console.error("Error: 'claude' command not found. Install Claude Code first.");
+    process.exit(1);
+  }
+
+  try {
+    execSync("which codex", { stdio: "pipe" });
+  } catch {
+    console.error("Error: 'codex' command not found. Install Codex CLI first.");
+    process.exit(1);
+  }
+
+  // Check if initialized
+  const claudeMd = path.join(projectDir, "CLAUDE.md");
+  if (
+    !fs.existsSync(claudeMd) ||
+    !readFile(claudeMd).includes(MARKER)
+  ) {
+    console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
+    process.exit(1);
+  }
+
+  // Initialize task if provided
+  if (task) {
+    console.log(`Task: ${task}`);
+    cmdInit(task.split(" "));
+    console.log("");
+  }
+
+  // Detect terminal and launch
+  const platform = process.platform;
+  const ralphCmd = `cd '${projectDir}' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude`;
+  const lisaCmd = `cd '${projectDir}' && echo '=== Lisa (Codex) ===' && echo 'First: ralph-lisa whose-turn' && echo '' && codex`;
+
+  if (platform === "darwin") {
+    try {
+      // Try iTerm2 first
+      execSync("pgrep -x iTerm2", { stdio: "pipe" });
+      console.log("Launching with iTerm2...");
+      execSync(
+        `osascript -e 'tell application "iTerm"
+  activate
+  set ralphWindow to (create window with default profile)
+  tell current session of ralphWindow
+    write text "${ralphCmd.replace(/"/g, '\\"')}"
+    set name to "Ralph (Claude)"
+  end tell
+  tell current window
+    set lisaTab to (create tab with default profile)
+    tell current session of lisaTab
+      write text "${lisaCmd.replace(/"/g, '\\"')}"
+      set name to "Lisa (Codex)"
+    end tell
+  end tell
+end tell'`,
+        { stdio: "pipe" }
+      );
+    } catch {
+      // Fall back to Terminal.app
+      console.log("Launching with macOS Terminal...");
+      try {
+        execSync(
+          `osascript -e 'tell application "Terminal"
+  activate
+  do script "${ralphCmd.replace(/"/g, '\\"')}"
+end tell'`,
+          { stdio: "pipe" }
+        );
+        execSync("sleep 1");
+        execSync(
+          `osascript -e 'tell application "Terminal"
+  activate
+  do script "${lisaCmd.replace(/"/g, '\\"')}"
+end tell'`,
+          { stdio: "pipe" }
+        );
+      } catch {
+        launchGeneric(projectDir);
+        return;
+      }
+    }
+  } else {
+    // Try tmux
+    try {
+      execSync("which tmux", { stdio: "pipe" });
+      console.log("Launching with tmux...");
+      const sessionName = "ralph-lisa";
+      execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null || true`);
+      execSync(
+        `tmux new-session -d -s "${sessionName}" -n "Ralph" "bash -c '${ralphCmd}; exec bash'"`
+      );
+      execSync(
+        `tmux split-window -h -t "${sessionName}" "bash -c '${lisaCmd}; exec bash'"`
+      );
+      execSync(`tmux attach-session -t "${sessionName}"`, { stdio: "inherit" });
+    } catch {
+      launchGeneric(projectDir);
+      return;
+    }
+  }
+
+  console.log("");
+  console.log(line());
+  console.log("Both agents launched!");
+  console.log(line());
+  const currentTurn = readFile(
+    path.join(projectDir, STATE_DIR, "turn.txt")
+  ) || "ralph";
+  console.log(`Current turn: ${currentTurn}`);
+  console.log(line());
+}
+
+function launchGeneric(projectDir: string): void {
+  console.log("Please manually open two terminals:");
+  console.log("");
+  console.log("Terminal 1 (Ralph):");
+  console.log(`  cd ${projectDir} && claude`);
+  console.log("");
+  console.log("Terminal 2 (Lisa):");
+  console.log(`  cd ${projectDir} && codex`);
+}
+
+// ─── auto ────────────────────────────────────────
+
+export function cmdAuto(args: string[]): void {
+  const projectDir = process.cwd();
+  const task = args.join(" ");
+
+  console.log(line());
+  console.log("Ralph-Lisa Loop - Auto Mode");
+  console.log(line());
+  console.log(`Project: ${projectDir}`);
+  console.log("");
+
+  const { execSync } = require("node:child_process");
+
+  // Check prerequisites
+  try {
+    execSync("which tmux", { stdio: "pipe" });
+  } catch {
+    console.error("Error: tmux is required for auto mode.");
+    console.error(
+      "Install: brew install tmux (macOS) or apt install tmux (Linux)"
+    );
+    process.exit(1);
+  }
+
+  try {
+    execSync("which claude", { stdio: "pipe" });
+  } catch {
+    console.error("Error: 'claude' command not found.");
+    process.exit(1);
+  }
+
+  try {
+    execSync("which codex", { stdio: "pipe" });
+  } catch {
+    console.error("Error: 'codex' command not found.");
+    process.exit(1);
+  }
+
+  // Check file watcher
+  let watcher = "";
+  try {
+    execSync("which fswatch", { stdio: "pipe" });
+    watcher = "fswatch";
+  } catch {
+    try {
+      execSync("which inotifywait", { stdio: "pipe" });
+      watcher = "inotifywait";
+    } catch {
+      console.error("Error: File watcher required.");
+      console.error(
+        "Install: brew install fswatch (macOS) or apt install inotify-tools (Linux)"
+      );
+      process.exit(1);
+    }
+  }
+
+  // Check if initialized
+  const claudeMd = path.join(projectDir, "CLAUDE.md");
+  if (
+    !fs.existsSync(claudeMd) ||
+    !readFile(claudeMd).includes(MARKER)
+  ) {
+    console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
+    process.exit(1);
+  }
+
+  // Initialize task
+  if (task) {
+    console.log(`Task: ${task}`);
+    cmdInit(task.split(" "));
+    console.log("");
+  }
+
+  const sessionName = "ralph-lisa-auto";
+  const dir = stateDir(projectDir);
+  fs.mkdirSync(dir, { recursive: true });
+
+  // Create watcher script
+  const watcherScript = path.join(dir, "watcher.sh");
+  let watcherContent = `#!/bin/bash
+# Turn watcher - triggers agents on turn change
+
+STATE_DIR=".dual-agent"
+LAST_TURN=""
+
+trigger_agent() {
+  local turn="$1"
+  if [[ "$turn" == "ralph" ]]; then
+    tmux send-keys -t ${sessionName}:0.0 "go" Enter 2>/dev/null || true
+  elif [[ "$turn" == "lisa" ]]; then
+    tmux send-keys -t ${sessionName}:0.1 "go" Enter 2>/dev/null || true
+  fi
+}
+
+check_and_trigger() {
+  if [[ -f "$STATE_DIR/turn.txt" ]]; then
+    CURRENT_TURN=$(cat "$STATE_DIR/turn.txt" 2>/dev/null || echo "")
+    if [[ -n "$CURRENT_TURN" && "$CURRENT_TURN" != "$LAST_TURN" ]]; then
+      echo "[Watcher] Turn changed: $LAST_TURN -> $CURRENT_TURN"
+      LAST_TURN="$CURRENT_TURN"
+      sleep 1
+      trigger_agent "$CURRENT_TURN"
+    fi
+  fi
+}
+
+echo "[Watcher] Starting... (Ctrl+C to stop)"
+echo "[Watcher] Monitoring $STATE_DIR/turn.txt"
+
+sleep 2
+check_and_trigger
+
+`;
+
+  if (watcher === "fswatch") {
+    watcherContent += `fswatch -o "$STATE_DIR/turn.txt" 2>/dev/null | while read; do
+  check_and_trigger
+done
+`;
+  } else if (watcher === "inotifywait") {
+    watcherContent += `while inotifywait -e modify "$STATE_DIR/turn.txt" 2>/dev/null; do
+  check_and_trigger
+done
+`;
+  } else {
+    watcherContent += `while true; do
+  check_and_trigger
+  sleep 2
+done
+`;
+  }
+
+  writeFile(watcherScript, watcherContent);
+  fs.chmodSync(watcherScript, 0o755);
+
+  // Launch tmux session
+  execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null || true`);
+  execSync(
+    `tmux new-session -d -s "${sessionName}" -n "main" -c "${projectDir}"`
+  );
+  execSync(
+    `tmux split-window -h -t "${sessionName}" -c "${projectDir}"`
+  );
+  execSync(
+    `tmux split-window -v -t "${sessionName}:0.0" -c "${projectDir}" -l 8`
+  );
+  execSync(
+    `tmux select-layout -t "${sessionName}" main-vertical`
+  );
+
+  execSync(
+    `tmux send-keys -t "${sessionName}:0.0" "echo '=== Ralph (Claude Code) ===' && claude" Enter`
+  );
+  execSync(
+    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Lisa (Codex) ===' && codex" Enter`
+  );
+  execSync(
+    `tmux send-keys -t "${sessionName}:0.2" "echo '=== Watcher ===' && ${watcherScript}" Enter`
+  );
+  execSync(`tmux select-pane -t "${sessionName}:0.0"`);
+
+  console.log("");
+  console.log(line());
+  console.log("Auto Mode Started!");
+  console.log(line());
+  console.log("");
+  console.log("Layout:");
+  console.log("  +-----------+-----------+");
+  console.log("  |   Ralph   |   Lisa    |");
+  console.log("  |  (Claude) |  (Codex)  |");
+  console.log("  +-----------+-----------+");
+  console.log("  |       Watcher         |");
+  console.log("  +-----------------------+");
+  console.log("");
+  console.log("Attaching to session...");
+  console.log(line());
+
+  execSync(`tmux attach-session -t "${sessionName}"`, { stdio: "inherit" });
+}
+
+// ─── policy ──────────────────────────────────────
+
+export function cmdPolicy(args: string[]): void {
+  const sub = args[0];
+  if (sub !== "check") {
+    console.error("Usage: ralph-lisa policy check <ralph|lisa>");
+    process.exit(1);
+  }
+  const role = args[1] as "ralph" | "lisa";
+  if (role !== "ralph" && role !== "lisa") {
+    console.error("Usage: ralph-lisa policy check <ralph|lisa>");
+    process.exit(1);
+  }
+
+  checkSession();
+  const dir = stateDir();
+  const file = role === "ralph" ? "work.md" : "review.md";
+  const content = readFile(path.join(dir, file));
+  if (!content) {
+    console.log("No submission to check.");
+    return;
+  }
+
+  const tag = extractTag(content);
+  const ok = runPolicyCheck(role, tag, content);
+  if (ok) {
+    console.log("Policy check passed.");
+  }
+}
