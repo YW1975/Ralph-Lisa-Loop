@@ -141,9 +141,17 @@ function showHelp(): void {
   console.log("");
   console.log("Policy:");
   console.log(
-    "  ralph-lisa policy check <ralph|lisa> Check submission policy"
+    "  ralph-lisa policy check <ralph|lisa> Check submission (hard gate)"
   );
-  console.log("  RL_POLICY_MODE=warn|block|off       Set policy mode");
+  console.log(
+    "  ralph-lisa policy check-consensus   Check if both [CONSENSUS]"
+  );
+  console.log(
+    "  ralph-lisa policy check-next-step   Comprehensive pre-step check"
+  );
+  console.log("");
+  console.log("  Standalone policy check always exits non-zero on violations.");
+  console.log("  RL_POLICY_MODE (warn|block|off) only affects inline submit checks.");
 }
 
 function showVersion(): void {

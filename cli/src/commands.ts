@@ -433,11 +433,11 @@ export function cmdUninit(): void {
       // ignore
     }
   }
-  // Remove .codex/config.toml only if it points to our instructions
+  // Remove .codex/config.toml only if it has our marker
   const codexConfig = path.join(projectDir, ".codex", "config.toml");
   if (fs.existsSync(codexConfig)) {
     const configContent = fs.readFileSync(codexConfig, "utf-8");
-    if (configContent.includes("CODEX.md") || configContent.includes("ralph-lisa")) {
+    if (configContent.includes(MARKER)) {
       fs.unlinkSync(codexConfig);
       console.log("Removed: .codex/config.toml");
     }
@@ -599,8 +599,9 @@ Read Ralph's latest submission.
 `;
   writeFile(path.join(codexSkillDir, "SKILL.md"), skillContent);
 
-  // Create .codex/config.toml
-  const codexConfig = `[instructions]
+  // Create .codex/config.toml (with marker for safe uninit)
+  const codexConfig = `# ${MARKER} - managed by ralph-lisa-loop
+[instructions]
 default = "./CODEX.md"
 
 [skills]
@@ -692,12 +693,11 @@ export function cmdStart(args: string[]): void {
     process.exit(1);
   }
 
-  // Check if initialized
+  // Check if initialized (full init has CLAUDE.md marker, minimal has .dual-agent/)
   const claudeMd = path.join(projectDir, "CLAUDE.md");
-  if (
-    !fs.existsSync(claudeMd) ||
-    !readFile(claudeMd).includes(MARKER)
-  ) {
+  const hasFullInit = fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER);
+  const hasSession = fs.existsSync(path.join(projectDir, STATE_DIR));
+  if (!hasFullInit && !hasSession) {
     console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
     process.exit(1);
   }
@@ -859,12 +859,11 @@ export function cmdAuto(args: string[]): void {
     }
   }
 
-  // Check if initialized
+  // Check if initialized (full init has CLAUDE.md marker, minimal has .dual-agent/)
   const claudeMd = path.join(projectDir, "CLAUDE.md");
-  if (
-    !fs.existsSync(claudeMd) ||
-    !readFile(claudeMd).includes(MARKER)
-  ) {
+  const hasFullInit = fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER);
+  const hasSession = fs.existsSync(path.join(projectDir, STATE_DIR));
+  if (!hasFullInit && !hasSession) {
     console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
     process.exit(1);
   }
@@ -987,8 +986,22 @@ done
 
 export function cmdPolicy(args: string[]): void {
   const sub = args[0];
+
+  if (sub === "check-consensus") {
+    cmdPolicyCheckConsensus();
+    return;
+  }
+
+  if (sub === "check-next-step") {
+    cmdPolicyCheckNextStep();
+    return;
+  }
+
   if (sub !== "check") {
-    console.error("Usage: ralph-lisa policy check <ralph|lisa>");
+    console.error("Usage:");
+    console.error("  ralph-lisa policy check <ralph|lisa>");
+    console.error("  ralph-lisa policy check-consensus");
+    console.error("  ralph-lisa policy check-next-step");
     process.exit(1);
   }
   const role = args[1] as "ralph" | "lisa";
@@ -1006,15 +1019,6 @@ export function cmdPolicy(args: string[]): void {
     return;
   }
 
-  // work.md/review.md has headers before the actual submission content.
-  // The actual submission starts after the blank line following the metadata.
-  // Format:
-  //   # Ralph Work
-  //   ## [TAG] Round N | Step: ...
-  //   **Updated**: ...
-  //   **Summary**: ...
-  //   (blank line)
-  //   [TAG] actual content...
   const content = extractSubmissionContent(raw);
   if (!content) {
     console.log("No submission content found.");
@@ -1036,13 +1040,110 @@ export function cmdPolicy(args: string[]): void {
   }
 
   console.error("");
-  console.error("⚠️  Policy warnings:");
+  console.error("⚠️  Policy violations:");
   for (const v of violations) {
     console.error(`  - ${v.message}`);
   }
   console.error("");
 
-  // policy check as standalone command always uses non-zero exit for violations
+  // Standalone policy check always exits non-zero on violations,
+  // regardless of RL_POLICY_MODE. This is a hard gate for use in
+  // scripts/hooks. RL_POLICY_MODE only affects inline checks during submit.
+  process.exit(1);
+}
+
+/**
+ * Check if the most recent round has both agents submitting [CONSENSUS].
+ */
+function cmdPolicyCheckConsensus(): void {
+  checkSession();
+  const dir = stateDir();
+
+  const workRaw = readFile(path.join(dir, "work.md"));
+  const reviewRaw = readFile(path.join(dir, "review.md"));
+
+  const workContent = extractSubmissionContent(workRaw);
+  const reviewContent = extractSubmissionContent(reviewRaw);
+
+  const workTag = workContent ? extractTag(workContent) : "";
+  const reviewTag = reviewContent ? extractTag(reviewContent) : "";
+
+  const issues: string[] = [];
+  if (workTag !== "CONSENSUS") {
+    issues.push(
+      `Ralph's latest submission is [${workTag || "none"}], not [CONSENSUS].`
+    );
+  }
+  if (reviewTag !== "CONSENSUS") {
+    issues.push(
+      `Lisa's latest submission is [${reviewTag || "none"}], not [CONSENSUS].`
+    );
+  }
+
+  if (issues.length === 0) {
+    console.log("Consensus reached: both agents submitted [CONSENSUS].");
+    return;
+  }
+
+  console.error("Consensus NOT reached:");
+  for (const issue of issues) {
+    console.error(`  - ${issue}`);
+  }
+  process.exit(1);
+}
+
+/**
+ * Comprehensive check for proceeding to the next step:
+ * 1. Both agents have submitted [CONSENSUS]
+ * 2. Ralph's submission passes policy checks
+ * 3. Lisa's submission passes policy checks
+ */
+function cmdPolicyCheckNextStep(): void {
+  checkSession();
+  const dir = stateDir();
+
+  const workRaw = readFile(path.join(dir, "work.md"));
+  const reviewRaw = readFile(path.join(dir, "review.md"));
+
+  const workContent = extractSubmissionContent(workRaw);
+  const reviewContent = extractSubmissionContent(reviewRaw);
+
+  const workTag = workContent ? extractTag(workContent) : "";
+  const reviewTag = reviewContent ? extractTag(reviewContent) : "";
+
+  const allIssues: string[] = [];
+
+  // 1. Consensus check
+  if (workTag !== "CONSENSUS") {
+    allIssues.push(
+      `Ralph's latest is [${workTag || "none"}], not [CONSENSUS].`
+    );
+  }
+  if (reviewTag !== "CONSENSUS") {
+    allIssues.push(
+      `Lisa's latest is [${reviewTag || "none"}], not [CONSENSUS].`
+    );
+  }
+
+  // 2. Policy checks on latest submissions (if content exists)
+  if (workContent && workTag) {
+    const rv = checkRalph(workTag, workContent);
+    for (const v of rv) allIssues.push(`Ralph: ${v.message}`);
+  }
+  if (reviewContent && reviewTag) {
+    const lv = checkLisa(reviewTag, reviewContent);
+    for (const v of lv) allIssues.push(`Lisa: ${v.message}`);
+  }
+
+  if (allIssues.length === 0) {
+    console.log("Ready to proceed: consensus reached and all checks pass.");
+    return;
+  }
+
+  console.error("Not ready to proceed:");
+  for (const issue of allIssues) {
+    console.error(`  - ${issue}`);
+  }
   process.exit(1);
 }
 
