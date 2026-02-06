@@ -199,10 +199,12 @@ ralph-lisa policy check-consensus
 
 # 检查是否可进入下一步
 ralph-lisa policy check-next-step
-# 返回: 综合检查结果
+# 返回: 综合检查结果（共识 + 各方 policy 检查）
 ```
 
-**模式配置:**
+> **语义区分**: 独立运行 `ralph-lisa policy check*` 是硬检查（发现违例即 exit 1），不受 `RL_POLICY_MODE` 影响。`RL_POLICY_MODE` 仅控制 `submit-ralph` / `submit-lisa` 时的内联检查。
+
+**模式配置（内联检查）:**
 
 ```bash
 export RL_POLICY_MODE=warn  # off | warn | block
@@ -234,7 +236,8 @@ export RL_POLICY_MODE=warn  # off | warn | block
 npm i -g ralph-lisa-loop
 
 # 核心命令 (替代 io.sh)
-ralph-lisa init [project-dir]     # 初始化项目
+ralph-lisa init [project-dir]     # 初始化项目（完整模式）
+ralph-lisa init --minimal [dir]   # 最小初始化（仅 .dual-agent/，零项目文件）
 ralph-lisa uninit [project-dir]   # 清理项目文件
 ralph-lisa start "task"           # 启动双 agent
 ralph-lisa auto "task"            # 自动模式
@@ -295,6 +298,8 @@ Codex 没有 plugin 系统，使用全局 config + skills：
 
 #### 4.4 零侵入后的项目足迹
 
+使用 `ralph-lisa init --minimal` + 全局插件：
+
 ```
 项目目录：
   .dual-agent/              <- 仅运行时状态（可 .gitignore）
@@ -306,6 +311,8 @@ Codex 没有 plugin 系统，使用全局 config + skills：
 
 项目级文件: 0 个（不算运行时状态）
 ```
+
+> `start` 和 `auto` 命令在 minimal 模式下正常工作（检测 `.dual-agent/` 即可）。
 
 ### 5. 文档对齐
 

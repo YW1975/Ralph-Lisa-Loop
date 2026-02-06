@@ -57,8 +57,9 @@
 
 - [x] 建 `ralph-lisa-loop` npm 包 (cli/ 目录)
 - [x] 命令：`init` / `uninit` / `start` / `auto` / `submit-ralph` / `submit-lisa` / `whose-turn` / `status` / `history` / `step` / `read` / `archive` / `clean` / `policy`
+- [x] `init --minimal`: 仅创建 .dual-agent/（零项目文件），配合全局插件使用
 - [x] 全面替换：模板与命令全部改用 `ralph-lisa`，不考虑旧项目兼容
-- [x] `uninit` 删除 init 创建的所有项目文件，并清理 CLAUDE.md 标记区块（如有）
+- [x] `uninit` 通过 RALPH-LISA-LOOP 标记精确识别自有文件，保留用户内容
 
 验收：
 
@@ -66,7 +67,7 @@
 - [x] 流程完整跑通，无依赖 `./io.sh`
 - [x] 提交记录仍写入 `history.md`
 
-### 2. Policy warn 模式（存在性检查）
+### 2. Policy 层
 
 - [x] Ralph 提交必须包含 Test Results 段落
 - [x] 当首行标签为 [RESEARCH] 时：
@@ -74,19 +75,24 @@
   - [x] 至少包含 2 个字段（参考实现 / 关键类型 / 数据结构 / 验证方式）
   - [x] 或提供同等信息量的调研摘要 + 证据（文件路径/链接）
 - [x] Lisa 提交必须有至少 1 条理由（PASS/NEEDS_WORK 均要求）
-- [x] Policy 仅 warn，不阻断
+- [x] `RL_POLICY_MODE=warn` 仅 warn，不阻断（内联检查）
+- [x] `policy check-consensus`: 检查双方 [CONSENSUS]
+- [x] `policy check-next-step`: 综合检查（共识 + 各方 policy）
+- [x] 独立 policy check* 为硬检查（exit 1），不受 RL_POLICY_MODE 控制
 
 验收：
 
 - [x] 缺 Test Results -> warn ✅ (tested)
 - [x] [RESEARCH] 无内容字段 -> warn ✅ (tested)
 - [x] Lisa 无理由 -> warn ✅ (tested)
+- [x] check-consensus: 双方 [CONSENSUS] -> pass; 否则 exit 1 ✅ (E2E tested)
+- [x] check-next-step: 综合检查 -> pass/fail ✅ (E2E tested)
 
 ### 3. 自动化测试
 
-- [x] Node test runner 测试 (15/15 pass)
+- [x] Node test runner 测试 (20/20 pass)
   - state.test.ts: extractTag, extractSummary, VALID_TAGS
-  - policy.test.ts: checkRalph, checkLisa
+  - policy.test.ts: checkRalph, checkLisa (含 RESEARCH 字段计数边界)
 
 ---
 

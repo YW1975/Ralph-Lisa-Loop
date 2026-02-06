@@ -46,19 +46,23 @@
    - npm 包 `ralph-lisa-loop`，CLI 命令 `ralph-lisa`
    - Node/TS 重写，零外部依赖（仅 Node stdlib: fs, path, process.argv）
    - 14 个命令: init, uninit, start, auto, submit-ralph, submit-lisa, whose-turn, status, read, step, history, archive, clean, policy
-   - uninit: 删除 init 生成的所有文件，清理 CLAUDE.md 标记区块
+   - `init --minimal`: 仅创建 .dual-agent/（零项目文件，配合全局插件使用）
+   - uninit: 删除 init 生成的所有文件，清理 CLAUDE.md/CODEX.md 标记区块，通过 RALPH-LISA-LOOP 标记精确识别自有文件
 
-2. **Policy warn 模式** (cli/src/policy.ts)
+2. **Policy 层** (cli/src/policy.ts + commands.ts)
    - Ralph [CODE]/[FIX]: 检查 Test Results 段落
    - Ralph [RESEARCH]: 检查实质内容（至少 2 个字段或等价摘要）
    - Lisa [PASS]/[NEEDS_WORK]: 检查至少 1 条理由
-   - `RL_POLICY_MODE=warn` 仅提示，不阻断
+   - `RL_POLICY_MODE=warn` 仅提示，不阻断（内联检查）
+   - `ralph-lisa policy check-consensus`: 检查双方 [CONSENSUS]
+   - `ralph-lisa policy check-next-step`: 综合检查（共识 + policy）
+   - 独立 `policy check*` 命令为硬检查（exit 1），不受 RL_POLICY_MODE 控制
 
 3. **全面替换**
    - 所有模板 `./io.sh` → `ralph-lisa`
 
 ### 验证结果
-- 单元测试: 15/15 pass ✅
+- 单元测试: 20/20 pass ✅
 - E2E: init → submit-ralph → submit-lisa → status → history → uninit ✅
 - Policy warn: 缺 Test Results → warn ✅
 - Policy warn: [RESEARCH] 无字段 → warn ✅
