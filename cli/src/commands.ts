@@ -600,9 +600,9 @@ Read Ralph's latest submission.
   writeFile(path.join(codexSkillDir, "SKILL.md"), skillContent);
 
   // Create .codex/config.toml (with marker for safe uninit)
+  // Codex reads AGENTS.md by default; fallback to CODEX.md for our setup
   const codexConfig = `# ${MARKER} - managed by ralph-lisa-loop
-[instructions]
-default = "./CODEX.md"
+project_doc_fallback_filenames = ["CODEX.md"]
 
 [skills]
 enabled = true
