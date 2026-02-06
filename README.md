@@ -18,10 +18,12 @@ Ralph writes → Lisa reviews → Consensus → Next step
      └────────────────────────────────────────┘
 ```
 
-- **Ralph** (Claude Code): Lead developer - plans, codes, tests
+- **Ralph** (Claude Code): Lead developer - researches, plans, codes, tests
 - **Lisa** (Codex): Code reviewer - reviews, provides feedback
 - **Turn Control**: Only one agent works at a time
 - **Consensus Required**: Both must agree before proceeding
+- **Research First**: When involving reference implementations/protocols/APIs, Ralph must submit [RESEARCH] before coding
+- **Test Results Required**: [CODE] and [FIX] submissions must include test results
 
 ## Quick Start
 
@@ -79,17 +81,19 @@ Agents must check `whose-turn` before any action. Submissions automatically pass
 ### Tag System
 Every submission requires a tag:
 
-| Ralph Tags | Lisa Tags |
-|------------|-----------|
-| `[PLAN]` | `[PASS]` |
-| `[CODE]` | `[NEEDS_WORK]` |
-| `[FIX]` | `[DISCUSS]` |
-| `[DISCUSS]` | `[QUESTION]` |
-| `[QUESTION]` | `[CONSENSUS]` |
-| `[CONSENSUS]` | |
+| Ralph Tags | Lisa Tags | Shared |
+|------------|-----------|--------|
+| `[PLAN]` | `[PASS]` | `[CHALLENGE]` |
+| `[RESEARCH]` | `[NEEDS_WORK]` | `[DISCUSS]` |
+| `[CODE]` | | `[QUESTION]` |
+| `[FIX]` | | `[CONSENSUS]` |
+
+- `[RESEARCH]`: Submit research results before coding (when involving reference implementations, protocols, or external APIs)
+- `[CHALLENGE]`: Explicitly disagree with the other agent's suggestion, providing counter-argument
+- `[CODE]`/`[FIX]`: Must include Test Results section
 
 ### Consensus Protocol
-Lisa's verdict is advisory. Ralph can agree or disagree. Both must reach consensus before `/next-step`.
+Lisa's verdict is advisory. Ralph can agree or use `[CHALLENGE]` to disagree. Both must reach genuine consensus before `/next-step`. Silent acceptance (bare `[FIX]` without reasoning) is not allowed.
 
 ### Deadlock Escape
 After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).

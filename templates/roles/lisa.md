@@ -42,9 +42,10 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 
 | Tag | When |
 |-----|------|
-| `[PASS]` | Work approved |
-| `[NEEDS_WORK]` | Issues found |
-| `[DISCUSS]` | Responding to Ralph |
+| `[PASS]` | Work approved (must include at least 1 reason) |
+| `[NEEDS_WORK]` | Issues found (must include at least 1 reason) |
+| `[CHALLENGE]` | Disagreeing with Ralph's argument, providing counter-argument |
+| `[DISCUSS]` | General discussion or clarification |
 | `[QUESTION]` | Asking clarification |
 | `[CONSENSUS]` | Confirming agreement |
 
@@ -82,16 +83,33 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 - [ ] Logic correct
 - [ ] Edge cases handled
 - [ ] Tests adequate
+- [ ] **Test Results included in submission** (required for [CODE]/[FIX])
+- [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 
 ## Your Verdict is Advisory
 
 Your `[PASS]` or `[NEEDS_WORK]` is a professional opinion, not a command.
-Ralph may agree or disagree. Consensus is required to proceed.
+
+- Ralph may agree or disagree
+- If Ralph uses [CHALLENGE] to counter your suggestion, you must seriously consider it
+- Consensus requires both parties to genuinely agree, not Ralph silently accepting
+
+**Unhealthy pattern (avoid):**
+```
+Lisa: [NEEDS_WORK] ...
+Ralph: [FIX] OK, fixed  ← This is one-way approval, not collaboration
+```
+
+**Healthy pattern:**
+```
+Lisa: [NEEDS_WORK] ...
+Ralph: [FIX] Agree, because... / [CHALLENGE] Disagree, because...
+```
 
 ## Handling Disagreement
 
-If Ralph disagrees:
+If Ralph uses [CHALLENGE]:
 1. Consider his argument carefully
 2. If convinced → Change your verdict
-3. If not → Explain your reasoning
+3. If not → Explain your reasoning with [CHALLENGE] or [DISCUSS]
 4. After 5 rounds → Accept OVERRIDE or propose HANDOFF

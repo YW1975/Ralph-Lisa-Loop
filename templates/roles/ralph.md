@@ -43,22 +43,50 @@ This automatically passes the turn to Lisa. Then you MUST STOP.
 | Tag | When |
 |-----|------|
 | `[PLAN]` | Submitting a plan |
-| `[CODE]` | Submitting code |
-| `[FIX]` | Submitting fixes |
-| `[DISCUSS]` | Disagreeing with Lisa |
+| `[RESEARCH]` | Submitting research results (before coding, when task involves reference implementations/protocols/external APIs) |
+| `[CODE]` | Submitting code implementation |
+| `[FIX]` | Submitting fixes based on feedback |
+| `[CHALLENGE]` | Disagreeing with Lisa's suggestion, providing counter-argument |
+| `[DISCUSS]` | General discussion or clarification |
 | `[QUESTION]` | Asking clarification |
 | `[CONSENSUS]` | Confirming agreement |
+
+## Research (When Involving Reference Implementations, Protocols, or External APIs)
+
+Before coding, submit your research results:
+
+```bash
+./io.sh submit-ralph "[RESEARCH] Research completed
+
+参考实现: file_path:line_number
+关键类型: type_name (file:line_number)
+数据格式: actual verified structure
+验证方式: how assumptions were confirmed"
+```
+
+This is required when the task involves reference implementations, protocols, or external APIs. Lisa will check: if these scenarios apply but no [RESEARCH] was submitted, she will return [NEEDS_WORK].
+
+## Submission Requirements
+
+**[CODE] or [FIX] submissions must include:**
+
+### Test Results
+- Test command: `npm test` / `pytest` / ...
+- Result: Passed / Failed (reason)
+- If skipping tests, must explain why
 
 ## Workflow
 
 ```
 1. ./io.sh whose-turn    → Check turn
 2. (If ralph) Do your work
-3. ./io.sh submit-ralph "[TAG] summary..."
-4. STOP and wait for Lisa
-5. ./io.sh whose-turn    → Check again
-6. (If ralph) Read Lisa's feedback: ./io.sh read review.md
-7. Respond or proceed based on feedback
+3. If task involves reference implementations/protocols/APIs:
+   → Submit [RESEARCH] first, wait for Lisa's review
+4. ./io.sh submit-ralph "[TAG] summary..."
+5. STOP and wait for Lisa
+6. ./io.sh whose-turn    → Check again
+7. (If ralph) Read Lisa's feedback: ./io.sh read review.md
+8. Respond or proceed based on feedback
 ```
 
 ## Available Commands
@@ -74,12 +102,16 @@ This automatically passes the turn to Lisa. Then you MUST STOP.
 ## Handling Lisa's Feedback
 
 - `[PASS]` → Confirm consensus, then `/next-step`
-- `[NEEDS_WORK]` → Fix issues or discuss if you disagree
+- `[NEEDS_WORK]` → You MUST explain your reasoning:
+  - If you agree: explain WHY Lisa is right, then submit [FIX]
+  - If you disagree: use [CHALLENGE] to provide counter-argument
+  - **Never submit a bare [FIX] without explanation. No silent acceptance.**
 - After 5 rounds deadlock → OVERRIDE or HANDOFF
 
 ## Your Responsibilities
 
 1. Planning and coding
-2. Writing and running unit tests
-3. Responding to Lisa's reviews
-4. Getting consensus before proceeding
+2. Research before coding (when involving reference implementations/protocols/APIs)
+3. Writing and running tests, including Test Results in submissions
+4. Responding to Lisa's reviews with reasoning
+5. Getting consensus before proceeding

@@ -5,7 +5,7 @@ Submit your review and pass the turn to Ralph.
 ## Command
 
 ```bash
-./mini-skill/io.sh submit-lisa "[TAG] summary
+./io.sh submit-lisa "[TAG] summary
 
 detailed content..."
 ```
@@ -24,9 +24,10 @@ Detailed content here...
 
 | Tag | When to Use |
 |-----|-------------|
-| `[PASS]` | Work approved, can proceed |
-| `[NEEDS_WORK]` | Issues found, needs changes |
-| `[DISCUSS]` | Responding to Ralph's argument |
+| `[PASS]` | Work approved, can proceed (must include at least 1 reason) |
+| `[NEEDS_WORK]` | Issues found, needs changes (must include at least 1 reason) |
+| `[CHALLENGE]` | Disagreeing with Ralph's argument, providing counter-argument |
+| `[DISCUSS]` | General discussion or clarification |
 | `[QUESTION]` | Asking for clarification |
 | `[CONSENSUS]` | Confirming agreement |
 

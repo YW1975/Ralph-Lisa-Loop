@@ -8,7 +8,7 @@
 #   review.md  - Lisa's submissions
 #   history.md - Full history
 #
-# Tags: [PLAN] [CODE] [FIX] [PASS] [NEEDS_WORK] [DISCUSS] [QUESTION] [CONSENSUS]
+# Tags: [PLAN] [RESEARCH] [CODE] [FIX] [PASS] [NEEDS_WORK] [CHALLENGE] [DISCUSS] [QUESTION] [CONSENSUS]
 
 set -euo pipefail
 
@@ -17,7 +17,7 @@ CMD="${1:-}"
 shift || true
 
 # Valid tags
-VALID_TAGS="PLAN|CODE|FIX|PASS|NEEDS_WORK|DISCUSS|QUESTION|CONSENSUS"
+VALID_TAGS="PLAN|RESEARCH|CODE|FIX|PASS|NEEDS_WORK|CHALLENGE|DISCUSS|QUESTION|CONSENSUS"
 
 check_session() {
   if [[ ! -d "$STATE_DIR" ]]; then
@@ -158,7 +158,7 @@ EOF
     if [[ -z "$CONTENT" ]]; then
       echo "Usage: io.sh submit-ralph \"[TAG] summary\n\ndetails...\""
       echo ""
-      echo "Valid tags: PLAN, CODE, FIX, DISCUSS, QUESTION, CONSENSUS"
+      echo "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
@@ -176,7 +176,7 @@ EOF
       echo "Error: Content must start with a valid tag."
       echo "Format: [TAG] One line summary"
       echo ""
-      echo "Valid tags: PLAN, CODE, FIX, DISCUSS, QUESTION, CONSENSUS"
+      echo "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
@@ -220,7 +220,7 @@ EOF
     if [[ -z "$CONTENT" ]]; then
       echo "Usage: io.sh submit-lisa \"[TAG] summary\n\ndetails...\""
       echo ""
-      echo "Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS"
+      echo "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
@@ -238,7 +238,7 @@ EOF
       echo "Error: Content must start with a valid tag."
       echo "Format: [TAG] One line summary"
       echo ""
-      echo "Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS"
+      echo "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
       exit 1
     fi
 
@@ -368,8 +368,8 @@ EOF
     echo "  io.sh submit-lisa \"[TAG]...\"  Lisa submits (passes turn to Ralph)"
     echo ""
     echo "Tags:"
-    echo "  Ralph: [PLAN] [CODE] [FIX] [DISCUSS] [QUESTION] [CONSENSUS]"
-    echo "  Lisa:  [PASS] [NEEDS_WORK] [DISCUSS] [QUESTION] [CONSENSUS]"
+    echo "  Ralph: [PLAN] [RESEARCH] [CODE] [FIX] [CHALLENGE] [DISCUSS] [QUESTION] [CONSENSUS]"
+    echo "  Lisa:  [PASS] [NEEDS_WORK] [CHALLENGE] [DISCUSS] [QUESTION] [CONSENSUS]"
     echo ""
     echo "Other Commands:"
     echo "  io.sh init \"task\"       Initialize session"
