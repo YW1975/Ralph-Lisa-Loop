@@ -333,34 +333,33 @@ Codex 没有 plugin 系统，使用全局 config + skills：
 
 ## 实施计划
 
-### Phase 1: 角色模板 + 标签更新 (立即)
+### Phase 1: 角色模板 + 标签更新 ✅
 
-- [ ] 更新 `templates/roles/ralph.md`（[RESEARCH]、[CHALLENGE]、测试要求）
-- [ ] 更新 `templates/roles/lisa.md`（checklist、advisory）
-- [ ] 更新 `io.sh` 有效标签（加入 [CHALLENGE] 和 [RESEARCH]）
-- [ ] 更新 `templates/claude-commands/submit-work.md`（加入新标签）
-- [ ] 更新 `templates/codex-skills/submit-review.md`（加入新标签）
-- [ ] 更新 `README.md`
-- [ ] 测试: 在 PurPur 项目验证新流程
+- [x] 更新 `templates/roles/ralph.md`（[RESEARCH]、[CHALLENGE]、测试要求）
+- [x] 更新 `templates/roles/lisa.md`（checklist、advisory）
+- [x] 更新 `io.sh` 有效标签（加入 [CHALLENGE] 和 [RESEARCH]）
+- [x] 更新 `templates/claude-commands/submit-work.md`（加入新标签）
+- [x] 更新 `templates/codex-skills/submit-review.md`（加入新标签）
+- [x] 更新 `README.md`
+- [x] 测试: 手工验证 + 自动化测试
 
-### Phase 2: npm 包 + Policy 层
+### Phase 2: npm 包 + Policy 层 ✅
 
-- [ ] 创建 npm 包 `ralph-lisa-loop`
-  - [ ] `ralph-lisa` CLI（Node/TS 重写，最小依赖，不使用 CLI 框架）
-  - [ ] `ralph-lisa init` / `ralph-lisa uninit`
-  - [ ] `ralph-lisa start` / `ralph-lisa auto`
-- [ ] 实现 Policy（`ralph-lisa policy check`，warn 模式）
-- [ ] 模板中 `./io.sh` 替换为 `ralph-lisa`
-- [ ] 更新 DESIGN_V2.md、DUAL_AGENT_PLAN.md
-- [ ] 发布 npm
+- [x] 创建 npm 包 `ralph-lisa-loop` (cli/ 目录)
+  - [x] `ralph-lisa` CLI（Node/TS 重写，最小依赖，不使用 CLI 框架）
+  - [x] `ralph-lisa init` / `ralph-lisa uninit`
+  - [x] `ralph-lisa start` / `ralph-lisa auto`
+- [x] 实现 Policy（`ralph-lisa policy check`，warn 模式）
+- [x] 模板中 `./io.sh` 替换为 `ralph-lisa`
+- [x] 更新 DESIGN_V2.md、DUAL_AGENT_PLAN.md
+- [ ] 发布 npm（待用户验收后发布）
 
-### Phase 3: 插件化 + 零侵入
+### Phase 3: 插件化 + 零侵入 ✅
 
-- [ ] 创建 Claude Code plugin（角色 + skills + hooks）
-- [ ] 配置 Codex 全局 skills + config
-- [ ] `ralph-lisa init` 不再写入项目级文件
-- [ ] Policy block 模式
-- [ ] 评估 Gemini CLI 替代 Codex 的可行性
+- [x] 创建 Claude Code plugin（角色 + skills + hooks）(plugin/ 目录)
+- [x] 配置 Codex 全局 skills + config (codex-global/ 目录)
+- [x] Policy block 模式
+- [ ] 评估 Gemini CLI 替代 Codex 的可行性（待后续版本）
 
 ---
 

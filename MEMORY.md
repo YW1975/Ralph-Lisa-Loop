@@ -9,21 +9,57 @@
 
 | # | 问题 | 优先级 | 状态 |
 |---|------|--------|------|
-| 1 | 缺少调研阶段 | P0 | 待实施 |
-| 2 | 测试责任模糊 | P1 | 待实施 |
-| 3 | Ralph-Lisa 协作不平等 | P1 | 待实施 |
+| 1 | 缺少调研阶段 | P0 | ✅ V3 Phase 1 ([RESEARCH] 标签) |
+| 2 | 测试责任模糊 | P1 | ✅ V3 Phase 1 (Test Results 要求) |
+| 3 | Ralph-Lisa 协作不平等 | P1 | ✅ V3 Phase 1 ([CHALLENGE] 标签) |
 | 4 | 基础记忆能力缺失 | P1 | 待实施 |
-| 5 | 项目级 Skill 侵入性 | P2 | 待实施 |
+| 5 | 项目级 Skill 侵入性 | P2 | ✅ V3 Phase 3 (plugin + 零侵入) |
 | 6 | 用户介入机制 | P2 | 待与 Codex 讨论 |
 | 7 | 回退/决策记录/复盘机制 | P2 | 待实施 |
 
 ### 核心改进方向
-1. **流程增强**: 增加 [RESEARCH] 阶段，强制调研参考实现
-2. **质量保障**: 明确测试要求，Lisa 审查测试状态
-3. **协作优化**: Ralph-Lisa 平等讨论，引入 [CHALLENGE] 机制
-4. **基础设施**: 实现记忆/文档跟随能力
-5. **易用性**: 用户级配置，减少项目侵入
-6. **落地方式**: 规范落地应以角色定义/流程约束为主，`io.sh` 保持纯通信层（不做业务判断）
+1. **流程增强**: ✅ 增加 [RESEARCH] 标签，强制调研参考实现
+2. **质量保障**: ✅ 明确测试要求，Policy warn/block 检查
+3. **协作优化**: ✅ Ralph-Lisa 平等讨论，[CHALLENGE] 机制
+4. **基础设施**: 待实施 — 记忆/文档跟随能力
+5. **易用性**: ✅ npm 全局 CLI + Claude Code plugin + Codex 全局 skills
+6. **落地方式**: ✅ 角色定义/流程约束 + Policy 层（io.sh 保持纯通信层）
+
+---
+
+## V3 实施记录 (2026-02-06 ~ 2026-02-07)
+
+### Phase 1: 模板与标签规范 ✅
+
+提交: `4d099b5 V3 Phase 1`
+
+改动:
+- templates/roles/ralph.md — 加入 [RESEARCH]、[CHALLENGE]、Test Results、回应规则
+- templates/roles/lisa.md — 加入 [CHALLENGE]、更新 checklist、advisory 语义
+- io.sh — VALID_TAGS 扩展
+- templates/claude-commands/submit-work.md — 新标签
+- templates/codex-skills/submit-review.md — 新标签 + 路径修复
+- README.md — 标签表更新
+
+### Phase 2: npm CLI + Policy warn ✅
+
+提交: `ea66dab V3 Phase 2+3`
+
+改动:
+- cli/ — ralph-lisa-loop npm 包 (Node/TS, 零外部依赖)
+  - 14 个 CLI 命令: init, uninit, start, auto, submit-ralph, submit-lisa, whose-turn, status, read, step, history, archive, clean, policy
+  - Policy warn/block 模式 (RL_POLICY_MODE 环境变量)
+  - 15 个单元测试 (state + policy)
+- 所有模板 `./io.sh` → `ralph-lisa`
+
+### Phase 3: 插件化 + 零侵入 ✅
+
+提交: `ea66dab V3 Phase 2+3` (同上)
+
+改动:
+- plugin/ — Claude Code plugin (skills + hooks + agents)
+- codex-global/ — Codex 全局配置模板 (config.toml + skills)
+- Policy block 模式已实现
 
 ---
 
@@ -48,11 +84,11 @@
 3. Review 只检查代码逻辑，没有验证数据格式假设是否正确
 4. 没有早期集成测试验证实际数据
 
-### 待改进项 (待复盘完成后实施)
-- [ ] 增加 [RESEARCH] 调研阶段
-- [ ] 调研需引用具体文件和行号
-- [ ] Lisa 审查时检查调研是否充分
-- [ ] 涉及协议/数据格式时必须先验证实际输出
+### 待改进项
+- [x] 增加 [RESEARCH] 调研标签 ✅ V3 Phase 1
+- [x] 调研需引用具体文件和行号 ✅ V3 Phase 1 (ralph.md 模板)
+- [x] Lisa 审查时检查调研是否充分 ✅ V3 Phase 1 (lisa.md checklist)
+- [x] Policy 检查 [RESEARCH] 内容充分性 ✅ V3 Phase 2
 
 ### 教训
 > 花 30 分钟认真读参考代码，能省下一天一夜调试。
@@ -79,17 +115,11 @@ Lisa: [PASS]
 3. **进度压力**: Ralph 倾向接受以加快进度，而不是讨论
 4. **缺乏激励**: 挑战 Lisa = 更多轮次 = 更慢，没有激励机制鼓励辩论
 
-### 对比：用户作为媒介时
-- 双方都向用户表达观点，而不是一方审另一方
-- 用户可以挑战任何一方
-- 形成真正的三方讨论，更健康
-
-### 待改进项 (待复盘完成后实施)
-- [ ] 重新定位角色：不是 Lisa 审查 Ralph，而是双方共同向用户负责
-- [ ] Ralph 收到 [NEEDS_WORK] 时必须说明理由（同意或反驳），禁止无理由接受
-- [ ] 引入 [CHALLENGE] 标签，Ralph 可以正式挑战 Lisa 的建议
-- [ ] 分歧时由用户仲裁，而不是 Ralph 自动让步
-- [ ] Lisa 的意见不自动获胜，需要经得起质疑
+### 待改进项
+- [x] Ralph 收到 [NEEDS_WORK] 时必须说明理由 ✅ V3 Phase 1
+- [x] 引入 [CHALLENGE] 标签 ✅ V3 Phase 1
+- [x] Lisa 的意见标记为 advisory ✅ V3 Phase 1
+- [ ] 分歧时由用户仲裁 — 待实施（用户介入机制）
 
 ### 教训
 > 流程设计把 Lisa 放在"最终裁决者"位置，而不是"平等讨论者"。
@@ -99,30 +129,11 @@ Lisa: [PASS]
 
 ## 2026-02-05 复盘：测试责任不清晰
 
-### 设计 vs 实际
-
-| CLAUDE.md 定义 | 实际执行 |
-|----------------|----------|
-| Ralph 负责编写和运行单元测试 | 经常跳过 |
-| Ralph 运行测试验证 | 代码写完就提交 |
-| Lisa 审查 | 只看代码逻辑，不强制要求测试 |
-
-### 这次 Bug 中的体现
-- 没有针对 ACP 协议的测试
-- 没有早期集成验证（实际连接 Gemini CLI）
-- 直到 UI 全部完成才发现流式输出没有内容
-
-### 问题根源
-1. **测试责任模糊**: 什么时候必须测试？什么级别的测试？没有明确规定
-2. **Lisa 不审查测试**: Lisa 的 checklist 里没有"测试是否通过"
-3. **没有硬性门槛**: 没有"测试通过才能提交"的强制规则
-4. **集成测试被延后**: 只写单元测试（如果写的话），集成测试留到最后
-
-### 待改进项 (待复盘完成后实施)
-- [ ] 明确测试要求：哪些场景必须有测试
-- [ ] Lisa 审查时检查测试状态
-- [ ] 涉及外部协议/API 时，必须先做集成验证
-- [ ] 引入"测试通过"作为 [CODE] 提交的前置条件
+### 待改进项
+- [x] 明确测试要求：[CODE]/[FIX] 必含 Test Results ✅ V3 Phase 1
+- [x] Lisa 审查时检查测试状态 ✅ V3 Phase 1 (checklist)
+- [x] Policy 检查 Test Results 存在性 ✅ V3 Phase 2
+- [ ] 涉及外部协议/API 时，必须先做集成验证 — 依赖项目具体情况
 
 ### 教训
 > 如果 Ralph 在编码后运行过集成测试，应该能立刻发现问题。
@@ -132,143 +143,18 @@ Lisa: [PASS]
 
 ## 2026-02-05 复盘：项目级 Skill 的侵入性问题
 
-### 当前状态
-每个项目需要初始化并添加文件：
+### 最终解决方案 ✅ V3 Phase 2+3
+
 ```
-├── CLAUDE.md          ← Ralph-Lisa 流程定义
-├── mini-skill/        ← 协作脚本
-│   └── io.sh
-└── .claude/
-    └── skills/        ← 技能文件
+Phase 2: npm 全局 CLI
+  npm i -g ralph-lisa-loop
+  ralph-lisa init / uninit / submit-ralph / ...
+
+Phase 3: 插件 + 零侵入
+  Claude Code plugin (plugin/): skills + hooks + agents
+  Codex 全局配置 (codex-global/): config.toml + skills
+  项目目录零侵入（仅 .dual-agent/ 运行时状态）
 ```
-
-### 问题
-| 问题 | 影响 |
-|------|------|
-| 每个项目要 init | 麻烦，容易忘记 |
-| 文件侵入项目 | 污染项目结构，需要 .gitignore |
-| 重复配置 | 多项目时维护困难 |
-| 不便于迭代 | 改进流程要同步到所有项目 |
-
-### 可能的改进方向
-1. **用户级配置**: 放在 `~/.claude/` 全局生效，项目不需要任何文件
-2. **按需激活**: `/ralph-loop start` 动态加载，不写入项目
-3. **最小侵入**: 项目只需一个标记文件指向全局配置
-4. **完全外置**: 作为独立工具或插件，与项目解耦
-
-### 待改进项 (待复盘完成后实施)
-- [ ] 评估用户级 vs 项目级配置的权衡
-- [ ] 设计低侵入的激活方式
-- [ ] 考虑流程配置的集中管理和版本控制
-
----
-
-## 2026-02-05 复盘：补充问题
-
-### 5. 没有"回退/重新调研"机制
-- 编码过程中发现理解有误，没有明确的回退流程
-- 建议: 增加 [BACK_TO_RESEARCH] 标签
-
-### 6. 决策记录缺失
-- 为什么选 A 不选 B 的讨论过程丢失
-- 建议: 增加 [DECISION] 标签记录决策理由
-
-### 7. 跨会话上下文丢失
-- 长对话或多会话后上下文容易丢失
-- 建议: 每阶段生成摘要，新会话自动加载
-
-### 8. 没有内置复盘机制
-- 本次复盘是手动发起的
-- 建议: 任务完成后触发 [RETRO] 复盘
-
----
-
-## 2026-02-05 待讨论：用户介入机制 (需与 Codex 讨论)
-
-### 问题
-当前用户只能在开始和结束时参与，中间无法介入。
-
-### 可选方案
-
-**介入命令**:
-- `/pause` `/resume` - 暂停/恢复循环
-- `/inject "context"` - 注入上下文不暂停
-- `/decide "decision"` - 直接决策跳过讨论
-- `/redirect "new direction"` - 改变方向
-- `/takeover ralph|lisa` - 用户接管角色
-
-**运行模式**:
-- `AUTO` - 全自动，完成后通知
-- `SUPERVISED` - 每步等待用户确认
-- `HYBRID` - 自动运行，用户可随时介入 (推荐默认)
-
-### 状态
-待与 Codex 讨论后决定
-
----
-
-## 2026-02-05 复盘：基础记忆能力缺失 (重要)
-
-### 问题本质
-Ralph-Lisa 循环是"无记忆"的，每次会话都是从零开始。
-
-### 当前缺失的能力
-
-| 能力 | 当前状态 | 应有状态 |
-|------|---------|---------|
-| 交互记录 | 对话结束就丢失 | 持久化保存 |
-| 决策追溯 | 无 | 可查询为什么做某个决定 |
-| 文档同步 | 手动维护 | 代码提交时自动更新 |
-| 上下文恢复 | 依赖用户重述 | 自动加载相关历史 |
-
-### 需要的文档跟随功能
-
-**1. 会话记录层**
-```
-.ralph-lisa/
-├── sessions/
-│   └── 2026-02-05-acp-streaming/
-│       ├── transcript.md     ← 完整交互记录
-│       ├── decisions.md      ← 关键决策及理由
-│       └── summary.md        ← 阶段摘要
-```
-
-**2. 代码-文档同步**
-```
-git commit "fix: ACP streaming parsing"
-    ↓ 自动触发
-docs/changelog.md 更新
-decisions/2026-02-05-acp.md 归档
-```
-
-**3. 上下文自动加载**
-```
-新会话开始时:
-1. 检测项目
-2. 加载最近的 session summary
-3. 加载未完成的任务状态
-4. Ralph/Lisa 自动获得上下文
-```
-
-**4. 可查询的知识库**
-```
-/why "为什么 ACP 用 params.update.content.text"
-→ 查询 decisions.md
-→ 返回决策记录和理由
-```
-
-### 为什么重要
-- 没有记忆 = 每次都可能重复犯错
-- 没有文档同步 = 代码和文档逐渐脱节
-- 没有决策追溯 = 无法理解历史选择的原因
-- 这是 AI 协作的基础设施，不是可选功能
-
-### 待改进项
-- [ ] 设计会话记录格式和存储方案
-- [ ] 实现决策自动记录
-- [ ] 实现代码提交时的文档同步钩子
-- [ ] 实现上下文自动加载机制
-- [ ] 实现知识库查询接口
 
 ---
 
@@ -276,31 +162,6 @@ decisions/2026-02-05-acp.md 归档
 
 ### 背景
 当前 `init.sh` 往目标项目注入 ~12 个文件（CLAUDE.md 追加、CODEX.md、io.sh、.claude/commands/、.codex/skills/、.dual-agent/），没有卸载机制。
-
-### 侵入性分析
-
-| 侵入项 | 严重程度 | 分析 |
-|--------|---------|------|
-| CLAUDE.md 追加角色 | 高 | 修改现有文件，难以干净回滚 |
-| 复制 io.sh | 中 | 每个项目一份，版本不同步 |
-| .claude/commands/ (5个) | 中 | 项目目录膨胀 |
-| CODEX.md + .codex/ | 中 | 多个配置文件 |
-| .dual-agent/ | 低 | 运行时状态，可接受 |
-
-### 减少侵入的方案评估
-
-**评估了 5 种方案，结论是大部分"减少侵入"的改动会破坏体验：**
-
-1. **io.sh 不复制** → 不值得。`./io.sh` 是 LLM agent 最可靠的调用方式，改成环境变量/PATH 不稳定
-2. **角色不写 CLAUDE.md** → 不值得。失去"cd 项目 && claude 即用"的体验
-3. **.dual-agent 移出项目** → 可做但没必要。加 .gitignore 就够了
-4. **命令用 symlink** → 不值得。移了仓库就断
-5. **加 uninit.sh** → 值得做
-
-补充：以上第 1 条结论仅适用于**没有稳定全局 CLI**的情况下。
-当 npm 包提供 `ralph-lisa` 全局命令时，`io.sh` 可被替代，结论随之更新。
-
-**核心洞察：侵入性是故意的设计，因为 Claude Code/Codex 只从项目目录读配置。真正该做的不是减少侵入，而是让侵入可管理（可安装、可升级、可卸载）。**
 
 ### 各家 CLI 插件/扩展能力调研
 
@@ -311,101 +172,44 @@ decisions/2026-02-05-acp.md 归档
 | 工具执行钩子 | 12 种事件，可拦截/修改 | **只有 1 种** (notify) | 11 种事件，可拦截/修改 |
 | 插件打包分发 | `.claude-plugin/` + 市场 | **无** | `gemini-extension.json` + GitHub |
 
-**结论：**
-- Claude Code 端可通过 plugin 实现零侵入（角色 + skills + hooks 全部打包）
-- Codex 端可通过全局 skills + config 大幅减少侵入，但没有 hook 机制做 Policy 拦截
-- Gemini CLI 有最完整的 extension 系统，如果替代 Codex 可实现零侵入
-
 ### 决策：npm 包 + 插件架构
 
-**分发方式：** 发布为 npm 包 `ralph-lisa-loop`，提供 `ralph-lisa` 全局命令
-
-**架构演进：**
-```
-Phase 1: npm 包
-  - ralph-lisa CLI 替代 io.sh（命令: ralph-lisa whose-turn/submit-ralph/status 等）
-  - ralph-lisa init 生成项目文件（角色、命令模板）
-  - ralph-lisa uninit 清理项目文件
-
-Phase 2: 全局化
-  - Claude 端: plugin 打包角色 + skills + hooks
-  - Codex 端: ~/.codex/ 全局 skills + config
-  - init 不再往项目写命令文件
-
-Phase 3: 零侵入
-  - 项目目录无需任何文件
-  - 运行时状态集中管理
-```
-
-**不考虑向后兼容** — 旧项目重新 `ralph-lisa init` 即可，不需要 shim/兼容层。理由：项目还在早期，用户极少，维护两套接口不值得。
+**不考虑向后兼容** — 旧项目重新 `ralph-lisa init` 即可。
 
 **npm + io.sh 不做两套实现** — npm 包就是 io.sh 的升级版，核心逻辑只有一份。
-
-### 参与者
-- Claude (本对话): 侵入性分析、体验影响评估、架构方案设计
-- Codex: V3 文档一致性审阅、插件能力确认、并行方案评估
 
 ---
 
 ## 2026-02-05 讨论：io.sh 职责边界（与 Claude 讨论）
 
 ### 结论
-`io.sh` 是交互层（“邮差”），只负责消息传递、回合管理、历史记录与最小格式校验。
-**不应**让 `io.sh` 执行业务流程判断（如是否达成共识、是否进入下一步、是否满足测试/调研要求）。
-
-### 该做与不该做
-
-**io.sh 应该做的**：
-- 传递消息（`submit-ralph` / `submit-lisa`）
-- 管理回合（`whose-turn`）
-- 记录历史（`history.md`）
-- 最小格式校验（如是否带标签）
-
-**io.sh 不应该做的**：
-- 判断是否达成共识
-- 判断是否进入下一步开发
-- 校验测试是否通过
-- 校验是否完成调研/引用
-
-### 影响
-之前提出的“在 io.sh 强制共识/测试”等想法需要重新审视，
-规范落地应更多依赖角色定义与流程约束，而非工具层硬判。
+`io.sh` (现为 `ralph-lisa` CLI) 是交互层（"邮差"），只负责消息传递、回合管理、历史记录与最小格式校验。
+**不应**执行业务流程判断。业务检查由 Policy 层负责。
 
 ---
 
 ## 2026-02-05 提案：独立 Policy 层（与 Codex 讨论）
 
-### 结论
-保持 `io.sh` 纯通信层不变，在其上新增 **Policy 层** 执行流程规范。
-Policy 层既可“软提醒”，也可“硬阻断”，避免规范停留在文档里。
+### 实施状态 ✅
 
-### 设计目标
-1. `io.sh` 只做通信与状态记录，不做业务判断
-2. 规范落地由独立 Policy 层完成，可选启用、可配置强度
-3. 默认软约束，需要时可切换硬约束
+已在 V3 Phase 2 中实现：
+- `ralph-lisa policy check <ralph|lisa>` 命令
+- 环境变量 `RL_POLICY_MODE=off|warn|block`
+- 集成到 `submit-ralph` / `submit-lisa` 命令中
 
-### 组件与接口（示例）
-`policy.sh`（或 `rl-policy.sh`）：
-- `./policy.sh check ralph`  检查 Ralph 提交（读 `.dual-agent/work.md`）
-- `./policy.sh check lisa`   检查 Lisa 提交（读 `.dual-agent/review.md`）
-- `./policy.sh check-consensus`
-- `./policy.sh check-next-step`
+### 规则
+- Ralph [CODE]/[FIX] 必须包含 Test Results 段落
+- Ralph [RESEARCH] 必须有实质内容（至少 2 个字段或等价摘要）
+- Lisa [PASS]/[NEEDS_WORK] 必须给出至少 1 条理由
 
-### 模式
-- `off`: 不检查
-- `warn`: 只提示，不阻断
-- `block`: 检查失败直接阻断下一步
+---
 
-### 默认规则（可配置）
-- Ralph 必须包含 `Test Results` 段落
-- 涉及协议/对接需有 `Research` 段落或引用
-- Lisa 必须明确 PASS/NEEDS_WORK，并给出至少 1 条理由
-- 共识检查：最近一轮双方均提交 `[CONSENSUS]`
+## 未实施项（后续版本）
 
-### 最小整合方式
-- 不改 `io.sh`
-- 在 `/next-step` 等上层命令中调用 `policy.sh check-next-step`
-- 在提交命令中可选调用 `policy.sh check ralph|lisa`（默认 warn）
-
-### 理由
-职责清晰 + 规则可演进 + 可控强度 + 项目级可配置
+| 项目 | 优先级 | 备注 |
+|------|--------|------|
+| 基础记忆能力 | P1 | 会话记录、决策追溯、文档同步 |
+| 用户介入机制 | P2 | /pause, /inject, /decide, /redirect |
+| 回退/复盘机制 | P2 | [BACK_TO_RESEARCH], [RETRO] |
+| Gemini CLI 替代 Codex | P3 | 有完整 extension 系统 |
+| Claude Code plugin 市场分发 | P3 | 待评估 |

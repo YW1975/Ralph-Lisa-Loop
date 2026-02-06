@@ -10,126 +10,87 @@
 
 ## 总体节奏（严格按 V3）
 
-- Phase 1 = 最小落地（流程/模板/标签）
-- Phase 2 = npm CLI + Policy warn（替代 io.sh）
-- Phase 3 = 插件化 + 零侵入 + Policy block
+| Phase | 内容 | 状态 |
+|-------|------|------|
+| Phase 1 | 最小落地（流程/模板/标签） | ✅ 完成 (`4d099b5`) |
+| Phase 2 | npm CLI + Policy warn（替代 io.sh） | ✅ 完成 (`ea66dab`) |
+| Phase 3 | 插件化 + 零侵入 + Policy block | ✅ 完成 (`ea66dab`) |
 
 ---
 
-## Phase 1：模板与流程规范（不改 io.sh 逻辑，仅扩展标签）
+## Phase 1：模板与流程规范 ✅
 
-目标：落地标签语义、测试要求、协作流程；确保 io.sh 可用且接受新标签。
+提交: `4d099b5 V3 Phase 1`
 
-### 1. 角色模板更新（文档层）
+### 完成内容
 
-- 更新 `templates/roles/ralph.md`
-  - 增加 [RESEARCH] 与 [CHALLENGE] 说明
-  - 明确 [CODE]/[FIX] 必含 Test Results
-- 更新 `templates/roles/lisa.md`
-  - checklist 增加 Test Results / Research 检查
-  - 明确 [CHALLENGE] 处理方式与 Advisory 语义
+1. **角色模板更新** — ralph.md 加入 [RESEARCH]、[CHALLENGE]、Test Results；lisa.md 加入 checklist、advisory、[CHALLENGE]
+2. **io.sh 标签扩展** — VALID_TAGS 包含 [RESEARCH] 和 [CHALLENGE]
+3. **提交模板更新** — submit-work.md、submit-review.md 加入新标签
+4. **README 更新** — 标签表、流程说明
 
-验证：手工检查模板中是否包含上述关键约束，且无冲突描述。
-
-### 2. io.sh 标签扩展（最小改动）
-
-- 更新 VALID_TAGS 允许 [RESEARCH] & [CHALLENGE]
-- 不加入任何业务判断（遵循 V3 “io.sh 只负责通信层”）
-
-验证（手工）：
-- `./io.sh submit-ralph "[RESEARCH] ..."` 可执行
-- `./io.sh submit-lisa "[CHALLENGE] ..."` 可执行
-
-### 3. 提交模板更新
-
-- `templates/claude-commands/submit-work.md`
-- `templates/codex-skills/submit-review.md`
-
-验证：模板示例包含新标签，提交规范与角色模板一致。
-
-### 4. README 更新
-
-- 更新流程描述、标签说明、测试要求
-
-验证：README 与模板语义一致。
-
-### 5. 可选自动化检查（建议）
-
-- 添加一个简单脚本，校验关键关键词是否存在（非阻断）
+### 验证结果
+- `./io.sh submit-ralph "[RESEARCH] ..."` ✅
+- `./io.sh submit-lisa "[CHALLENGE] ..."` ✅
+- 模板关键约束无冲突 ✅
 
 ---
 
-## Phase 2：npm CLI + Policy warn（全面替换 io.sh）
+## Phase 2：npm CLI + Policy warn ✅
 
-目标：用 `ralph-lisa` 全面替代 `./io.sh`；Policy 仅存在性检查。
+提交: `ea66dab V3 Phase 2+3`
 
-### 0. 技术选型（已确认）
+### 完成内容
 
-- Node/TS 重写
-- 最小依赖，不使用 CLI 框架（`process.argv` + Node 标准库）
-- 不做 bash wrapper
+1. **CLI 实现** (cli/ 目录)
+   - npm 包 `ralph-lisa-loop`，CLI 命令 `ralph-lisa`
+   - Node/TS 重写，零外部依赖（仅 Node stdlib: fs, path, process.argv）
+   - 14 个命令: init, uninit, start, auto, submit-ralph, submit-lisa, whose-turn, status, read, step, history, archive, clean, policy
+   - uninit: 删除 init 生成的所有文件，清理 CLAUDE.md 标记区块
 
-### 1. CLI 结构与命令
+2. **Policy warn 模式** (cli/src/policy.ts)
+   - Ralph [CODE]/[FIX]: 检查 Test Results 段落
+   - Ralph [RESEARCH]: 检查实质内容（至少 2 个字段或等价摘要）
+   - Lisa [PASS]/[NEEDS_WORK]: 检查至少 1 条理由
+   - `RL_POLICY_MODE=warn` 仅提示，不阻断
 
-- 创建 `ralph-lisa-loop` npm 包
-- CLI 命令：
-  - `init` / `uninit` / `start` / `auto`
-  - `submit-ralph` / `submit-lisa` / `whose-turn` / `status` / `history` / `step`
-- 逻辑移植：
-  - io.sh 功能迁移到 Node CLI（单一实现）
-- 全面替换：
-  - 模板与命令全部改用 `ralph-lisa`，不考虑旧项目兼容
+3. **全面替换**
+   - 所有模板 `./io.sh` → `ralph-lisa`
 
-`uninit` 行为：
-- 删除 init 生成的项目文件
-- 清理 `CLAUDE.md` 中的标记区块（如有）
-
-验证（最小流程）：
-- `npm i -g ralph-lisa-loop`
-- `ralph-lisa init`
-- `ralph-lisa submit-ralph "[PLAN] ..."`
-- 历史记录仍写入 `history.md`
-
-### 2. Policy warn 模式（存在性检查）
-
-- Ralph 提交必须包含 Test Results 段落
-- 当首行标签为 [RESEARCH] 时：
-  - 必须有实质内容（非空）
-  - 至少包含 2 个字段（参考实现 / 关键类型 / 数据结构 / 验证方式）
-  - 或提供同等信息量的调研摘要 + 证据（文件路径/链接）
-- Lisa 提交必须有至少 1 条理由（PASS/NEEDS_WORK 均要求）
-- Policy 仅 warn，不阻断
-
-验证：
-- 缺 Test Results -> warn
-- [RESEARCH] 无内容字段 -> warn
-- Lisa 无理由 -> warn
+### 验证结果
+- 单元测试: 15/15 pass ✅
+- E2E: init → submit-ralph → submit-lisa → status → history → uninit ✅
+- Policy warn: 缺 Test Results → warn ✅
+- Policy warn: [RESEARCH] 无字段 → warn ✅
+- Policy warn: Lisa 无理由 → warn ✅
+- 全局安装: npm i -g 从 tarball ✅
 
 ---
 
-## Phase 3：插件化 + 零侵入 + Policy block
+## Phase 3：插件化 + 零侵入 + Policy block ✅
 
-目标：移除项目级文件，改为全局配置 + 插件，Policy 支持 block。
+提交: `ea66dab V3 Phase 2+3`
 
-### 1. Claude Code plugin
+### 完成内容
 
-- 打包技能与角色
-- hooks 注入角色上下文
-- 不再依赖项目级 CLAUDE.md
+1. **Claude Code plugin** (plugin/ 目录)
+   - `.claude-plugin/plugin.json` 插件清单
+   - 5 个 skills: submit-work, check-turn, view-status, read-review, next-step
+   - hooks/hooks.json: SessionStart 注入 Ralph 角色上下文
+   - agents/ralph.md: Ralph 角色定义
 
-验证：插件安装后可直接使用 /submit-work 等命令。
+2. **Codex 全局配置** (codex-global/ 目录)
+   - config.toml: 全局 skills 启用
+   - skills/ralph-lisa-loop/SKILL.md: 完整 Lisa 角色 + 命令说明
 
-### 2. Codex 全局配置
+3. **Policy block 模式**
+   - `RL_POLICY_MODE=block` 阻断不合规提交 (exit code 1)
 
-- `~/.codex/config.toml` + skills
-
-验证：Codex 能加载角色与流程。
-
-### 3. Policy block 模式
-
-- `RL_POLICY_MODE=block` 阻断提交
-
-验证：触发规则时流程被阻断。
+### 验证结果
+- Policy block: CODE 缺 Test Results → rejected (exit 1) ✅
+- Policy block: 合规提交 → 通过 ✅
+- Plugin 结构完整 ✅
+- Codex 配置完整 ✅
 
 ---
 
@@ -145,5 +106,5 @@
 ## 风险与处理
 
 - V3 文档歧义 -> 立即停工，向你确认
-- CLI 与旧 io.sh 并存误读 -> 按 V3 “全面替换”执行
+- CLI 与旧 io.sh 并存误读 -> 按 V3 "全面替换"执行
 - Policy 过度判断 -> 仅做存在性检查（Phase 2）
