@@ -240,7 +240,9 @@ ralph-lisa init [project-dir]     # 初始化项目（完整模式）
 ralph-lisa init --minimal [dir]   # 最小初始化（仅 .dual-agent/，零项目文件）
 ralph-lisa uninit [project-dir]   # 清理项目文件
 ralph-lisa start "task"           # 启动双 agent
+ralph-lisa start --full-auto "task"  # 启动（跳过权限确认）
 ralph-lisa auto "task"            # 自动模式
+ralph-lisa auto --full-auto "task"   # 自动模式（跳过权限确认）
 
 # io.sh 功能 (子命令)
 ralph-lisa whose-turn

@@ -58,6 +58,7 @@
 - [x] 建 `ralph-lisa-loop` npm 包 (cli/ 目录)
 - [x] 命令：`init` / `uninit` / `start` / `auto` / `submit-ralph` / `submit-lisa` / `whose-turn` / `status` / `history` / `step` / `read` / `archive` / `clean` / `policy`
 - [x] `init --minimal`: 仅创建 .dual-agent/（零项目文件），配合全局插件使用
+- [x] `start --full-auto` / `auto --full-auto`: 跳过权限确认（claude --dangerously-skip-permissions + codex --full-auto）
 - [x] 全面替换：模板与命令全部改用 `ralph-lisa`，不考虑旧项目兼容
 - [x] `uninit` 通过 RALPH-LISA-LOOP 标记精确识别自有文件，保留用户内容
 

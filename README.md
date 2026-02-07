@@ -151,7 +151,9 @@ ralph-lisa init [dir]                    # Initialize project (full)
 ralph-lisa init --minimal [dir]          # Minimal init (session only, no project files)
 ralph-lisa uninit                        # Remove from project
 ralph-lisa start "task"                  # Launch both agents
+ralph-lisa start --full-auto "task"      # Launch without permission prompts
 ralph-lisa auto "task"                   # Auto mode (tmux)
+ralph-lisa auto --full-auto "task"       # Auto mode without permission prompts
 
 # Turn control
 ralph-lisa whose-turn                    # Check whose turn
