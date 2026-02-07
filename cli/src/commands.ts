@@ -673,12 +673,18 @@ function findTemplatesDir(): string {
 
 export function cmdStart(args: string[]): void {
   const projectDir = process.cwd();
-  const task = args.join(" ");
+  const fullAuto = args.includes("--full-auto");
+  const filteredArgs = args.filter((a) => a !== "--full-auto");
+  const task = filteredArgs.join(" ");
+
+  const claudeCmd = fullAuto ? "claude --dangerously-skip-permissions" : "claude";
+  const codexCmd = fullAuto ? "codex --full-auto" : "codex";
 
   console.log(line());
   console.log("Ralph-Lisa Loop - Start");
   console.log(line());
   console.log(`Project: ${projectDir}`);
+  if (fullAuto) console.log("Mode: FULL AUTO (no permission prompts)");
   console.log("");
 
   // Check prerequisites
@@ -716,8 +722,8 @@ export function cmdStart(args: string[]): void {
 
   // Detect terminal and launch
   const platform = process.platform;
-  const ralphCmd = `cd '${projectDir}' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude`;
-  const lisaCmd = `cd '${projectDir}' && echo '=== Lisa (Codex) ===' && echo 'First: ralph-lisa whose-turn' && echo '' && codex`;
+  const ralphCmd = `cd '${projectDir}' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && ${claudeCmd}`;
+  const lisaCmd = `cd '${projectDir}' && echo '=== Lisa (Codex) ===' && echo 'First: ralph-lisa whose-turn' && echo '' && ${codexCmd}`;
 
   if (platform === "darwin") {
     try {
@@ -811,12 +817,18 @@ function launchGeneric(projectDir: string): void {
 
 export function cmdAuto(args: string[]): void {
   const projectDir = process.cwd();
-  const task = args.join(" ");
+  const fullAuto = args.includes("--full-auto");
+  const filteredArgs = args.filter((a) => a !== "--full-auto");
+  const task = filteredArgs.join(" ");
+
+  const claudeCmd = fullAuto ? "claude --dangerously-skip-permissions" : "claude";
+  const codexCmd = fullAuto ? "codex --full-auto" : "codex";
 
   console.log(line());
   console.log("Ralph-Lisa Loop - Auto Mode");
   console.log(line());
   console.log(`Project: ${projectDir}`);
+  if (fullAuto) console.log("Mode: FULL AUTO (no permission prompts)");
   console.log("");
 
   const { execSync } = require("node:child_process");
@@ -958,10 +970,10 @@ done
   );
 
   execSync(
-    `tmux send-keys -t "${sessionName}:0.0" "echo '=== Ralph (Claude Code) ===' && claude" Enter`
+    `tmux send-keys -t "${sessionName}:0.0" "echo '=== Ralph (Claude Code) ===' && ${claudeCmd}" Enter`
   );
   execSync(
-    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Lisa (Codex) ===' && codex" Enter`
+    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Lisa (Codex) ===' && ${codexCmd}" Enter`
   );
   execSync(
     `tmux send-keys -t "${sessionName}:0.2" "echo '=== Watcher ===' && ${watcherScript}" Enter`

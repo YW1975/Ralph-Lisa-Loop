@@ -114,7 +114,9 @@ function showHelp(): void {
   console.log("  ralph-lisa init --minimal [dir]    Minimal init (session only, no project files)");
   console.log("  ralph-lisa uninit                  Remove from project");
   console.log('  ralph-lisa start "task"             Launch both agents');
+  console.log('  ralph-lisa start --full-auto "task" Launch without permission prompts');
   console.log('  ralph-lisa auto "task"              Auto mode (tmux)');
+  console.log('  ralph-lisa auto --full-auto "task"  Auto mode without permission prompts');
   console.log("");
   console.log("Turn Control:");
   console.log("  ralph-lisa whose-turn               Check whose turn");
