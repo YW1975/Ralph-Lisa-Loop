@@ -907,11 +907,9 @@ LAST_TURN=""
 trigger_agent() {
   local turn="$1"
   if [[ "$turn" == "ralph" ]]; then
-    tmux send-keys -t ${sessionName}:0.0 -l "go" 2>/dev/null || true
-    tmux send-keys -t ${sessionName}:0.0 Enter 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.0 "go" C-m 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ${sessionName}:0.1 -l "go" 2>/dev/null || true
-    tmux send-keys -t ${sessionName}:0.1 Enter 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.1 "go" C-m 2>/dev/null || true
   fi
 }
 
