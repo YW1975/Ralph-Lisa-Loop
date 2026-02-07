@@ -907,9 +907,11 @@ LAST_TURN=""
 trigger_agent() {
   local turn="$1"
   if [[ "$turn" == "ralph" ]]; then
-    tmux send-keys -t ${sessionName}:0.0 "go" Enter 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.0 -l "go" 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.0 Enter 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ${sessionName}:0.1 "go" Enter 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.2 -l "go" 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.2 Enter 2>/dev/null || true
   fi
 }
 
@@ -955,28 +957,31 @@ done
   fs.chmodSync(watcherScript, 0o755);
 
   // Launch tmux session
+  // Layout: Ralph (top-left) | Lisa (top-right)
+  //         Watcher (bottom, small strip)
   execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null || true`);
+  // Pane 0: full window
   execSync(
     `tmux new-session -d -s "${sessionName}" -n "main" -c "${projectDir}"`
   );
+  // Split bottom for Watcher → pane 0=top, pane 1=bottom(watcher)
   execSync(
-    `tmux split-window -h -t "${sessionName}" -c "${projectDir}"`
+    `tmux split-window -v -t "${sessionName}" -c "${projectDir}" -l 6`
   );
+  // Split top half horizontally → pane 0=Ralph(top-left), pane 2=Lisa(top-right), pane 1=Watcher(bottom)
   execSync(
-    `tmux split-window -v -t "${sessionName}:0.0" -c "${projectDir}" -l 8`
-  );
-  execSync(
-    `tmux select-layout -t "${sessionName}" main-vertical`
+    `tmux split-window -h -t "${sessionName}:0.0" -c "${projectDir}"`
   );
 
+  // Pane indices after splits: 0=Ralph, 1=Watcher, 2=Lisa
   execSync(
     `tmux send-keys -t "${sessionName}:0.0" "echo '=== Ralph (Claude Code) ===' && ${claudeCmd}" Enter`
   );
   execSync(
-    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Lisa (Codex) ===' && ${codexCmd}" Enter`
+    `tmux send-keys -t "${sessionName}:0.2" "echo '=== Lisa (Codex) ===' && ${codexCmd}" Enter`
   );
   execSync(
-    `tmux send-keys -t "${sessionName}:0.2" "echo '=== Watcher ===' && ${watcherScript}" Enter`
+    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Watcher ===' && ${watcherScript}" Enter`
   );
   execSync(`tmux select-pane -t "${sessionName}:0.0"`);
 

@@ -118,9 +118,11 @@ LAST_TURN=""
 trigger_agent() {
   local turn="$1"
   if [[ "$turn" == "ralph" ]]; then
-    tmux send-keys -t ralph-lisa-auto:0.0 "go" Enter 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.0 -l "go" 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.0 Enter 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ralph-lisa-auto:0.1 "go" Enter 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.2 -l "go" 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.2 Enter 2>/dev/null || true
   fi
 }
 
@@ -164,28 +166,24 @@ WATCHEREOF
 chmod +x "$WATCHER_SCRIPT"
 
 # Create tmux session with 3 panes
-# Layout: Ralph (left) | Lisa (right) | Watcher (bottom)
+# Layout: Ralph (top-left) | Lisa (top-right)
+#         Watcher (bottom, small strip)
 echo "Starting tmux session..."
 
 tmux new-session -d -s "$SESSION_NAME" -n "main" -c "$PROJECT_DIR"
 
-# Split horizontally: Ralph | Lisa
-tmux split-window -h -t "$SESSION_NAME" -c "$PROJECT_DIR"
+# Split bottom for watcher → pane 0=top, pane 1=bottom(watcher)
+tmux split-window -v -t "$SESSION_NAME" -c "$PROJECT_DIR" -l 6
 
-# Split bottom for watcher
-tmux split-window -v -t "$SESSION_NAME:0.0" -c "$PROJECT_DIR" -l 8
+# Split top horizontally → pane 0=Ralph(top-left), pane 2=Lisa(top-right)
+tmux split-window -h -t "$SESSION_NAME:0.0" -c "$PROJECT_DIR"
 
-# Pane 0: Ralph (top-left)
-# Pane 1: Lisa (right)
-# Pane 2: Watcher (bottom-left)
-
-# Rearrange: we want Ralph top-left, Lisa top-right, Watcher bottom
-tmux select-layout -t "$SESSION_NAME" main-vertical
+# Pane indices: 0=Ralph(top-left), 1=Watcher(bottom), 2=Lisa(top-right)
 
 # Start agents and watcher
 tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && $CLAUDE_CMD" Enter
-tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
-tmux send-keys -t "$SESSION_NAME:0.2" "echo '=== Watcher ===' && $WATCHER_SCRIPT" Enter
+tmux send-keys -t "$SESSION_NAME:0.2" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
+tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Watcher ===' && $WATCHER_SCRIPT" Enter
 
 # Select Ralph pane
 tmux select-pane -t "$SESSION_NAME:0.0"
