@@ -909,7 +909,10 @@ trigger_agent() {
   if [[ "$turn" == "ralph" ]]; then
     tmux send-keys -t ${sessionName}:0.0 "go" C-m 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ${sessionName}:0.1 "go" C-m 2>/dev/null || true
+    # Codex needs text and Enter sent separately
+    tmux send-keys -t ${sessionName}:0.1 -l "go" 2>/dev/null || true
+    sleep 0.3
+    tmux send-keys -t ${sessionName}:0.1 Enter 2>/dev/null || true
   fi
 }
 
