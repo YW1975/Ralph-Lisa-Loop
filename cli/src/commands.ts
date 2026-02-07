@@ -910,8 +910,8 @@ trigger_agent() {
     tmux send-keys -t ${sessionName}:0.0 -l "go" 2>/dev/null || true
     tmux send-keys -t ${sessionName}:0.0 Enter 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ${sessionName}:0.2 -l "go" 2>/dev/null || true
-    tmux send-keys -t ${sessionName}:0.2 Enter 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.1 -l "go" 2>/dev/null || true
+    tmux send-keys -t ${sessionName}:0.1 Enter 2>/dev/null || true
   fi
 }
 
@@ -957,33 +957,29 @@ done
   fs.chmodSync(watcherScript, 0o755);
 
   // Launch tmux session
-  // Layout: Ralph (top-left) | Lisa (top-right)
-  //         Watcher (bottom, small strip)
+  // Layout: Ralph (left) | Lisa (right), Watcher runs in background
   execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null || true`);
-  // Pane 0: full window
+
+  // Pane 0: Ralph (left), Pane 1: Lisa (right)
   execSync(
     `tmux new-session -d -s "${sessionName}" -n "main" -c "${projectDir}"`
   );
-  // Split bottom for Watcher → pane 0=top, pane 1=bottom(watcher)
   execSync(
-    `tmux split-window -v -t "${sessionName}" -c "${projectDir}" -l 6`
-  );
-  // Split top half horizontally → pane 0=Ralph(top-left), pane 2=Lisa(top-right), pane 1=Watcher(bottom)
-  execSync(
-    `tmux split-window -h -t "${sessionName}:0.0" -c "${projectDir}"`
+    `tmux split-window -h -t "${sessionName}" -c "${projectDir}"`
   );
 
-  // Pane indices after splits: 0=Ralph, 1=Watcher, 2=Lisa
+  // Pane 0 = Ralph (left), Pane 1 = Lisa (right)
   execSync(
     `tmux send-keys -t "${sessionName}:0.0" "echo '=== Ralph (Claude Code) ===' && ${claudeCmd}" Enter`
   );
   execSync(
-    `tmux send-keys -t "${sessionName}:0.2" "echo '=== Lisa (Codex) ===' && ${codexCmd}" Enter`
-  );
-  execSync(
-    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Watcher ===' && ${watcherScript}" Enter`
+    `tmux send-keys -t "${sessionName}:0.1" "echo '=== Lisa (Codex) ===' && ${codexCmd}" Enter`
   );
   execSync(`tmux select-pane -t "${sessionName}:0.0"`);
+
+  // Watcher runs in background (logs to .dual-agent/watcher.log)
+  const watcherLog = path.join(dir, "watcher.log");
+  execSync(`bash -c 'nohup "${watcherScript}" > "${watcherLog}" 2>&1 &'`);
 
   console.log("");
   console.log(line());
@@ -995,8 +991,7 @@ done
   console.log("  |   Ralph   |   Lisa    |");
   console.log("  |  (Claude) |  (Codex)  |");
   console.log("  +-----------+-----------+");
-  console.log("  |       Watcher         |");
-  console.log("  +-----------------------+");
+  console.log("  Watcher runs in background (log: .dual-agent/watcher.log)");
   console.log("");
   console.log("Attaching to session...");
   console.log(line());

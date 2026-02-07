@@ -121,8 +121,8 @@ trigger_agent() {
     tmux send-keys -t ralph-lisa-auto:0.0 -l "go" 2>/dev/null || true
     tmux send-keys -t ralph-lisa-auto:0.0 Enter 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ralph-lisa-auto:0.2 -l "go" 2>/dev/null || true
-    tmux send-keys -t ralph-lisa-auto:0.2 Enter 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.1 -l "go" 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.1 Enter 2>/dev/null || true
   fi
 }
 
@@ -165,28 +165,25 @@ WATCHEREOF
 
 chmod +x "$WATCHER_SCRIPT"
 
-# Create tmux session with 3 panes
-# Layout: Ralph (top-left) | Lisa (top-right)
-#         Watcher (bottom, small strip)
+# Create tmux session with 2 panes
+# Layout: Ralph (left) | Lisa (right), Watcher in background
 echo "Starting tmux session..."
 
 tmux new-session -d -s "$SESSION_NAME" -n "main" -c "$PROJECT_DIR"
 
-# Split bottom for watcher → pane 0=top, pane 1=bottom(watcher)
-tmux split-window -v -t "$SESSION_NAME" -c "$PROJECT_DIR" -l 6
+# Split horizontally → pane 0=Ralph(left), pane 1=Lisa(right)
+tmux split-window -h -t "$SESSION_NAME" -c "$PROJECT_DIR"
 
-# Split top horizontally → pane 0=Ralph(top-left), pane 2=Lisa(top-right)
-tmux split-window -h -t "$SESSION_NAME:0.0" -c "$PROJECT_DIR"
-
-# Pane indices: 0=Ralph(top-left), 1=Watcher(bottom), 2=Lisa(top-right)
-
-# Start agents and watcher
+# Start agents
 tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && $CLAUDE_CMD" Enter
-tmux send-keys -t "$SESSION_NAME:0.2" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
-tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Watcher ===' && $WATCHER_SCRIPT" Enter
+tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
 
 # Select Ralph pane
 tmux select-pane -t "$SESSION_NAME:0.0"
+
+# Start watcher in background (logs to .dual-agent/watcher.log)
+WATCHER_LOG="$STATE_DIR/watcher.log"
+nohup "$WATCHER_SCRIPT" > "$WATCHER_LOG" 2>&1 &
 
 echo ""
 echo "========================================"
@@ -197,9 +194,8 @@ echo "Layout:"
 echo "  ┌─────────────┬─────────────┐"
 echo "  │   Ralph     │    Lisa     │"
 echo "  │  (Claude)   │   (Codex)   │"
-echo "  ├─────────────┴─────────────┤"
-echo "  │         Watcher           │"
-echo "  └───────────────────────────┘"
+echo "  └─────────────┴─────────────┘"
+echo "  Watcher runs in background (log: $WATCHER_LOG)"
 echo ""
 echo "The watcher will automatically trigger agents on turn changes."
 echo ""
