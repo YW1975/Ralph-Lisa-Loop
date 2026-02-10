@@ -89,6 +89,37 @@ No infinite loops. No stuck states.
 - Personal scripts
 - Time-critical hotfixes
 
+## V3: npm CLI + Policy + Zero Intrusion
+
+### Install Once, Use Everywhere
+
+```bash
+npm i -g ralph-lisa-loop
+ralph-lisa init          # Initialize project
+ralph-lisa uninit        # Clean removal
+```
+
+### Policy Layer
+
+Configurable submission quality checks:
+
+| Mode | Behavior |
+|------|----------|
+| `off` | No checks (default) |
+| `warn` | Print warnings, don't block |
+| `block` | Reject non-compliant submissions |
+
+```bash
+export RL_POLICY_MODE=warn
+ralph-lisa submit-ralph "[CODE] ..."  # Warns if missing Test Results
+```
+
+### Zero Intrusion (Plugin Architecture)
+
+- **Claude Code**: Plugin with skills + hooks + agents (no project-level files)
+- **Codex**: Global `~/.codex/` config + skills (no project-level files)
+- **Project**: Only `.dual-agent/` runtime state (can be .gitignored)
+
 ## The Philosophy
 
 > "Two heads are better than one, even if both heads are AI."

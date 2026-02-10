@@ -1,0 +1,35 @@
+{
+  "name": "ralph-lisa-loop",
+  "version": "3.0.0",
+  "description": "Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.",
+  "bin": {
+    "ralph-lisa": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test dist/test/",
+    "prepack": "npm run build"
+  },
+  "files": [
+    "dist/",
+    "templates/"
+  ],
+  "keywords": [
+    "dual-agent",
+    "collaboration",
+    "code-review",
+    "claude",
+    "codex",
+    "ai-agents"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.0.0"
+  }
+}

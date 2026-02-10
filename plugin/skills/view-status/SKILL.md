@@ -1,7 +1,3 @@
----
-description: View current collaboration status
----
-
 # View Status
 
 See current task, turn, round, and last action.

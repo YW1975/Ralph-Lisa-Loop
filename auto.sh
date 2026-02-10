@@ -4,7 +4,10 @@
 # Fully automated turn-based collaboration using tmux.
 # A watcher process monitors turn changes and triggers the appropriate agent.
 #
-# Usage: ./auto.sh "task description"
+# Usage: ./auto.sh [--full-auto] "task description"
+#
+# Options:
+#   --full-auto    Skip all permission prompts (claude --dangerously-skip-permissions + codex --full-auto)
 #
 # Requirements: tmux, fswatch (macOS) or inotifywait (Linux)
 #
@@ -14,6 +17,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parse --full-auto flag
+FULL_AUTO=false
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --full-auto) FULL_AUTO=true ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 PROJECT_DIR="${1:+$(cd "${1}" && pwd)}"
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 TASK="${2:-${1:-}}"
@@ -24,6 +39,15 @@ if [[ -n "${1:-}" ]] && [[ ! -d "${1:-}" ]]; then
   TASK="${1:-}"
 fi
 
+# Build agent commands based on --full-auto
+if [[ "$FULL_AUTO" == true ]]; then
+  CLAUDE_CMD="claude --dangerously-skip-permissions"
+  CODEX_CMD="codex --full-auto"
+else
+  CLAUDE_CMD="claude"
+  CODEX_CMD="codex"
+fi
+
 SESSION_NAME="ralph-lisa-auto"
 STATE_DIR="$PROJECT_DIR/.dual-agent"
 
@@ -31,6 +55,9 @@ echo "========================================"
 echo "Ralph-Lisa Loop - Auto Mode"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
+if [[ "$FULL_AUTO" == true ]]; then
+  echo "Mode: FULL AUTO (no permission prompts)"
+fi
 echo ""
 
 # Check prerequisites
@@ -91,9 +118,14 @@ LAST_TURN=""
 trigger_agent() {
   local turn="$1"
   if [[ "$turn" == "ralph" ]]; then
-    tmux send-keys -t ralph-lisa-auto:0.0 "go" Enter 2>/dev/null || true
+    tmux send-keys -t ralph-lisa-auto:0.0 -l "go" 2>/dev/null || true
+    sleep 0.3
+    tmux send-keys -t ralph-lisa-auto:0.0 Enter 2>/dev/null || true
   elif [[ "$turn" == "lisa" ]]; then
-    tmux send-keys -t ralph-lisa-auto:0.1 "go" Enter 2>/dev/null || true
+    # Codex needs text and Enter sent separately
+    tmux send-keys -t ralph-lisa-auto:0.1 -l "go" 2>/dev/null || true
+    sleep 0.3
+    tmux send-keys -t ralph-lisa-auto:0.1 Enter 2>/dev/null || true
   fi
 }
 
@@ -136,32 +168,25 @@ WATCHEREOF
 
 chmod +x "$WATCHER_SCRIPT"
 
-# Create tmux session with 3 panes
-# Layout: Ralph (left) | Lisa (right) | Watcher (bottom)
+# Create tmux session with 2 panes
+# Layout: Ralph (left) | Lisa (right), Watcher in background
 echo "Starting tmux session..."
 
 tmux new-session -d -s "$SESSION_NAME" -n "main" -c "$PROJECT_DIR"
 
-# Split horizontally: Ralph | Lisa
+# Split horizontally → pane 0=Ralph(left), pane 1=Lisa(right)
 tmux split-window -h -t "$SESSION_NAME" -c "$PROJECT_DIR"
 
-# Split bottom for watcher
-tmux split-window -v -t "$SESSION_NAME:0.0" -c "$PROJECT_DIR" -l 8
-
-# Pane 0: Ralph (top-left)
-# Pane 1: Lisa (right)
-# Pane 2: Watcher (bottom-left)
-
-# Rearrange: we want Ralph top-left, Lisa top-right, Watcher bottom
-tmux select-layout -t "$SESSION_NAME" main-vertical
-
-# Start agents and watcher
-tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && claude" Enter
-tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && codex" Enter
-tmux send-keys -t "$SESSION_NAME:0.2" "echo '=== Watcher ===' && $WATCHER_SCRIPT" Enter
+# Start agents
+tmux send-keys -t "$SESSION_NAME:0.0" "echo '=== Ralph (Claude Code) ===' && $CLAUDE_CMD" Enter
+tmux send-keys -t "$SESSION_NAME:0.1" "echo '=== Lisa (Codex) ===' && $CODEX_CMD" Enter
 
 # Select Ralph pane
 tmux select-pane -t "$SESSION_NAME:0.0"
+
+# Start watcher in background (logs to .dual-agent/watcher.log)
+WATCHER_LOG="$STATE_DIR/watcher.log"
+nohup "$WATCHER_SCRIPT" > "$WATCHER_LOG" 2>&1 &
 
 echo ""
 echo "========================================"
@@ -172,9 +197,8 @@ echo "Layout:"
 echo "  ┌─────────────┬─────────────┐"
 echo "  │   Ralph     │    Lisa     │"
 echo "  │  (Claude)   │   (Codex)   │"
-echo "  ├─────────────┴─────────────┤"
-echo "  │         Watcher           │"
-echo "  └───────────────────────────┘"
+echo "  └─────────────┴─────────────┘"
+echo "  Watcher runs in background (log: $WATCHER_LOG)"
 echo ""
 echo "The watcher will automatically trigger agents on turn changes."
 echo ""

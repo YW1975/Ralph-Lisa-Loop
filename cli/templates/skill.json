@@ -1,0 +1,27 @@
+{
+  "name": "ralph-lisa-loop",
+  "version": "3.0.0",
+  "description": "Turn-based dual-agent collaboration with enforced handoff",
+  "design": {
+    "turn_control": "Agents must check whose-turn before any action",
+    "auto_handoff": "submit-ralph/lisa automatically passes turn",
+    "tags": "Every submission requires [TAG] and summary"
+  },
+  "roles": {
+    "ralph": "Lead Developer - plans, codes, tests",
+    "lisa": "Code Reviewer - reviews, provides advisory verdicts"
+  },
+  "tags": {
+    "ralph": ["PLAN", "CODE", "FIX", "DISCUSS", "QUESTION", "CONSENSUS"],
+    "lisa": ["PASS", "NEEDS_WORK", "DISCUSS", "QUESTION", "CONSENSUS"]
+  },
+  "commands": {
+    "claude": ["check-turn", "submit-work", "view-status", "read-review", "next-step"],
+    "codex": ["check-turn", "submit-review", "view-status", "read-work"]
+  },
+  "rules": {
+    "consensus": "Both parties must agree before proceeding",
+    "verdict": "PASS/NEEDS_WORK is advisory, not a command",
+    "deadlock": "After 5 rounds, use OVERRIDE or HANDOFF"
+  }
+}

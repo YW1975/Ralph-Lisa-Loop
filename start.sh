@@ -4,13 +4,28 @@
 # Launches Claude (Ralph) and Codex (Lisa) in two terminals.
 # Codex reads .codex/config.toml for instructions and skills.
 #
-# Usage: ./start.sh [task-description]
+# Usage: ./start.sh [--full-auto] [task-description]
+#
+# Options:
+#   --full-auto    Skip all permission prompts (claude --dangerously-skip-permissions + codex --full-auto)
 #
 # Supports: macOS Terminal, iTerm2, tmux
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parse --full-auto flag
+FULL_AUTO=false
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --full-auto) FULL_AUTO=true ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 PROJECT_DIR="${1:+$(cd "${1}" && pwd)}"
 PROJECT_DIR="${PROJECT_DIR:-$(pwd)}"
 TASK="${2:-${1:-}}"
@@ -22,10 +37,22 @@ if [[ -n "${1:-}" ]] && [[ ! -d "${1:-}" ]]; then
   TASK="${1:-}"
 fi
 
+# Build agent commands based on --full-auto
+if [[ "$FULL_AUTO" == true ]]; then
+  CLAUDE_CMD="claude --dangerously-skip-permissions"
+  CODEX_CMD="codex --full-auto"
+else
+  CLAUDE_CMD="claude"
+  CODEX_CMD="codex"
+fi
+
 echo "========================================"
 echo "Ralph-Lisa Loop - Start"
 echo "========================================"
 echo "Project: $PROJECT_DIR"
+if [[ "$FULL_AUTO" == true ]]; then
+  echo "Mode: FULL AUTO (no permission prompts)"
+fi
 echo ""
 
 # Check prerequisites
@@ -71,11 +98,11 @@ fi
 # Ralph (Claude Code)
 # - CLAUDE.md auto-read as project instructions
 # - .claude/commands/ auto-loaded as slash commands
-RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && claude"
+RALPH_CMD="cd '$PROJECT_DIR' && echo '=== Ralph (Claude Code) ===' && echo 'Commands: /check-turn, /submit-work, /view-status' && echo 'First: /check-turn' && echo '' && $CLAUDE_CMD"
 
 # Lisa (Codex)
 # - .codex/config.toml provides: instructions (CODEX.md) and skills path
-LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ./io.sh whose-turn' && echo '' && codex"
+LISA_CMD="cd '$PROJECT_DIR' && echo '=== Lisa (Codex) ===' && echo 'First: ralph-lisa whose-turn' && echo '' && $CODEX_CMD"
 
 launch_macos_terminal() {
   echo "Launching with macOS Terminal..."

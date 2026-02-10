@@ -1,0 +1,11 @@
+# Ralph-Lisa Loop - Codex Global Configuration
+#
+# Install: copy this file to ~/.codex/config.toml
+# Or merge the relevant sections into your existing config.
+#
+# This configures Codex as "Lisa" (code reviewer) in the
+# Ralph-Lisa dual-agent collaboration.
+
+[skills]
+enabled = true
+path = "~/.codex/skills"

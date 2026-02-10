@@ -3,6 +3,7 @@
 Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/ralph-lisa-loop.svg)](https://www.npmjs.com/package/ralph-lisa-loop)
 
 ## The Problem
 
@@ -18,43 +19,46 @@ Ralph writes → Lisa reviews → Consensus → Next step
      └────────────────────────────────────────┘
 ```
 
-- **Ralph** (Claude Code): Lead developer - plans, codes, tests
+- **Ralph** (Claude Code): Lead developer - researches, plans, codes, tests
 - **Lisa** (Codex): Code reviewer - reviews, provides feedback
 - **Turn Control**: Only one agent works at a time
 - **Consensus Required**: Both must agree before proceeding
+- **Research First**: When involving reference implementations/protocols/APIs, Ralph must submit [RESEARCH] before coding
+- **Test Results Required**: [CODE] and [FIX] submissions must include test results
+- **Policy Layer**: Configurable warn/block mode for submission quality checks
 
 ## Quick Start
 
-### 1. Clone and Initialize
+### 1. Install
 
 ```bash
-# Clone the repo
-git clone https://github.com/YW1975/Ralph-Lisa-Loop.git
-
-# Go to your project
-cd your-project
-
-# Initialize Ralph-Lisa Loop
-/path/to/Ralph-Lisa-Loop/init.sh
+npm i -g ralph-lisa-loop
 ```
 
-### 2. Start Collaboration
+### 2. Initialize Project
+
+```bash
+cd your-project
+ralph-lisa init
+```
+
+### 3. Start Collaboration
 
 ```bash
 # Manual mode (recommended)
-/path/to/Ralph-Lisa-Loop/start.sh "implement login feature"
+ralph-lisa start "implement login feature"
 
-# Or auto mode (experimental)
-/path/to/Ralph-Lisa-Loop/auto.sh "implement login feature"
+# Or auto mode (experimental, requires tmux)
+ralph-lisa auto "implement login feature"
 ```
 
-### 3. Work Flow
+### 4. Work Flow
 
 **Terminal 1 - Ralph (Claude Code)**:
 ```bash
-./io.sh whose-turn                    # Check turn
+ralph-lisa whose-turn                    # Check turn
 # ... do work ...
-./io.sh submit-ralph "[PLAN] Login feature design
+ralph-lisa submit-ralph "[PLAN] Login feature design
 
 1. Create login form component
 2. Add validation
@@ -63,9 +67,9 @@ cd your-project
 
 **Terminal 2 - Lisa (Codex)**:
 ```bash
-./io.sh whose-turn                    # Check turn
-./io.sh read work.md                  # Read Ralph's work
-./io.sh submit-lisa "[PASS] Plan looks good
+ralph-lisa whose-turn                    # Check turn
+ralph-lisa read work.md                  # Read Ralph's work
+ralph-lisa submit-lisa "[PASS] Plan looks good
 
 - Clear structure
 - Good separation of concerns"
@@ -79,17 +83,62 @@ Agents must check `whose-turn` before any action. Submissions automatically pass
 ### Tag System
 Every submission requires a tag:
 
-| Ralph Tags | Lisa Tags |
-|------------|-----------|
-| `[PLAN]` | `[PASS]` |
-| `[CODE]` | `[NEEDS_WORK]` |
-| `[FIX]` | `[DISCUSS]` |
-| `[DISCUSS]` | `[QUESTION]` |
-| `[QUESTION]` | `[CONSENSUS]` |
-| `[CONSENSUS]` | |
+| Ralph Tags | Lisa Tags | Shared |
+|------------|-----------|--------|
+| `[PLAN]` | `[PASS]` | `[CHALLENGE]` |
+| `[RESEARCH]` | `[NEEDS_WORK]` | `[DISCUSS]` |
+| `[CODE]` | | `[QUESTION]` |
+| `[FIX]` | | `[CONSENSUS]` |
+
+- `[RESEARCH]`: Submit research results before coding (when involving reference implementations, protocols, or external APIs)
+- `[CHALLENGE]`: Explicitly disagree with the other agent's suggestion, providing counter-argument
+- `[CODE]`/`[FIX]`: Must include Test Results section
 
 ### Consensus Protocol
-Lisa's verdict is advisory. Ralph can agree or disagree. Both must reach consensus before `/next-step`.
+Lisa's verdict is advisory. Ralph can agree or use `[CHALLENGE]` to disagree. Both must reach genuine consensus before `/next-step`. Silent acceptance (bare `[FIX]` without reasoning) is not allowed.
+
+### Minimal Init (Zero Intrusion)
+
+When using the Claude Code plugin + Codex global config, you don't need project-level role files:
+
+```bash
+ralph-lisa init --minimal
+```
+
+This only creates `.dual-agent/` session state. No CLAUDE.md, CODEX.md, or command files are written. Requires:
+- Claude Code plugin installed (provides Ralph role via hooks)
+- Codex global config at `~/.codex/` (provides Lisa role)
+
+`start` and `auto` commands work with both full and minimal init.
+
+### Policy Layer
+
+**Inline checks** (during `submit-ralph`/`submit-lisa`):
+
+```bash
+# Enable warn mode (prints warnings, doesn't block)
+export RL_POLICY_MODE=warn
+
+# Enable block mode (rejects non-compliant submissions)
+export RL_POLICY_MODE=block
+
+# Disable (default)
+export RL_POLICY_MODE=off
+```
+
+**Standalone checks** (for scripts/hooks — always exit non-zero on violations, ignoring `RL_POLICY_MODE`):
+
+```bash
+ralph-lisa policy check ralph           # Check Ralph's latest submission
+ralph-lisa policy check lisa            # Check Lisa's latest submission
+ralph-lisa policy check-consensus       # Both agents submitted [CONSENSUS]?
+ralph-lisa policy check-next-step       # Comprehensive: consensus + all policy checks
+```
+
+Policy rules:
+- Ralph's [CODE]/[FIX] must include "Test Results" section
+- Ralph's [RESEARCH] must have substantive content
+- Lisa's [PASS]/[NEEDS_WORK] must include at least 1 reason
 
 ### Deadlock Escape
 After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).
@@ -97,30 +146,44 @@ After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (
 ## Commands
 
 ```bash
+# Project setup
+ralph-lisa init [dir]                    # Initialize project (full)
+ralph-lisa init --minimal [dir]          # Minimal init (session only, no project files)
+ralph-lisa uninit                        # Remove from project
+ralph-lisa start "task"                  # Launch both agents
+ralph-lisa start --full-auto "task"      # Launch without permission prompts
+ralph-lisa auto "task"                   # Auto mode (tmux)
+ralph-lisa auto --full-auto "task"       # Auto mode without permission prompts
+
 # Turn control
-./io.sh whose-turn                    # Check whose turn
-./io.sh submit-ralph "[TAG] ..."      # Ralph submits
-./io.sh submit-lisa "[TAG] ..."       # Lisa submits
+ralph-lisa whose-turn                    # Check whose turn
+ralph-lisa submit-ralph "[TAG] ..."      # Ralph submits
+ralph-lisa submit-lisa "[TAG] ..."       # Lisa submits
 
 # Information
-./io.sh status                        # Current status
-./io.sh read work.md                  # Ralph's latest
-./io.sh read review.md                # Lisa's latest
-./io.sh history                       # Full history
+ralph-lisa status                        # Current status
+ralph-lisa read work.md                  # Ralph's latest
+ralph-lisa read review.md                # Lisa's latest
+ralph-lisa history                       # Full history
 
 # Flow control
-./io.sh step "phase-name"             # Enter new phase
-./io.sh archive [name]                # Archive session
-./io.sh init "task"                   # New session
+ralph-lisa step "phase-name"             # Enter new phase
+ralph-lisa archive [name]                # Archive session
+ralph-lisa clean                         # Clean session
+
+# Policy
+ralph-lisa policy check <ralph|lisa>     # Check submission (hard gate)
+ralph-lisa policy check-consensus        # Check if both [CONSENSUS]
+ralph-lisa policy check-next-step        # Comprehensive pre-step check
 ```
 
 ## Project Structure After Init
 
+**Full init** (`ralph-lisa init`):
 ```
 your-project/
 ├── CLAUDE.md              # Ralph's role (auto-loaded by Claude Code)
 ├── CODEX.md               # Lisa's role (loaded via .codex/config.toml)
-├── io.sh                  # Turn control script
 ├── .claude/
 │   └── commands/          # Claude slash commands
 ├── .codex/
@@ -133,11 +196,17 @@ your-project/
     └── history.md         # Full history
 ```
 
+**Minimal init** (`ralph-lisa init --minimal`):
+```
+your-project/
+└── .dual-agent/           # Session state only (zero project files)
+```
+
 ## Requirements
 
+- [Node.js](https://nodejs.org/) >= 18
 - [Claude Code](https://claude.ai/code) - for Ralph
 - [Codex CLI](https://github.com/openai/codex) - for Lisa
-- Bash shell
 
 For auto mode:
 - tmux
@@ -150,7 +219,7 @@ Part of the [TigerHill](https://github.com/Click-Intelligence-LLC/TigerHill) pro
 ## See Also
 
 - [CONCEPT.md](CONCEPT.md) - Why dual-agent collaboration works
-- [DUAL_AGENT_PLAN.md](DUAL_AGENT_PLAN.md) - Future automation roadmap
+- [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md) - V3 design document
 
 ## License
 

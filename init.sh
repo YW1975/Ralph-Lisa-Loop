@@ -75,8 +75,13 @@ echo "[Codex] Setting up skills in .codex/skills/ralph-lisa-loop/..."
 CODEX_SKILL_DIR="$PROJECT_DIR/.codex/skills/ralph-lisa-loop"
 mkdir -p "$CODEX_SKILL_DIR"
 
-# Create SKILL.md for the ralph-lisa-loop skill
+# Create SKILL.md for the ralph-lisa-loop skill (with YAML frontmatter)
 cat > "$CODEX_SKILL_DIR/SKILL.md" << 'SKILLEOF'
+---
+name: ralph-lisa-loop
+description: Lisa review commands for Ralph-Lisa dual-agent collaboration
+---
+
 # Ralph-Lisa Loop - Lisa Skills
 
 This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
@@ -85,35 +90,35 @@ This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
 
 ### Check Turn
 ```bash
-./io.sh whose-turn
+ralph-lisa whose-turn
 ```
 Check if it's your turn before taking action.
 
 ### Submit Review
 ```bash
-./io.sh submit-lisa "[TAG] summary
+ralph-lisa submit-lisa "[TAG] summary
 
 detailed content..."
 ```
-Submit your review. Valid tags: PASS, NEEDS_WORK, DISCUSS, QUESTION, CONSENSUS
+Submit your review. Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS
 
 ### View Status
 ```bash
-./io.sh status
+ralph-lisa status
 ```
 View current task, turn, and last action.
 
 ### Read Ralph's Work
 ```bash
-./io.sh read work.md
+ralph-lisa read work.md
 ```
 Read Ralph's latest submission.
 SKILLEOF
 
-# Create .codex/config.toml with instructions and skills
+# Create .codex/config.toml (Codex reads AGENTS.md by default; fallback to CODEX.md)
 cat > "$PROJECT_DIR/.codex/config.toml" << CONFIGEOF
-[instructions]
-default = "./CODEX.md"
+# RALPH-LISA-LOOP - managed by ralph-lisa-loop
+project_doc_fallback_filenames = ["CODEX.md"]
 
 [skills]
 enabled = true

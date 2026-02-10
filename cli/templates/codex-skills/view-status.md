@@ -1,13 +1,11 @@
----
-description: View current collaboration status
----
-
 # View Status
 
 See current task, turn, round, and last action.
 
-```!
-ralph-lisa status
+## Command
+
+```bash
+./mini-skill/io.sh status
 ```
 
 ## Output Shows
