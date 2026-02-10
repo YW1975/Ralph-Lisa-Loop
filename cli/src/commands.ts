@@ -904,17 +904,36 @@ export function cmdAuto(args: string[]): void {
 STATE_DIR=".dual-agent"
 LAST_TURN=""
 
+send_go_to_pane() {
+  local pane="$1"
+  local max_retries=3
+  local attempt=0
+  while (( attempt < max_retries )); do
+    tmux send-keys -t ${sessionName}:\${pane} -l "go" 2>/dev/null || true
+    sleep 3
+    tmux send-keys -t ${sessionName}:\${pane} Enter 2>/dev/null || true
+    sleep 2
+    # Check if "go" is still sitting in the input (Enter didn't register)
+    local pane_content
+    pane_content=$(tmux capture-pane -t ${sessionName}:\${pane} -p 2>/dev/null | tail -3)
+    if echo "$pane_content" | grep -Eq "^(> |❯ |› )go$"; then
+      attempt=$((attempt + 1))
+      echo "[Watcher] Retry $attempt: Enter not registered on pane \${pane}"
+      # Clear the stuck "go" text and retry
+      tmux send-keys -t ${sessionName}:\${pane} C-u 2>/dev/null || true
+      sleep 1
+    else
+      break
+    fi
+  done
+}
+
 trigger_agent() {
   local turn="$1"
   if [[ "$turn" == "ralph" ]]; then
-    tmux send-keys -t ${sessionName}:0.0 -l "go" 2>/dev/null || true
-    sleep 0.3
-    tmux send-keys -t ${sessionName}:0.0 Enter 2>/dev/null || true
+    send_go_to_pane "0.0"
   elif [[ "$turn" == "lisa" ]]; then
-    # Codex needs text and Enter sent separately
-    tmux send-keys -t ${sessionName}:0.1 -l "go" 2>/dev/null || true
-    sleep 0.3
-    tmux send-keys -t ${sessionName}:0.1 Enter 2>/dev/null || true
+    send_go_to_pane "0.1"
   fi
 }
 
@@ -924,7 +943,7 @@ check_and_trigger() {
     if [[ -n "$CURRENT_TURN" && "$CURRENT_TURN" != "$LAST_TURN" ]]; then
       echo "[Watcher] Turn changed: $LAST_TURN -> $CURRENT_TURN"
       LAST_TURN="$CURRENT_TURN"
-      sleep 1
+      sleep 5
       trigger_agent "$CURRENT_TURN"
     fi
   fi
