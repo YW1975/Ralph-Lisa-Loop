@@ -847,18 +847,22 @@ export function cmdAuto(args: string[]): void {
   try {
     execSync("which claude", { stdio: "pipe" });
   } catch {
-    console.error("Error: 'claude' command not found.");
+    console.error("Error: 'claude' (Claude Code CLI) not found in PATH.");
+    console.error("");
+    console.error("Install: npm install -g @anthropic-ai/claude-code");
     process.exit(1);
   }
 
   try {
     execSync("which codex", { stdio: "pipe" });
   } catch {
-    console.error("Error: 'codex' command not found.");
+    console.error("Error: 'codex' (OpenAI Codex CLI) not found in PATH.");
+    console.error("");
+    console.error("Install: npm install -g @openai/codex");
     process.exit(1);
   }
 
-  // Check file watcher
+  // Check file watcher (optional - falls back to polling)
   let watcher = "";
   try {
     execSync("which fswatch", { stdio: "pipe" });
@@ -868,11 +872,13 @@ export function cmdAuto(args: string[]): void {
       execSync("which inotifywait", { stdio: "pipe" });
       watcher = "inotifywait";
     } catch {
-      console.error("Error: File watcher required.");
-      console.error(
-        "Install: brew install fswatch (macOS) or apt install inotify-tools (Linux)"
+      console.log(
+        "Note: No file watcher found (fswatch/inotifywait). Using polling mode."
       );
-      process.exit(1);
+      console.log(
+        "  Install for faster turn detection: brew install fswatch (macOS) or apt install inotify-tools (Linux)"
+      );
+      console.log("");
     }
   }
 
@@ -896,84 +902,399 @@ export function cmdAuto(args: string[]): void {
   const dir = stateDir(projectDir);
   fs.mkdirSync(dir, { recursive: true });
 
+  // Clean stale files from previous runs (NOT watcher.pid — watcher handles its own PID)
+  for (const f of ["pane0.log", "pane1.log", ".turn_changed"]) {
+    try { fs.unlinkSync(path.join(dir, f)); } catch {}
+  }
+
   // Create watcher script
   const watcherScript = path.join(dir, "watcher.sh");
   let watcherContent = `#!/bin/bash
-# Turn watcher - triggers agents on turn change
+# Turn watcher v2 - reliable agent triggering with health checks
+# Architecture: polling main loop + optional event acceleration
 
 STATE_DIR=".dual-agent"
-LAST_TURN=""
+SESSION="${sessionName}"
+SCRIPT_PATH="\$(cd "\$(dirname "\$0")" && pwd)/watcher.sh"
+SEEN_TURN=""
+ACKED_TURN=""
+FAIL_COUNT=0
+ACCEL_PID=""
+
+PANE0_LOG="\${STATE_DIR}/pane0.log"
+PANE1_LOG="\${STATE_DIR}/pane1.log"
+PID_FILE="\${STATE_DIR}/watcher.pid"
+
+# Interactive prompt patterns (do NOT send "go" if matched)
+INTERACTIVE_RE='[Pp]assword[: ]|[Pp]assphrase|[Uu]sername[: ]|[Tt]oken[: ]|[Ll]ogin[: ]|\\(y/[Nn]\\)|\\(Y/[Nn]\\)|\\[y/[Nn]\\]|\\[Y/[Nn]\\]|Are you sure|Continue\\?|[Pp]ress [Ee]nter|MFA|2FA|one-time|OTP'
+
+# Pause state per pane: 0=active, consecutive hit count
+PANE0_PROMPT_HITS=0
+PANE1_PROMPT_HITS=0
+PANE0_PAUSED=0
+PANE1_PAUSED=0
+PANE0_PAUSE_SIZE=0
+PANE1_PAUSE_SIZE=0
+
+# ─── PID singleton ───────────────────────────────
+
+if [[ -f "\$PID_FILE" ]]; then
+  old_pid=\$(cat "\$PID_FILE" 2>/dev/null)
+  if [[ -n "\$old_pid" ]] && kill -0 "\$old_pid" 2>/dev/null; then
+    old_args=\$(ps -p "\$old_pid" -o args= 2>/dev/null || echo "")
+    if echo "\$old_args" | grep -qF "\$SCRIPT_PATH"; then
+      echo "[Watcher] Killing old watcher (PID \$old_pid)"
+      kill "\$old_pid" 2>/dev/null || true
+      sleep 1
+    fi
+  fi
+fi
+
+echo \$\$ > "\$PID_FILE"
+
+# ─── Cleanup trap ────────────────────────────────
+
+cleanup() {
+  echo "[Watcher] Shutting down..."
+  # Stop pipe-pane capture
+  tmux pipe-pane -t "\${SESSION}:0.0" 2>/dev/null || true
+  tmux pipe-pane -t "\${SESSION}:0.1" 2>/dev/null || true
+  # Kill event accelerator
+  if [[ -n "\$ACCEL_PID" ]] && kill -0 "\$ACCEL_PID" 2>/dev/null; then
+    kill "\$ACCEL_PID" 2>/dev/null || true
+  fi
+  # Clean up files
+  rm -f "\$PID_FILE" "\${STATE_DIR}/.turn_changed"
+  rm -f "\$PANE0_LOG" "\$PANE1_LOG"
+  exit 0
+}
+trap cleanup EXIT INT TERM
+
+# ─── Set up pipe-pane ────────────────────────────
+
+touch "\$PANE0_LOG" "\$PANE1_LOG"
+tmux pipe-pane -o -t "\${SESSION}:0.0" "cat >> \\"\$PANE0_LOG\\"" 2>/dev/null || true
+tmux pipe-pane -o -t "\${SESSION}:0.1" "cat >> \\"\$PANE1_LOG\\"" 2>/dev/null || true
+
+# ─── Helper functions ────────────────────────────
+
+check_session_alive() {
+  if ! tmux has-session -t "\${SESSION}" 2>/dev/null; then
+    echo "[Watcher] ERROR: tmux session '\${SESSION}' no longer exists. Exiting."
+    exit 1
+  fi
+}
+
+# Returns 0 if agent appears dead (pane shows bare shell 3 consecutive times)
+check_agent_alive() {
+  local pane="\$1"
+  local agent_name="\$2"
+  local dead_count=0
+  local i
+  for i in 1 2 3; do
+    local pane_cmd
+    pane_cmd=\$(tmux list-panes -t "\${SESSION}" -F '#{pane_index} #{pane_current_command}' 2>/dev/null | grep "^\${pane##*.} " | awk '{print \$2}')
+    if [[ "\$pane_cmd" == "bash" || "\$pane_cmd" == "zsh" || "\$pane_cmd" == "sh" || "\$pane_cmd" == "fish" ]]; then
+      dead_count=\$((dead_count + 1))
+    else
+      return 0  # Agent alive
+    fi
+    [[ \$i -lt 3 ]] && sleep 2
+  done
+  if (( dead_count >= 3 )); then
+    echo "[Watcher] ALERT: \$agent_name appears to have exited (pane shows shell 3 consecutive times)"
+    return 1  # Agent dead
+  fi
+  return 0
+}
+
+# Returns 0 if pane output has been stable for at least N seconds
+check_output_stable() {
+  local log_file="\$1"
+  local stable_seconds="\${2:-5}"
+
+  if [[ ! -f "\$log_file" ]]; then
+    return 0
+  fi
+
+  local mtime_epoch now_epoch elapsed
+  if [[ "\$(uname)" == "Darwin" ]]; then
+    mtime_epoch=\$(stat -f %m "\$log_file" 2>/dev/null || echo 0)
+  else
+    mtime_epoch=\$(stat -c %Y "\$log_file" 2>/dev/null || echo 0)
+  fi
+  now_epoch=\$(date +%s)
+  elapsed=\$(( now_epoch - mtime_epoch ))
+
+  if (( elapsed >= stable_seconds )); then
+    return 0  # Stable
+  fi
+  return 1  # Still producing output
+}
+
+# Returns 0 if interactive prompt detected (do NOT send go)
+check_for_interactive_prompt() {
+  local pane="\$1"
+  local pane_content
+  pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -5)
+  if echo "\$pane_content" | grep -Eq "\$INTERACTIVE_RE"; then
+    return 0  # IS interactive
+  fi
+  return 1  # Not interactive
+}
+
+# Truncate log file safely: unbind pipe → truncate → rebind
+truncate_log_if_needed() {
+  local pane="\$1"
+  local log_file="\$2"
+  local max_bytes=1048576  # 1MB
+
+  if [[ ! -f "\$log_file" ]]; then return; fi
+  local size
+  size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
+  if (( size > max_bytes )); then
+    echo "[Watcher] Truncating \$log_file (\${size} bytes > 1MB)"
+    tmux pipe-pane -t "\${SESSION}:\${pane}" 2>/dev/null || true
+    tail -c 102400 "\$log_file" > "\${log_file}.tmp" && mv "\${log_file}.tmp" "\$log_file"
+    tmux pipe-pane -o -t "\${SESSION}:\${pane}" "cat >> \\"\$log_file\\"" 2>/dev/null || true
+  fi
+}
+
+# ─── send_go_to_pane ─────────────────────────────
 
 send_go_to_pane() {
-  local pane="$1"
+  local pane="\$1"
+  local agent_name="\$2"
+  local log_file="\$3"
   local max_retries=3
   local attempt=0
-  while (( attempt < max_retries )); do
-    tmux send-keys -t ${sessionName}:\${pane} -l "go" 2>/dev/null || true
-    sleep 3
-    tmux send-keys -t ${sessionName}:\${pane} Enter 2>/dev/null || true
+
+  # 1. Agent alive?
+  if ! check_agent_alive "\$pane" "\$agent_name"; then
+    echo "[Watcher] Skipping \$agent_name - agent not running"
+    return 1
+  fi
+
+  # 2. Interactive prompt?
+  if check_for_interactive_prompt "\$pane"; then
+    echo "[Watcher] Skipping \$agent_name - interactive prompt detected"
+    return 1
+  fi
+
+  # 3. Wait for output to stabilize (max 60s, then FAIL — not continue)
+  local wait_count=0
+  while ! check_output_stable "\$log_file" 5; do
+    wait_count=\$((wait_count + 1))
+    if (( wait_count > 30 )); then
+      echo "[Watcher] WARNING: \$agent_name output not stabilizing after 60s, returning failure"
+      return 1
+    fi
     sleep 2
-    # Check if "go" is still sitting in the input (Enter didn't register)
+  done
+
+  # 4. Double-confirm stability
+  sleep 2
+  if ! check_output_stable "\$log_file" 2; then
+    echo "[Watcher] \$agent_name output resumed during confirmation wait, returning failure"
+    return 1
+  fi
+
+  # 5. Re-check interactive prompt
+  if check_for_interactive_prompt "\$pane"; then
+    echo "[Watcher] Skipping \$agent_name - interactive prompt detected (post-wait)"
+    return 1
+  fi
+
+  # 6. Record log size before sending
+  local pre_size
+  pre_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
+
+  # 7. Send "go" + Enter with retry
+  while (( attempt < max_retries )); do
+    tmux send-keys -t "\${SESSION}:\${pane}" -l "go" 2>/dev/null || true
+    sleep 1
+    tmux send-keys -t "\${SESSION}:\${pane}" Enter 2>/dev/null || true
+    sleep 3
+
+    # Check if "go" is stuck in prompt
     local pane_content
-    pane_content=$(tmux capture-pane -t ${sessionName}:\${pane} -p 2>/dev/null | tail -3)
-    if echo "$pane_content" | grep -Eq "^(> |❯ |› )go$"; then
-      attempt=$((attempt + 1))
-      echo "[Watcher] Retry $attempt: Enter not registered on pane \${pane}"
-      # Clear the stuck "go" text and retry
-      tmux send-keys -t ${sessionName}:\${pane} C-u 2>/dev/null || true
+    pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -3)
+    if echo "\$pane_content" | grep -Eq '(^> go\$|^❯ go\$|^› go\$|> go\$)'; then
+      attempt=\$((attempt + 1))
+      echo "[Watcher] Retry \$attempt: Enter not registered for \$agent_name"
+      tmux send-keys -t "\${SESSION}:\${pane}" C-u 2>/dev/null || true
       sleep 1
     else
       break
     fi
   done
+
+  # 8. Verify delivery: did log file grow?
+  sleep 5
+  local post_size
+  post_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
+  if (( post_size <= pre_size )); then
+    echo "[Watcher] WARNING: No new output from \$agent_name after sending 'go'"
+    return 1
+  fi
+
+  echo "[Watcher] OK: \$agent_name is working (output \$pre_size -> \$post_size)"
+  return 0
 }
+
+# ─── trigger_agent ───────────────────────────────
 
 trigger_agent() {
-  local turn="$1"
-  if [[ "$turn" == "ralph" ]]; then
-    send_go_to_pane "0.0"
-  elif [[ "$turn" == "lisa" ]]; then
-    send_go_to_pane "0.1"
+  local turn="\$1"
+  if [[ "\$turn" == "ralph" ]]; then
+    # Check pause state
+    if (( PANE0_PAUSED )); then
+      local cur_size
+      cur_size=\$(wc -c < "\$PANE0_LOG" 2>/dev/null | tr -d ' ' || echo 0)
+      if (( cur_size != PANE0_PAUSE_SIZE )) && ! check_for_interactive_prompt "0.0"; then
+        echo "[Watcher] Ralph pane resumed (output changed + prompt gone)"
+        PANE0_PAUSED=0
+        PANE0_PROMPT_HITS=0
+      else
+        echo "[Watcher] Ralph pane still paused (waiting for user)"
+        return 1
+      fi
+    fi
+    send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG"
+    local rc=\$?
+    if (( rc != 0 )); then
+      # Track interactive prompt hits for pause
+      if check_for_interactive_prompt "0.0"; then
+        PANE0_PROMPT_HITS=\$((PANE0_PROMPT_HITS + 1))
+        if (( PANE0_PROMPT_HITS >= 3 )); then
+          PANE0_PAUSED=1
+          PANE0_PAUSE_SIZE=\$(wc -c < "\$PANE0_LOG" 2>/dev/null | tr -d ' ' || echo 0)
+          echo "[Watcher] PAUSED: Ralph pane waiting for user input (hit \$PANE0_PROMPT_HITS times)"
+        fi
+      fi
+    else
+      PANE0_PROMPT_HITS=0
+    fi
+    return \$rc
+  elif [[ "\$turn" == "lisa" ]]; then
+    if (( PANE1_PAUSED )); then
+      local cur_size
+      cur_size=\$(wc -c < "\$PANE1_LOG" 2>/dev/null | tr -d ' ' || echo 0)
+      if (( cur_size != PANE1_PAUSE_SIZE )) && ! check_for_interactive_prompt "0.1"; then
+        echo "[Watcher] Lisa pane resumed (output changed + prompt gone)"
+        PANE1_PAUSED=0
+        PANE1_PROMPT_HITS=0
+      else
+        echo "[Watcher] Lisa pane still paused (waiting for user)"
+        return 1
+      fi
+    fi
+    send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG"
+    local rc=\$?
+    if (( rc != 0 )); then
+      if check_for_interactive_prompt "0.1"; then
+        PANE1_PROMPT_HITS=\$((PANE1_PROMPT_HITS + 1))
+        if (( PANE1_PROMPT_HITS >= 3 )); then
+          PANE1_PAUSED=1
+          PANE1_PAUSE_SIZE=\$(wc -c < "\$PANE1_LOG" 2>/dev/null | tr -d ' ' || echo 0)
+          echo "[Watcher] PAUSED: Lisa pane waiting for user input (hit \$PANE1_PROMPT_HITS times)"
+        fi
+      fi
+    else
+      PANE1_PROMPT_HITS=0
+    fi
+    return \$rc
   fi
+  return 1
 }
 
+# ─── check_and_trigger (state machine) ───────────
+
 check_and_trigger() {
-  if [[ -f "$STATE_DIR/turn.txt" ]]; then
-    CURRENT_TURN=$(cat "$STATE_DIR/turn.txt" 2>/dev/null || echo "")
-    if [[ -n "$CURRENT_TURN" && "$CURRENT_TURN" != "$LAST_TURN" ]]; then
-      echo "[Watcher] Turn changed: $LAST_TURN -> $CURRENT_TURN"
-      LAST_TURN="$CURRENT_TURN"
-      sleep 5
-      trigger_agent "$CURRENT_TURN"
+  check_session_alive
+
+  # Truncate logs if too large
+  truncate_log_if_needed "0.0" "\$PANE0_LOG"
+  truncate_log_if_needed "0.1" "\$PANE1_LOG"
+
+  if [[ -f "\$STATE_DIR/turn.txt" ]]; then
+    CURRENT_TURN=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
+
+    # Detect new turn change (reset fail count)
+    if [[ -n "\$CURRENT_TURN" && "\$CURRENT_TURN" != "\$SEEN_TURN" ]]; then
+      echo "[Watcher] Turn changed: \$SEEN_TURN -> \$CURRENT_TURN"
+      SEEN_TURN="\$CURRENT_TURN"
+      FAIL_COUNT=0
+    fi
+
+    # Need to deliver? (seen but not yet acked)
+    if [[ -n "\$SEEN_TURN" && "\$SEEN_TURN" != "\$ACKED_TURN" ]]; then
+      # Backoff on repeated failures
+      if (( FAIL_COUNT >= 30 )); then
+        echo "[Watcher] ALERT: \$FAIL_COUNT consecutive failures. Manual intervention needed."
+        sleep 30
+      elif (( FAIL_COUNT >= 10 )); then
+        echo "[Watcher] DEGRADED: \$FAIL_COUNT consecutive failures, slowing down..."
+        sleep 30
+      fi
+
+      if trigger_agent "\$SEEN_TURN"; then
+        ACKED_TURN="\$SEEN_TURN"
+        FAIL_COUNT=0
+        echo "[Watcher] Turn acknowledged: \$SEEN_TURN"
+      else
+        FAIL_COUNT=\$((FAIL_COUNT + 1))
+        echo "[Watcher] Trigger failed (fail_count=\$FAIL_COUNT), will retry next cycle"
+      fi
     fi
   fi
 }
 
-echo "[Watcher] Starting... (Ctrl+C to stop)"
-echo "[Watcher] Monitoring $STATE_DIR/turn.txt"
+# ─── Main ────────────────────────────────────────
 
-sleep 2
+echo "[Watcher] Starting v2... (Ctrl+C to stop)"
+echo "[Watcher] Monitoring \$STATE_DIR/turn.txt"
+echo "[Watcher] Pane logs: \$PANE0_LOG, \$PANE1_LOG"
+echo "[Watcher] PID: \$\$"
+
+sleep 5
 check_and_trigger
 
 `;
 
+  // Event accelerator (optional background subprocess)
   if (watcher === "fswatch") {
-    watcherContent += `fswatch -o "$STATE_DIR/turn.txt" 2>/dev/null | while read; do
-  check_and_trigger
-done
+    watcherContent += `# Event accelerator: fswatch touches flag file to wake main loop faster
+fswatch -o "\$STATE_DIR/turn.txt" 2>/dev/null | while read; do
+  touch "\${STATE_DIR}/.turn_changed"
+done &
+ACCEL_PID=\$!
+echo "[Watcher] Event accelerator started (fswatch, PID \$ACCEL_PID)"
+
 `;
   } else if (watcher === "inotifywait") {
-    watcherContent += `while inotifywait -e modify "$STATE_DIR/turn.txt" 2>/dev/null; do
-  check_and_trigger
-done
-`;
-  } else {
-    watcherContent += `while true; do
-  check_and_trigger
-  sleep 2
-done
+    watcherContent += `# Event accelerator: inotifywait touches flag file to wake main loop faster
+while inotifywait -e modify "\$STATE_DIR/turn.txt" 2>/dev/null; do
+  touch "\${STATE_DIR}/.turn_changed"
+done &
+ACCEL_PID=\$!
+echo "[Watcher] Event accelerator started (inotifywait, PID \$ACCEL_PID)"
+
 `;
   }
+
+  // Main polling loop (always runs, event accelerator just speeds it up)
+  watcherContent += `# Main loop: polling + optional event acceleration
+while true; do
+  check_and_trigger
+  # If event accelerator touched the flag, skip sleep
+  if [[ -f "\${STATE_DIR}/.turn_changed" ]]; then
+    rm -f "\${STATE_DIR}/.turn_changed"
+  else
+    sleep 2
+  fi
+done
+`;
 
   writeFile(watcherScript, watcherContent);
   fs.chmodSync(watcherScript, 0o755);
@@ -1014,6 +1335,7 @@ done
   console.log("  |  (Claude) |  (Codex)  |");
   console.log("  +-----------+-----------+");
   console.log("  Watcher runs in background (log: .dual-agent/watcher.log)");
+  console.log("  Pane output captured: .dual-agent/pane0.log, .dual-agent/pane1.log");
   console.log("");
   console.log("Attaching to session...");
   console.log(line());
@@ -1199,4 +1521,125 @@ function extractSubmissionContent(raw: string): string {
     }
   }
   return "";
+}
+
+// ─── doctor ──────────────────────────────────────
+
+export function cmdDoctor(args: string[]): void {
+  const strict = args.includes("--strict");
+  const { execSync } = require("node:child_process");
+
+  console.log(line());
+  console.log("Ralph-Lisa Loop - Dependency Check");
+  console.log(line());
+  console.log("");
+
+  let allOk = true;
+  let hasWatcher = false;
+
+  const checks: Array<{
+    name: string;
+    cmd: string;
+    versionCmd?: string;
+    required: boolean;
+    installHint: string;
+  }> = [
+    {
+      name: "tmux",
+      cmd: "which tmux",
+      versionCmd: "tmux -V",
+      required: true,
+      installHint: "brew install tmux (macOS) / apt install tmux (Linux)",
+    },
+    {
+      name: "claude (Claude Code CLI)",
+      cmd: "which claude",
+      versionCmd: "claude --version",
+      required: true,
+      installHint: "npm install -g @anthropic-ai/claude-code",
+    },
+    {
+      name: "codex (OpenAI Codex CLI)",
+      cmd: "which codex",
+      versionCmd: "codex --version",
+      required: true,
+      installHint: "npm install -g @openai/codex",
+    },
+    {
+      name: "fswatch (file watcher)",
+      cmd: "which fswatch",
+      required: false,
+      installHint: "brew install fswatch (macOS)",
+    },
+    {
+      name: "inotifywait (file watcher)",
+      cmd: "which inotifywait",
+      required: false,
+      installHint: "apt install inotify-tools (Linux)",
+    },
+  ];
+
+  for (const check of checks) {
+    try {
+      execSync(check.cmd, { stdio: "pipe" });
+      let version = "";
+      if (check.versionCmd) {
+        try {
+          version = execSync(check.versionCmd, {
+            stdio: "pipe",
+            encoding: "utf-8",
+            timeout: 5000,
+          })
+            .trim()
+            .split("\n")[0];
+        } catch {}
+      }
+      console.log(`  OK  ${check.name}${version ? ` (${version})` : ""}`);
+      if (check.name.includes("fswatch") || check.name.includes("inotifywait")) {
+        hasWatcher = true;
+      }
+    } catch {
+      if (check.required) {
+        console.log(`  MISSING  ${check.name}`);
+        console.log(`           Install: ${check.installHint}`);
+        allOk = false;
+      } else {
+        console.log(`  --  ${check.name} (optional)`);
+      }
+    }
+  }
+
+  if (!hasWatcher) {
+    console.log("");
+    console.log(
+      "  Note: No file watcher found. Auto mode will use polling (slower)."
+    );
+    console.log(
+      "  Install fswatch or inotify-tools for event-driven turn detection."
+    );
+  }
+
+  // Node version
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.slice(1), 10);
+  if (majorVersion >= 18) {
+    console.log(`  OK  Node.js ${nodeVersion}`);
+  } else {
+    console.log(`  WARNING  Node.js ${nodeVersion} (requires >= 18)`);
+    allOk = false;
+  }
+
+  console.log("");
+  if (allOk) {
+    console.log("All required dependencies satisfied.");
+  } else {
+    console.log(
+      "Some required dependencies missing. Install them and re-run 'ralph-lisa doctor'."
+    );
+  }
+  console.log(line());
+
+  if (strict && !allOk) {
+    process.exit(1);
+  }
 }

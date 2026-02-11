@@ -133,6 +133,8 @@ ralph-lisa policy check ralph           # Check Ralph's latest submission
 ralph-lisa policy check lisa            # Check Lisa's latest submission
 ralph-lisa policy check-consensus       # Both agents submitted [CONSENSUS]?
 ralph-lisa policy check-next-step       # Comprehensive: consensus + all policy checks
+ralph-lisa doctor                      # Check all dependencies
+ralph-lisa doctor --strict             # Exit 1 if any missing (for CI)
 ```
 
 Policy rules:
@@ -175,6 +177,10 @@ ralph-lisa clean                         # Clean session
 ralph-lisa policy check <ralph|lisa>     # Check submission (hard gate)
 ralph-lisa policy check-consensus        # Check if both [CONSENSUS]
 ralph-lisa policy check-next-step        # Comprehensive pre-step check
+
+# Diagnostics
+ralph-lisa doctor                        # Check all dependencies
+ralph-lisa doctor --strict               # Exit 1 if any missing (for CI)
 ```
 
 ## Project Structure After Init
