@@ -973,9 +973,20 @@ cleanup() {
   if [[ -n "\$ACCEL_PID" ]] && kill -0 "\$ACCEL_PID" 2>/dev/null; then
     kill "\$ACCEL_PID" 2>/dev/null || true
   fi
-  # Clean up files
+  # Clean up PID and flag files
   rm -f "\$PID_FILE" "\${STATE_DIR}/.turn_changed"
-  rm -f "\$PANE0_LOG" "\$PANE1_LOG"
+  # Archive pane logs (not delete) so transcripts are preserved
+  local logs_dir="\${STATE_DIR}/logs"
+  mkdir -p "\$logs_dir"
+  local archive_ts
+  archive_ts=\$(date "+%Y-%m-%dT%H-%M-%S")
+  for lf in "\$PANE0_LOG" "\$PANE1_LOG"; do
+    if [[ -f "\$lf" && -s "\$lf" ]]; then
+      local base
+      base=\$(basename "\$lf" .log)
+      mv "\$lf" "\${logs_dir}/\${base}-\${archive_ts}.log" 2>/dev/null || true
+    fi
+  done
   exit 0
 }
 trap cleanup EXIT INT TERM
@@ -1121,16 +1132,18 @@ send_go_to_pane() {
   pre_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
 
   # 7. Send trigger message + Enter with retry
+  # Use first 20 chars as detection marker (long messages wrap in narrow panes)
+  local detect_marker="\${go_msg:0:20}"
   while (( attempt < max_retries )); do
     tmux send-keys -t "\${SESSION}:\${pane}" -l "\$go_msg" 2>/dev/null || true
     sleep 1
     tmux send-keys -t "\${SESSION}:\${pane}" Enter 2>/dev/null || true
     sleep 3
 
-    # Check if message is stuck in prompt (not submitted)
+    # Check if message is stuck in input line (not submitted)
     local pane_content
-    pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -3)
-    if echo "\$pane_content" | grep -qF "\$go_msg"; then
+    pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -5)
+    if echo "\$pane_content" | grep -qF "\$detect_marker"; then
       attempt=\$((attempt + 1))
       echo "[Watcher] Retry \$attempt: Enter not registered for \$agent_name"
       tmux send-keys -t "\${SESSION}:\${pane}" C-u 2>/dev/null || true
