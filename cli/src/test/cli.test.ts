@@ -118,6 +118,69 @@ describe("CLI: doctor", () => {
   });
 });
 
+describe("CLI: logs", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("lists no logs when none exist", () => {
+    const r = run("logs");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("No transcript logs found"));
+  });
+
+  it("lists live pane logs when present", () => {
+    const logFile = path.join(TMP, ".dual-agent", "pane0.log");
+    fs.writeFileSync(logFile, "some output from ralph\n");
+    const r = run("logs");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Live (current session)"));
+    assert.ok(r.stdout.includes("pane0.log"));
+  });
+
+  it("lists archived logs", () => {
+    const logsDir = path.join(TMP, ".dual-agent", "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    fs.writeFileSync(path.join(logsDir, "pane0-2026-01-01T12-00-00.log"), "archived output\n");
+    const r = run("logs");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Archived (previous sessions)"));
+    assert.ok(r.stdout.includes("pane0-2026-01-01T12-00-00.log"));
+  });
+
+  it("cat shows live pane log content", () => {
+    const logFile = path.join(TMP, ".dual-agent", "pane0.log");
+    fs.writeFileSync(logFile, "hello from ralph pane\n");
+    const r = run("logs", "cat");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("hello from ralph pane"));
+  });
+
+  it("cat shows specific archived log", () => {
+    const logsDir = path.join(TMP, ".dual-agent", "logs");
+    fs.mkdirSync(logsDir, { recursive: true });
+    const archiveFile = "pane1-2026-01-01T12-00-00.log";
+    fs.writeFileSync(path.join(logsDir, archiveFile), "archived lisa output\n");
+    const r = run("logs", "cat", archiveFile);
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("archived lisa output"));
+  });
+
+  it("ignores empty pane logs in listing", () => {
+    const logFile = path.join(TMP, ".dual-agent", "pane0.log");
+    fs.writeFileSync(logFile, ""); // empty
+    const r = run("logs");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(!r.stdout.includes("pane0.log"));
+  });
+});
+
 describe("CLI: init --minimal", () => {
   beforeEach(() => {
     fs.rmSync(TMP, { recursive: true, force: true });

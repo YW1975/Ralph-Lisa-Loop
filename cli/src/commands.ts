@@ -902,10 +902,20 @@ export function cmdAuto(args: string[]): void {
   const dir = stateDir(projectDir);
   fs.mkdirSync(dir, { recursive: true });
 
-  // Clean stale files from previous runs (NOT watcher.pid — watcher handles its own PID)
-  for (const f of ["pane0.log", "pane1.log", ".turn_changed"]) {
-    try { fs.unlinkSync(path.join(dir, f)); } catch {}
+  // Archive pane logs from previous runs (for transcript preservation)
+  const logsDir = path.join(dir, "logs");
+  fs.mkdirSync(logsDir, { recursive: true });
+  for (const f of ["pane0.log", "pane1.log"]) {
+    const src = path.join(dir, f);
+    if (fs.existsSync(src) && fs.statSync(src).size > 0) {
+      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      fs.renameSync(src, path.join(logsDir, `${f.replace(".log", "")}-${ts}.log`));
+    } else {
+      try { fs.unlinkSync(src); } catch {}
+    }
   }
+  // Clean event accelerator flag
+  try { fs.unlinkSync(path.join(dir, ".turn_changed")); } catch {}
 
   // Create watcher script
   const watcherScript = path.join(dir, "watcher.sh");
@@ -963,9 +973,20 @@ cleanup() {
   if [[ -n "\$ACCEL_PID" ]] && kill -0 "\$ACCEL_PID" 2>/dev/null; then
     kill "\$ACCEL_PID" 2>/dev/null || true
   fi
-  # Clean up files
+  # Clean up PID and flag files
   rm -f "\$PID_FILE" "\${STATE_DIR}/.turn_changed"
-  rm -f "\$PANE0_LOG" "\$PANE1_LOG"
+  # Archive pane logs (not delete) so transcripts are preserved
+  local logs_dir="\${STATE_DIR}/logs"
+  mkdir -p "\$logs_dir"
+  local archive_ts
+  archive_ts=\$(date "+%Y-%m-%dT%H-%M-%S")
+  for lf in "\$PANE0_LOG" "\$PANE1_LOG"; do
+    if [[ -f "\$lf" && -s "\$lf" ]]; then
+      local base
+      base=\$(basename "\$lf" .log)
+      mv "\$lf" "\${logs_dir}/\${base}-\${archive_ts}.log" 2>/dev/null || true
+    fi
+  done
   exit 0
 }
 trap cleanup EXIT INT TERM
@@ -1066,6 +1087,7 @@ send_go_to_pane() {
   local pane="\$1"
   local agent_name="\$2"
   local log_file="\$3"
+  local go_msg="\${4:-go}"
   local max_retries=3
   local attempt=0
 
@@ -1109,17 +1131,19 @@ send_go_to_pane() {
   local pre_size
   pre_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
 
-  # 7. Send "go" + Enter with retry
+  # 7. Send trigger message + Enter with retry
+  # Use first 20 chars as detection marker (long messages wrap in narrow panes)
+  local detect_marker="\${go_msg:0:20}"
   while (( attempt < max_retries )); do
-    tmux send-keys -t "\${SESSION}:\${pane}" -l "go" 2>/dev/null || true
+    tmux send-keys -t "\${SESSION}:\${pane}" -l "\$go_msg" 2>/dev/null || true
     sleep 1
     tmux send-keys -t "\${SESSION}:\${pane}" Enter 2>/dev/null || true
     sleep 3
 
-    # Check if "go" is stuck in prompt
+    # Check if message is stuck in input line (not submitted)
     local pane_content
-    pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -3)
-    if echo "\$pane_content" | grep -Eq '(^> go\$|^❯ go\$|^› go\$|> go\$)'; then
+    pane_content=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | tail -5)
+    if echo "\$pane_content" | grep -qF "\$detect_marker"; then
       attempt=\$((attempt + 1))
       echo "[Watcher] Retry \$attempt: Enter not registered for \$agent_name"
       tmux send-keys -t "\${SESSION}:\${pane}" C-u 2>/dev/null || true
@@ -1160,7 +1184,8 @@ trigger_agent() {
         return 1
       fi
     fi
-    send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG"
+    local ralph_msg="Your turn. Lisa's feedback is ready — run: ralph-lisa read review.md"
+    send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG" "\$ralph_msg"
     local rc=\$?
     if (( rc != 0 )); then
       # Track interactive prompt hits for pause
@@ -1189,7 +1214,8 @@ trigger_agent() {
         return 1
       fi
     fi
-    send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG"
+    local lisa_msg="Your turn. Ralph's work is ready — run: ralph-lisa read work.md"
+    send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG" "\$lisa_msg"
     local rc=\$?
     if (( rc != 0 )); then
       if check_for_interactive_prompt "0.1"; then
@@ -1225,6 +1251,13 @@ check_and_trigger() {
       echo "[Watcher] Turn changed: \$SEEN_TURN -> \$CURRENT_TURN"
       SEEN_TURN="\$CURRENT_TURN"
       FAIL_COUNT=0
+
+      # Write round separator to pane logs for transcript tracking
+      local round_ts
+      round_ts=\$(date "+%Y-%m-%d %H:%M:%S")
+      local round_marker="\\n\\n===== [Turn -> \$CURRENT_TURN] \$round_ts =====\\n\\n"
+      echo -e "\$round_marker" >> "\$PANE0_LOG" 2>/dev/null || true
+      echo -e "\$round_marker" >> "\$PANE1_LOG" 2>/dev/null || true
     fi
 
     # Need to deliver? (seen but not yet acked)
@@ -1521,6 +1554,97 @@ function extractSubmissionContent(raw: string): string {
     }
   }
   return "";
+}
+
+// ─── logs ────────────────────────────────────────
+
+export function cmdLogs(args: string[]): void {
+  const dir = stateDir();
+  const logsDir = path.join(dir, "logs");
+
+  // Also include live pane logs
+  const liveFiles: string[] = [];
+  for (const f of ["pane0.log", "pane1.log"]) {
+    const p = path.join(dir, f);
+    if (fs.existsSync(p) && fs.statSync(p).size > 0) liveFiles.push(p);
+  }
+
+  const archivedFiles: string[] = [];
+  if (fs.existsSync(logsDir)) {
+    archivedFiles.push(
+      ...fs.readdirSync(logsDir)
+        .filter((f) => f.endsWith(".log"))
+        .sort()
+        .map((f) => path.join(logsDir, f))
+    );
+  }
+
+  const sub = args[0] || "";
+
+  if (sub === "cat" || sub === "view") {
+    // ralph-lisa logs cat [filename] — view a specific log or latest
+    const target = args[1];
+    let file: string | undefined;
+
+    if (target) {
+      // Try exact match in logs/ or as pane name
+      file = [...archivedFiles, ...liveFiles].find((f) => path.basename(f) === target || f.endsWith(target));
+    } else {
+      // Default: show live pane logs
+      if (liveFiles.length > 0) {
+        for (const f of liveFiles) {
+          console.log(`\n${"=".repeat(60)}`);
+          console.log(`  ${path.basename(f)} (live)`);
+          console.log(`${"=".repeat(60)}\n`);
+          console.log(fs.readFileSync(f, "utf-8"));
+        }
+        return;
+      }
+      console.log("No live pane logs. Use 'ralph-lisa logs cat <filename>' to view archived logs.");
+      return;
+    }
+
+    if (file && fs.existsSync(file)) {
+      console.log(fs.readFileSync(file, "utf-8"));
+    } else {
+      console.error(`Log not found: ${target}`);
+      process.exit(1);
+    }
+    return;
+  }
+
+  // Default: list all logs
+  console.log("Transcript Logs");
+  console.log("===============\n");
+
+  if (liveFiles.length > 0) {
+    console.log("Live (current session):");
+    for (const f of liveFiles) {
+      const stat = fs.statSync(f);
+      const size = stat.size > 1024 ? `${(stat.size / 1024).toFixed(1)}KB` : `${stat.size}B`;
+      console.log(`  ${path.basename(f)}  ${size}  ${stat.mtime.toISOString().slice(0, 19)}`);
+    }
+    console.log("");
+  }
+
+  if (archivedFiles.length > 0) {
+    console.log("Archived (previous sessions):");
+    for (const f of archivedFiles) {
+      const stat = fs.statSync(f);
+      const size = stat.size > 1024 ? `${(stat.size / 1024).toFixed(1)}KB` : `${stat.size}B`;
+      console.log(`  ${path.basename(f)}  ${size}  ${stat.mtime.toISOString().slice(0, 19)}`);
+    }
+    console.log("");
+  }
+
+  if (liveFiles.length === 0 && archivedFiles.length === 0) {
+    console.log("No transcript logs found. Logs are created during auto mode sessions.");
+  }
+
+  console.log("\nUsage:");
+  console.log("  ralph-lisa logs              List all logs");
+  console.log("  ralph-lisa logs cat           View live pane logs");
+  console.log("  ralph-lisa logs cat <file>    View specific log file");
 }
 
 // ─── doctor ──────────────────────────────────────
