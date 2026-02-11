@@ -85,6 +85,39 @@ describe("CLI: policy check-next-step", () => {
   });
 });
 
+describe("CLI: doctor", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("runs and outputs dependency check header", () => {
+    const r = run("doctor");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Dependency Check"));
+  });
+
+  it("outputs at least one status line", () => {
+    const r = run("doctor");
+    assert.strictEqual(r.exitCode, 0);
+    // Should have at least one OK, MISSING, or -- line
+    assert.ok(
+      r.stdout.includes("OK") ||
+        r.stdout.includes("MISSING") ||
+        r.stdout.includes("--")
+    );
+  });
+
+  it("outputs Node.js version", () => {
+    const r = run("doctor");
+    assert.ok(r.stdout.includes("Node.js"));
+  });
+});
+
 describe("CLI: init --minimal", () => {
   beforeEach(() => {
     fs.rmSync(TMP, { recursive: true, force: true });

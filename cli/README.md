@@ -1,7 +1,7 @@
 # Ralph-Lisa Loop
 
 <p align="center">
-  <img src="rll_cat.png" alt="Ralph-Lisa Loop" width="256" />
+  <img src="../rll_cat.png" alt="Ralph-Lisa Loop" width="256" />
 </p>
 
 Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.
@@ -137,13 +137,6 @@ ralph-lisa policy check ralph           # Check Ralph's latest submission
 ralph-lisa policy check lisa            # Check Lisa's latest submission
 ralph-lisa policy check-consensus       # Both agents submitted [CONSENSUS]?
 ralph-lisa policy check-next-step       # Comprehensive: consensus + all policy checks
-```
-
-**Diagnostics:**
-
-```bash
-ralph-lisa doctor                      # Check all dependencies
-ralph-lisa doctor --strict             # Exit 1 if any missing (for CI)
 ```
 
 Policy rules:

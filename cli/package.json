@@ -3,12 +3,12 @@
   "version": "3.0.0",
   "description": "Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.",
   "bin": {
-    "ralph-lisa": "./dist/cli.js"
+    "ralph-lisa": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
-    "test": "node --test dist/test/",
+    "test": "node --test dist/test/*.js",
     "prepack": "npm run build"
   },
   "files": [
@@ -23,8 +23,17 @@
     "codex",
     "ai-agents"
   ],
-  "author": "",
+  "author": "YW1975",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YW1975/Ralph-Lisa-Loop.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/YW1975/Ralph-Lisa-Loop#readme",
+  "bugs": {
+    "url": "https://github.com/YW1975/Ralph-Lisa-Loop/issues"
+  },
   "engines": {
     "node": ">=18"
   },
