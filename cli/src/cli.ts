@@ -24,6 +24,7 @@ import {
   cmdAuto,
   cmdPolicy,
   cmdDoctor,
+  cmdLogs,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -93,6 +94,10 @@ switch (cmd) {
     cmdDoctor(rest);
     break;
 
+  case "logs":
+    cmdLogs(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -159,6 +164,11 @@ function showHelp(): void {
   console.log("");
   console.log("  Standalone policy check always exits non-zero on violations.");
   console.log("  RL_POLICY_MODE (warn|block|off) only affects inline submit checks.");
+  console.log("");
+  console.log("Logs:");
+  console.log("  ralph-lisa logs                     List all transcript logs");
+  console.log("  ralph-lisa logs cat                  View live pane logs");
+  console.log("  ralph-lisa logs cat <file>            View specific log file");
   console.log("");
   console.log("Diagnostics:");
   console.log("  ralph-lisa doctor                   Check all dependencies");
