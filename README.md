@@ -4,18 +4,36 @@
   <img src="rll_cat.png" alt="Ralph-Lisa Loop" width="256" />
 </p>
 
-Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.
+**One writes. One reviews. You architect.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/ralph-lisa-loop.svg)](https://www.npmjs.com/package/ralph-lisa-loop)
 
-## The Problem
+---
 
-Single-agent coding is like grading your own exam. The same model writes code AND decides if it's done. No external validation. No second opinion.
+## Why?
 
-## The Solution
+AI can generate code. But it cannot distrust itself.
 
-**Ralph-Lisa Loop** enforces a strict turn-based workflow:
+A single agent writes code AND decides if it's done — like grading your own exam. Different agents fail in characteristically different ways: Claude Code skips error handling when context grows long; Codex over-engineers abstractions but catches edge cases Claude misses. Pairing them means each catches what the other misses.
+
+Ralph-Lisa Loop enforces a strict separation between **generation** and **review**. One agent writes, another reviews, they alternate in a turn-based loop. You make architectural decisions. The automation enforces the discipline that's easy to skip when you're tired.
+
+## Real-World Results
+
+Used to fork [AionUI](https://github.com/iOfficeAI/AionUi) (~3k ⭐ Electron + React app) into an independent production product:
+
+| Metric | Value |
+|--------|-------|
+| Project | AionUI fork → [Margay](https://github.com/YW1975/Margay) |
+| Commits | 30 |
+| Manual code | 0 lines |
+| Review rounds | 40 |
+| Status | In production use as internal AI assistant |
+
+Scope included: full rebrand and architectural separation, core engine rewrite with Gemini CLI integration, database migration (v10 → v11), orphan process cleanup (PR submitted upstream), cross-platform fixes, and complete CI/CD rebuild.
+
+## How It Works
 
 ```
 Ralph writes → Lisa reviews → Consensus → Next step
@@ -23,20 +41,26 @@ Ralph writes → Lisa reviews → Consensus → Next step
      └────────────────────────────────────────┘
 ```
 
-- **Ralph** (Claude Code): Lead developer - researches, plans, codes, tests
-- **Lisa** (Codex): Code reviewer - reviews, provides feedback
+- **Ralph** (Claude Code): Lead developer — researches, plans, codes, tests
+- **Lisa** (Codex): Code reviewer — reviews diffs, checks edge cases
+- **You**: Tech lead — architecture, scope, tiebreaking
 - **Turn Control**: Only one agent works at a time
 - **Consensus Required**: Both must agree before proceeding
-- **Research First**: When involving reference implementations/protocols/APIs, Ralph must submit [RESEARCH] before coding
-- **Test Results Required**: [CODE] and [FIX] submissions must include test results
-- **Policy Layer**: Configurable warn/block mode for submission quality checks
+
+> An agent never reviews its own output.
+
+### How is this different from Ralph Loop?
+
+The official [Ralph Loop plugin](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/ralph-loop) runs a **single agent** in a persistence loop — same Claude, same prompt, iterate until done. It's great for well-defined tasks with clear completion criteria.
+
+Ralph-Lisa Loop is a **dual-agent** system — two different agents with different failure modes take turns writing and reviewing. It doesn't use Claude Code hooks; coordination happens through file-based turn control and a standalone CLI. The two tools don't conflict and can coexist.
 
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-npm i -g ralph-lisa
+npm i -g ralph-lisa-loop
 ```
 
 ### 2. Initialize Project
@@ -49,16 +73,16 @@ ralph-lisa init
 ### 3. Start Collaboration
 
 ```bash
-# Manual mode (recommended)
+# Manual mode (recommended for learning)
 ralph-lisa start "implement login feature"
 
-# Or auto mode (experimental, requires tmux)
+# Auto mode (experimental, requires tmux)
 ralph-lisa auto "implement login feature"
 ```
 
 ### 4. Work Flow
 
-**Terminal 1 - Ralph (Claude Code)**:
+**Terminal 1 — Ralph (Claude Code)**:
 ```bash
 ralph-lisa whose-turn                    # Check turn
 # ... do work ...
@@ -69,7 +93,7 @@ ralph-lisa submit-ralph "[PLAN] Login feature design
 3. Connect to API"
 ```
 
-**Terminal 2 - Lisa (Codex)**:
+**Terminal 2 — Lisa (Codex)**:
 ```bash
 ralph-lisa whose-turn                    # Check turn
 ralph-lisa read work.md                  # Read Ralph's work
@@ -79,12 +103,13 @@ ralph-lisa submit-lisa "[PASS] Plan looks good
 - Good separation of concerns"
 ```
 
-## Features
+---
 
-### Turn Control
-Agents must check `whose-turn` before any action. Submissions automatically pass the turn.
+## Reference
 
-### Tag System
+<details>
+<summary><strong>Tag System</strong></summary>
+
 Every submission requires a tag:
 
 | Ralph Tags | Lisa Tags | Shared |
@@ -98,24 +123,19 @@ Every submission requires a tag:
 - `[CHALLENGE]`: Explicitly disagree with the other agent's suggestion, providing counter-argument
 - `[CODE]`/`[FIX]`: Must include Test Results section
 
-### Consensus Protocol
+</details>
+
+<details>
+<summary><strong>Consensus Protocol</strong></summary>
+
 Lisa's verdict is advisory. Ralph can agree or use `[CHALLENGE]` to disagree. Both must reach genuine consensus before `/next-step`. Silent acceptance (bare `[FIX]` without reasoning) is not allowed.
 
-### Minimal Init (Zero Intrusion)
+**Deadlock Escape**: After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).
 
-When using the Claude Code plugin + Codex global config, you don't need project-level role files:
+</details>
 
-```bash
-ralph-lisa init --minimal
-```
-
-This only creates `.dual-agent/` session state. No CLAUDE.md, CODEX.md, or command files are written. Requires:
-- Claude Code plugin installed (provides Ralph role via hooks)
-- Codex global config at `~/.codex/` (provides Lisa role)
-
-`start` and `auto` commands work with both full and minimal init.
-
-### Policy Layer
+<details>
+<summary><strong>Policy Layer</strong></summary>
 
 **Inline checks** (during `submit-ralph`/`submit-lisa`):
 
@@ -147,19 +167,18 @@ ralph-lisa doctor --strict             # Exit 1 if any missing (for CI)
 ```
 
 Policy rules:
-- Ralph's [CODE]/[FIX] must include "Test Results" section
-- Ralph's [RESEARCH] must have substantive content
-- Lisa's [PASS]/[NEEDS_WORK] must include at least 1 reason
+- Ralph's `[CODE]`/`[FIX]` must include "Test Results" section
+- Ralph's `[RESEARCH]` must have substantive content
+- Lisa's `[PASS]`/`[NEEDS_WORK]` must include at least 1 reason
 
-### Deadlock Escape
-After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).
+</details>
 
-## Commands
+<details>
+<summary><strong>All Commands</strong></summary>
 
 ```bash
 # Project setup
-ralph-lisa init [dir]                    # Initialize project (full)
-ralph-lisa init --minimal [dir]          # Minimal init (session only, no project files)
+ralph-lisa init [dir]                    # Initialize project
 ralph-lisa uninit                        # Remove from project
 ralph-lisa start "task"                  # Launch both agents
 ralph-lisa start --full-auto "task"      # Launch without permission prompts
@@ -192,7 +211,10 @@ ralph-lisa doctor                        # Check all dependencies
 ralph-lisa doctor --strict               # Exit 1 if any missing (for CI)
 ```
 
-## Project Structure After Init
+</details>
+
+<details>
+<summary><strong>Project Structure After Init</strong></summary>
 
 **Full init** (`ralph-lisa init`):
 ```
@@ -211,30 +233,40 @@ your-project/
     └── history.md         # Full history
 ```
 
-**Minimal init** (`ralph-lisa init --minimal`):
-```
-your-project/
-└── .dual-agent/           # Session state only (zero project files)
-```
+</details>
 
 ## Requirements
 
 - [Node.js](https://nodejs.org/) >= 18
-- [Claude Code](https://claude.ai/code) - for Ralph
-- [Codex CLI](https://github.com/openai/codex) - for Lisa
+- [Claude Code](https://claude.ai/code) — for Ralph
+- [Codex CLI](https://github.com/openai/codex) — for Lisa
 
 For auto mode:
 - tmux (required)
 - fswatch (macOS) or inotify-tools (Linux) — optional, speeds up turn detection; falls back to polling without them
 
+## What Didn't Work
+
+Sharing the failures matters as much as the results:
+
+- **Agent crashes have no auto-recovery.** Once an agent crashes (cause unclear — possibly long context, possibly system resource exhaustion from running many agents simultaneously), the loop stops and you must manually restart. No self-healing yet.
+- **State desync between agents.** Early versions had Lisa going rogue — writing code herself instead of reviewing, causing state confusion. Much improved now, but the lesson stands.
+- **Without domain judgment, the loop is useless.** Two AIs will happily agree on a bad design. This is not autonomous development — it is structured AI-assisted development. The human arbiter isn't optional.
+- **Git discipline is non-negotiable.** Small commits, clear messages, commit often. When things go wrong (and they will), your only safety net is being able to `git reset` to a known good state.
+
 ## Ecosystem
 
 Part of the [TigerHill](https://github.com/Click-Intelligence-LLC/TigerHill) project family.
 
-## See Also
+## Learn More
 
-- [CONCEPT.md](CONCEPT.md) - Why dual-agent collaboration works
-- [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md) - V3 design document
+- [CONCEPT.md](CONCEPT.md) — Why dual-agent collaboration works
+- [DESIGN_V2.md](DESIGN_V2.md) — Architecture and design
+- [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md) — V3 development roadmap
+
+## Acknowledgments
+
+The iterative loop concept builds on Geoffrey Huntley's [Ralph Wiggum technique](https://ghuntley.com/ralph/). Ralph-Lisa Loop adds structured dual-agent review discipline on top — enforcing role separation between generation and critique.
 
 ## License
 
