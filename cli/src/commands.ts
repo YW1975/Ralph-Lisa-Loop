@@ -339,6 +339,101 @@ export function cmdRead(args: string[]): void {
   }
 }
 
+// ─── recap ───────────────────────────────────────
+
+export function cmdRecap(): void {
+  checkSession();
+  const dir = stateDir();
+  const step = getStep();
+  const round = getRound();
+  const turn = getTurn();
+  const history = readFile(path.join(dir, "history.md"));
+
+  if (!history) {
+    console.log("No history to recap.");
+    return;
+  }
+
+  // Find the current step section in history
+  const stepHeaderRe = new RegExp(
+    `^# Step: ${step.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`,
+    "m"
+  );
+  const stepMatch = stepHeaderRe.exec(history);
+  const stepSection = stepMatch
+    ? history.slice(stepMatch.index)
+    : history; // If no step header found, use full history
+
+  // Extract all action entries from the current step section
+  const entryRe =
+    /^## \[(Ralph|Lisa)\] \[(\w+)\] Round (\d+) \| Step: .+\n\*\*Time\*\*: .+\n\*\*Summary\*\*: (.+)/gm;
+  const entries: Array<{
+    role: string;
+    tag: string;
+    round: string;
+    summary: string;
+  }> = [];
+  let match;
+  while ((match = entryRe.exec(stepSection)) !== null) {
+    entries.push({
+      role: match[1],
+      tag: match[2],
+      round: match[3],
+      summary: match[4],
+    });
+  }
+
+  // Find unresolved NEEDS_WORK items (NEEDS_WORK from Lisa not followed by FIX/CHALLENGE from Ralph)
+  const unresolvedNeedsWork: string[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    if (e.role === "Lisa" && e.tag === "NEEDS_WORK") {
+      // Check if Ralph responded with FIX or CHALLENGE after this
+      const resolved = entries
+        .slice(i + 1)
+        .some(
+          (later) =>
+            later.role === "Ralph" &&
+            (later.tag === "FIX" || later.tag === "CHALLENGE")
+        );
+      if (!resolved) {
+        unresolvedNeedsWork.push(e.summary);
+      }
+    }
+  }
+
+  // Output recap
+  console.log(line());
+  console.log("RECAP — Context Recovery");
+  console.log(line());
+  console.log(`Step: ${step}`);
+  console.log(`Round: ${round} | Turn: ${turn}`);
+  console.log(`Actions in this step: ${entries.length}`);
+  console.log("");
+
+  // Last 3 actions
+  const recent = entries.slice(-3);
+  if (recent.length > 0) {
+    console.log("Recent actions:");
+    for (const e of recent) {
+      console.log(`  R${e.round} ${e.role} [${e.tag}] ${e.summary}`);
+    }
+  } else {
+    console.log("Recent actions: (none)");
+  }
+
+  // Unresolved NEEDS_WORK
+  if (unresolvedNeedsWork.length > 0) {
+    console.log("");
+    console.log("Unresolved NEEDS_WORK:");
+    for (const nw of unresolvedNeedsWork) {
+      console.log(`  - ${nw}`);
+    }
+  }
+
+  console.log(line());
+}
+
 // ─── step ────────────────────────────────────────
 
 export function cmdStep(args: string[]): void {

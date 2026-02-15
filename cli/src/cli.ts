@@ -16,6 +16,7 @@ import {
   cmdSubmitLisa,
   cmdStatus,
   cmdRead,
+  cmdRecap,
   cmdStep,
   cmdHistory,
   cmdArchive,
@@ -60,6 +61,10 @@ switch (cmd) {
 
   case "read":
     cmdRead(rest);
+    break;
+
+  case "recap":
+    cmdRecap();
     break;
 
   case "step":
@@ -146,6 +151,7 @@ function showHelp(): void {
   console.log("Information:");
   console.log("  ralph-lisa status                   Show current status");
   console.log("  ralph-lisa read <file>              Read work.md/review.md");
+  console.log("  ralph-lisa recap                    Context recovery summary");
   console.log("  ralph-lisa history                  Show full history");
   console.log("");
   console.log("Flow Control:");

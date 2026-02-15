@@ -406,3 +406,75 @@ describe("CLI: submit --stdin", () => {
     assert.ok(!history.includes("Detailed stdin body not in history"));
   });
 });
+
+describe("CLI: recap", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("shows current step and round", () => {
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("RECAP"));
+    assert.ok(r.stdout.includes("Step: planning"));
+    assert.ok(r.stdout.includes("Round: 1"));
+  });
+
+  it("shows recent actions after submissions", () => {
+    run("submit-ralph", "[PLAN] First plan");
+    run("submit-lisa", "[PASS] Plan approved\n\n- Looks good");
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Recent actions:"));
+    assert.ok(r.stdout.includes("Ralph [PLAN] First plan"));
+    assert.ok(r.stdout.includes("Lisa [PASS] Plan approved"));
+    assert.ok(r.stdout.includes("Ralph [CONSENSUS] Agreed"));
+    assert.ok(r.stdout.includes("Actions in this step: 3"));
+  });
+
+  it("shows only last 3 actions when more exist", () => {
+    run("submit-ralph", "[PLAN] Plan A");
+    run("submit-lisa", "[NEEDS_WORK] Fix it\n\n- Issue found");
+    run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass");
+    run("submit-lisa", "[PASS] Now good\n\n- All clear");
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    // Should show last 3, not the first PLAN
+    assert.ok(!r.stdout.includes("[PLAN] Plan A"));
+    assert.ok(r.stdout.includes("[NEEDS_WORK] Fix it"));
+    assert.ok(r.stdout.includes("[FIX] Fixed"));
+    assert.ok(r.stdout.includes("[PASS] Now good"));
+  });
+
+  it("shows unresolved NEEDS_WORK", () => {
+    run("submit-ralph", "[CODE] Some code\n\nTest Results\n- pass");
+    run("submit-lisa", "[NEEDS_WORK] Missing edge case\n\n- Need tests");
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Unresolved NEEDS_WORK:"));
+    assert.ok(r.stdout.includes("Missing edge case"));
+  });
+
+  it("does not show resolved NEEDS_WORK", () => {
+    run("submit-ralph", "[CODE] Some code\n\nTest Results\n- pass");
+    run("submit-lisa", "[NEEDS_WORK] Missing edge case\n\n- Need tests");
+    run("submit-ralph", "[FIX] Added edge case tests\n\nTest Results\n- pass");
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(!r.stdout.includes("Unresolved NEEDS_WORK:"));
+  });
+
+  it("shows no actions when step is fresh", () => {
+    const r = run("recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Actions in this step: 0"));
+    assert.ok(r.stdout.includes("Recent actions: (none)"));
+  });
+});
