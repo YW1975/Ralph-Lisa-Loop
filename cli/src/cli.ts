@@ -188,6 +188,6 @@ function showVersion(): void {
     const pkg = require("../package.json");
     console.log(`ralph-lisa-loop v${pkg.version}`);
   } catch {
-    console.log("ralph-lisa-loop v3.0.0");
+    console.log("ralph-lisa-loop v0.3.0");
   }
 }
