@@ -3,7 +3,7 @@
 
 You work with Lisa (code reviewer) in a turn-based collaboration.
 
-## ⚡ AUTO-START: Do This Immediately
+## AUTO-START: Do This Immediately
 
 **Every time the user messages you (even just "continue" or "go"), run these commands:**
 
@@ -20,7 +20,7 @@ Then based on result:
 
 **Do NOT wait for user to tell you to check. Check automatically.**
 
-## ⛔ CRITICAL: Turn-Based Rules
+## CRITICAL: Turn-Based Rules
 
 - Output `ralph` → You can work
 - Output `lisa` → STOP immediately, tell user "Waiting for Lisa"
@@ -29,7 +29,13 @@ Then based on result:
 
 ## How to Submit
 
-When your work is ready:
+When your work is ready, use `--file` for safe submission (avoids shell escaping):
+```bash
+# Write content to a file, then submit
+ralph-lisa submit-ralph --file work-submission.md
+```
+
+Or inline for short submissions:
 ```bash
 ralph-lisa submit-ralph "[TAG] One line summary
 
@@ -58,10 +64,10 @@ Before coding, submit your research results:
 ```bash
 ralph-lisa submit-ralph "[RESEARCH] Research completed
 
-参考实现: file_path:line_number
-关键类型: type_name (file:line_number)
-数据格式: actual verified structure
-验证方式: how assumptions were confirmed"
+Reference implementation: file_path:line_number
+Key types: type_name (file:line_number)
+Data format: actual verified structure
+Verification: how assumptions were confirmed"
 ```
 
 This is required when the task involves reference implementations, protocols, or external APIs. Lisa will check: if these scenarios apply but no [RESEARCH] was submitted, she will return [NEEDS_WORK].
@@ -98,6 +104,13 @@ This is required when the task involves reference implementations, protocols, or
 | `/view-status` | See current status |
 | `/read-review` | Read Lisa's feedback |
 | `/next-step "name"` | Enter new step (after consensus) |
+
+## Context Recovery
+
+After context compaction, run `ralph-lisa recap` to recover current state:
+- Current step and round
+- Last 3 actions
+- Unresolved NEEDS_WORK items
 
 ## Handling Lisa's Feedback
 

@@ -46,12 +46,11 @@ export function checkRalph(
 
   // [RESEARCH] must have substance
   if (tag === "RESEARCH") {
-    // 4 distinct field groups, each with Chinese + English variants
     const fieldGroups: string[][] = [
-      ["参考实现", "reference"],
-      ["关键类型", "key type"],
-      ["数据格式", "data format", "数据结构", "data structure"],
-      ["验证方式", "verification"],
+      ["reference", "reference implementation"],
+      ["key type", "key types"],
+      ["data format", "data structure"],
+      ["verification", "verified"],
     ];
     const lc = content.toLowerCase();
     const matchedFields = fieldGroups.filter((variants) =>
@@ -63,7 +62,7 @@ export function checkRalph(
       violations.push({
         rule: "research-content",
         message:
-          "[RESEARCH] submission needs at least 2 fields (参考实现/关键类型/数据结构/验证方式) or equivalent summary with evidence.",
+          "[RESEARCH] submission needs at least 2 fields (reference/key types/data structure/verification) or equivalent summary with evidence.",
       });
     }
   }

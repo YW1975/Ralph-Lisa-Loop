@@ -33,35 +33,26 @@ describe("checkRalph", () => {
     assert.strictEqual(violations[0].rule, "research-content");
   });
 
-  it("passes RESEARCH with 2+ fields (Chinese)", () => {
+  it("passes RESEARCH with 2+ English fields", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\n参考实现: file.ts\n关键类型: MyType\n验证方式: tested"
+      "[RESEARCH] Done\n\nReference implementation: file.ts\nKey types: MyType\nVerification: tested"
     );
     assert.strictEqual(violations.length, 0);
   });
 
   it("passes RESEARCH with exactly 2 fields", () => {
-    // Bug fix: previously ceil(2/2)=1 incorrectly warned
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\n参考实现: file.ts\n验证方式: curl tested"
+      "[RESEARCH] Done\n\nReference: file.ts\nVerification: curl tested"
     );
     assert.strictEqual(violations.length, 0);
   });
 
-  it("passes RESEARCH with 2 English fields", () => {
+  it("passes RESEARCH with data format + verification fields", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\nReference: file.ts\nVerification: tested"
-    );
-    assert.strictEqual(violations.length, 0);
-  });
-
-  it("passes RESEARCH with mixed Chinese-English fields", () => {
-    const violations = checkRalph(
-      "RESEARCH",
-      "[RESEARCH] Done\n\n参考实现: file.ts\nVerification: tested"
+      "[RESEARCH] Done\n\nData structure: { id: string }\nVerified: works"
     );
     assert.strictEqual(violations.length, 0);
   });
@@ -69,9 +60,8 @@ describe("checkRalph", () => {
   it("warns RESEARCH with only 1 field", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\n参考实现: file.ts"
+      "[RESEARCH] Done\n\nReference: file.ts"
     );
-    // 1 field + only 2 lines = warns
     assert.strictEqual(violations.length, 1);
   });
 
@@ -81,6 +71,11 @@ describe("checkRalph", () => {
       "[RESEARCH] API analysis\n\nLine 1\nLine 2\nLine 3\nLine 4"
     );
     assert.strictEqual(violations.length, 0);
+  });
+
+  it("file:line not required for PLAN or RESEARCH", () => {
+    const planV = checkRalph("PLAN", "[PLAN] Plan\n\nNo file refs here");
+    assert.strictEqual(planV.length, 0);
   });
 });
 
@@ -106,6 +101,11 @@ describe("checkLisa", () => {
 
   it("no warnings for DISCUSS", () => {
     const violations = checkLisa("DISCUSS", "[DISCUSS] About this");
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("no file:line required for CONSENSUS", () => {
+    const violations = checkLisa("CONSENSUS", "[CONSENSUS] Agreed");
     assert.strictEqual(violations.length, 0);
   });
 });
