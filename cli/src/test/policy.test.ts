@@ -3,23 +3,42 @@ import * as assert from "node:assert";
 import { checkRalph, checkLisa } from "../policy.js";
 
 describe("checkRalph", () => {
-  it("warns when CODE missing Test Results", () => {
+  it("warns when CODE missing Test Results and file:line", () => {
     const violations = checkRalph("CODE", "[CODE] Done\n\nImplemented it.");
-    assert.strictEqual(violations.length, 1);
-    assert.strictEqual(violations[0].rule, "test-results");
+    assert.strictEqual(violations.length, 2);
+    assert.ok(violations.some((v) => v.rule === "test-results"));
+    assert.ok(violations.some((v) => v.rule === "file-line-ref"));
   });
 
-  it("passes when CODE includes Test Results", () => {
+  it("passes when CODE includes Test Results and file:line", () => {
     const violations = checkRalph(
       "CODE",
-      "[CODE] Done\n\nTest Results\n- Passed"
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Passed"
     );
     assert.strictEqual(violations.length, 0);
   });
 
+  it("warns when CODE has Test Results but no file:line", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nTest Results\n- Passed"
+    );
+    assert.strictEqual(violations.length, 1);
+    assert.strictEqual(violations[0].rule, "file-line-ref");
+  });
+
+  it("warns when CODE has file:line but no Test Results", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nChanged commands.ts:42"
+    );
+    assert.strictEqual(violations.length, 1);
+    assert.strictEqual(violations[0].rule, "test-results");
+  });
+
   it("warns when FIX missing Test Results", () => {
     const violations = checkRalph("FIX", "[FIX] Fixed\n\nChanged code.");
-    assert.strictEqual(violations.length, 1);
+    assert.ok(violations.some((v) => v.rule === "test-results"));
   });
 
   it("no warnings for PLAN", () => {
@@ -80,23 +99,41 @@ describe("checkRalph", () => {
 });
 
 describe("checkLisa", () => {
-  it("warns when PASS has no reason", () => {
+  it("warns when PASS has no reason and no file:line", () => {
     const violations = checkLisa("PASS", "[PASS] Looks good");
-    assert.strictEqual(violations.length, 1);
-    assert.strictEqual(violations[0].rule, "reason-required");
+    assert.strictEqual(violations.length, 2);
+    assert.ok(violations.some((v) => v.rule === "reason-required"));
+    assert.ok(violations.some((v) => v.rule === "file-line-ref"));
   });
 
-  it("passes when PASS has reason", () => {
+  it("passes when PASS has reason and file:line", () => {
     const violations = checkLisa(
       "PASS",
-      "[PASS] Looks good\n\n- Clean code\n- Tests pass"
+      "[PASS] Looks good\n\n- Clean code at commands.ts:42\n- Tests pass"
     );
     assert.strictEqual(violations.length, 0);
   });
 
+  it("warns when PASS has reason but no file:line", () => {
+    const violations = checkLisa(
+      "PASS",
+      "[PASS] Looks good\n\n- Clean code\n- Tests pass"
+    );
+    assert.strictEqual(violations.length, 1);
+    assert.strictEqual(violations[0].rule, "file-line-ref");
+  });
+
   it("warns when NEEDS_WORK has no reason", () => {
     const violations = checkLisa("NEEDS_WORK", "[NEEDS_WORK] Fix it");
-    assert.strictEqual(violations.length, 1);
+    assert.ok(violations.some((v) => v.rule === "reason-required"));
+  });
+
+  it("passes NEEDS_WORK with reason and file:line", () => {
+    const violations = checkLisa(
+      "NEEDS_WORK",
+      "[NEEDS_WORK] Fix it\n\n- Bug at policy.ts:30"
+    );
+    assert.strictEqual(violations.length, 0);
   });
 
   it("no warnings for DISCUSS", () => {

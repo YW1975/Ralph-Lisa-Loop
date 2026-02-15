@@ -171,7 +171,7 @@ function showHelp(): void {
   );
   console.log("");
   console.log("  Standalone policy check always exits non-zero on violations.");
-  console.log("  RL_POLICY_MODE (warn|block|off) only affects inline submit checks.");
+  console.log("  RL_POLICY_MODE (warn|block|off) affects inline submit checks (default: warn).");
   console.log("");
   console.log("Logs:");
   console.log("  ralph-lisa logs                     List all transcript logs");

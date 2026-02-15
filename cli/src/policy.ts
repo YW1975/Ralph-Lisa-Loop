@@ -3,9 +3,9 @@
  * Checks submissions for required content (warn or block mode).
  *
  * Modes (RL_POLICY_MODE env):
- *   off   - no checks (default)
- *   warn  - print warnings, don't block
+ *   warn  - print warnings, don't block (default)
  *   block - print warnings AND exit(1) if violations found
+ *   off   - no checks
  */
 
 export type PolicyMode = "off" | "warn" | "block";
@@ -16,9 +16,9 @@ export interface PolicyViolation {
 }
 
 export function getPolicyMode(): PolicyMode {
-  const mode = process.env.RL_POLICY_MODE || "off";
+  const mode = process.env.RL_POLICY_MODE || "warn";
   if (mode === "warn" || mode === "block" || mode === "off") return mode;
-  return "off";
+  return "warn";
 }
 
 /**
@@ -30,7 +30,7 @@ export function checkRalph(
 ): PolicyViolation[] {
   const violations: PolicyViolation[] = [];
 
-  // [CODE] or [FIX] must include Test Results
+  // [CODE] or [FIX] must include Test Results and file:line references
   if (tag === "CODE" || tag === "FIX") {
     if (
       !content.includes("Test Results") &&
@@ -40,6 +40,12 @@ export function checkRalph(
       violations.push({
         rule: "test-results",
         message: `[${tag}] submission missing "Test Results" section.`,
+      });
+    }
+    if (!/\w+\.\w+:\d+/.test(content)) {
+      violations.push({
+        rule: "file-line-ref",
+        message: `[${tag}] submission must include at least one file:line reference (e.g., commands.ts:42).`,
       });
     }
   }
@@ -79,7 +85,7 @@ export function checkLisa(
 ): PolicyViolation[] {
   const violations: PolicyViolation[] = [];
 
-  // [PASS] or [NEEDS_WORK] must include at least 1 reason
+  // [PASS] or [NEEDS_WORK] must include at least 1 reason and file:line references
   if (tag === "PASS" || tag === "NEEDS_WORK") {
     // Content after the first line (tag+summary) should have substance
     const lines = content.split("\n");
@@ -88,6 +94,12 @@ export function checkLisa(
       violations.push({
         rule: "reason-required",
         message: `[${tag}] submission must include at least 1 reason.`,
+      });
+    }
+    if (!/\w+\.\w+:\d+/.test(content)) {
+      violations.push({
+        rule: "file-line-ref",
+        message: `[${tag}] submission must include at least one file:line reference (e.g., commands.ts:42).`,
       });
     }
   }
