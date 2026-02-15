@@ -491,14 +491,63 @@ export function cmdRecap(): void {
   console.log(line());
 }
 
+/**
+ * Extract the last tag from a work.md or review.md file content.
+ * Only matches the canonical metadata header format: ## [TAG] Round N | Step: ...
+ * Does NOT match arbitrary ## [TAG] headings in body text.
+ */
+function extractLastTag(fileContent: string): string {
+  const re = /^## \[(\w+)\] Round \d+ \| Step: /gm;
+  let lastTag = "";
+  let match;
+  while ((match = re.exec(fileContent)) !== null) {
+    lastTag = match[1];
+  }
+  return lastTag;
+}
+
 // ─── step ────────────────────────────────────────
 
 export function cmdStep(args: string[]): void {
   checkSession();
-  const stepName = args.join(" ");
+
+  // Parse --force flag
+  const forceIdx = args.indexOf("--force");
+  const force = forceIdx !== -1;
+  const filteredArgs = force
+    ? args.filter((_, i) => i !== forceIdx)
+    : args;
+
+  const stepName = filteredArgs.join(" ");
   if (!stepName) {
     console.error('Usage: ralph-lisa step "step name"');
+    console.error("       ralph-lisa step --force \"step name\"  (skip consensus check)");
     process.exit(1);
+  }
+
+  // Check consensus before allowing step transition
+  if (!force) {
+    const dir = stateDir();
+    const workContent = readFile(path.join(dir, "work.md"));
+    const reviewContent = readFile(path.join(dir, "review.md"));
+
+    const workTag = extractLastTag(workContent);
+    const reviewTag = extractLastTag(reviewContent);
+
+    const consensusReached =
+      (workTag === "CONSENSUS" && reviewTag === "CONSENSUS") ||
+      (workTag === "CONSENSUS" && reviewTag === "PASS") ||
+      (workTag === "PASS" && reviewTag === "CONSENSUS");
+
+    if (!consensusReached) {
+      console.error("Error: Consensus not reached. Cannot proceed to next step.");
+      console.error(`  Ralph's last tag: [${workTag || "none"}]`);
+      console.error(`  Lisa's last tag:  [${reviewTag || "none"}]`);
+      console.error("");
+      console.error("Required: both [CONSENSUS], or [PASS]+[CONSENSUS] combination.");
+      console.error('Use --force to skip this check: ralph-lisa step --force "step name"');
+      process.exit(1);
+    }
   }
 
   setStep(stepName);

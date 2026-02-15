@@ -568,3 +568,81 @@ describe("CLI: review-history", () => {
     assert.ok(r.stdout.includes("Latest review"));
   });
 });
+
+describe("CLI: step consensus check", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("allows step when both CONSENSUS", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    const r = run("step", "next-feature");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: next-feature"));
+  });
+
+  it("allows step when CONSENSUS + PASS", () => {
+    // Ralph submits CONSENSUS, Lisa responds with PASS
+    // work.md last tag = CONSENSUS, review.md last tag = PASS
+    run("submit-ralph", "[CONSENSUS] I agree");
+    run("submit-lisa", "[PASS] Approved\n\n- Looks good");
+    const r = run("step", "next-feature");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: next-feature"));
+  });
+
+  it("allows step when PASS + CONSENSUS", () => {
+    // Lisa gives PASS, Ralph submits CONSENSUS
+    // After Ralph's CONSENSUS, work.md has CONSENSUS, review.md still has PASS
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[PASS] Approved\n\n- Good");
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    // work.md = CONSENSUS, review.md = PASS → should allow
+    const r = run("step", "next-feature");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: next-feature"));
+  });
+
+  it("blocks step when no consensus", () => {
+    run("submit-ralph", "[CODE] Some code\n\nTest Results\n- pass");
+    run("submit-lisa", "[PASS] Looks good\n\n- Clean");
+    const r = run("step", "next-feature");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Consensus not reached"));
+  });
+
+  it("--force bypasses consensus check", () => {
+    run("submit-ralph", "[CODE] Some code\n\nTest Results\n- pass");
+    run("submit-lisa", "[NEEDS_WORK] Fix it\n\n- Issue");
+    const r = run("step", "--force", "next-feature");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: next-feature"));
+  });
+
+  it("shows both tags in error when blocked", () => {
+    run("submit-ralph", "[CODE] Code\n\nTest Results\n- pass");
+    run("submit-lisa", "[NEEDS_WORK] Problems\n\n- Bugs");
+    const r = run("step", "next-feature");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("[CODE]"));
+    assert.ok(r.stdout.includes("[NEEDS_WORK]"));
+  });
+
+  it("body text with ## [CONSENSUS] does NOT spoof consensus", () => {
+    // Ralph submits CODE with a ## [CONSENSUS] heading in the body text
+    run("submit-ralph", "[CODE] My code\n\nTest Results\n- pass\n\n## [CONSENSUS] fake heading in body");
+    run("submit-lisa", "[PASS] OK\n\n- Clean code");
+    const r = run("step", "next-feature");
+    // Should block: work.md metadata tag is CODE, not CONSENSUS
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Consensus not reached"));
+    assert.ok(r.stdout.includes("[CODE]"));
+  });
+});
