@@ -478,3 +478,93 @@ describe("CLI: recap", () => {
     assert.ok(r.stdout.includes("Recent actions: (none)"));
   });
 });
+
+describe("CLI: review-history", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("review.md keeps last 3 entries after 4 submissions", () => {
+    // Round 1
+    run("submit-ralph", "[PLAN] Plan A");
+    run("submit-lisa", "[NEEDS_WORK] Fix plan\n\n- Issue 1");
+    // Round 2
+    run("submit-ralph", "[FIX] Fixed plan\n\nTest Results\n- pass");
+    run("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- Issue 2");
+    // Round 3
+    run("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass");
+    run("submit-lisa", "[PASS] Now good\n\n- All clear");
+    // Round 4
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+
+    const review = fs.readFileSync(path.join(TMP, ".dual-agent", "review.md"), "utf-8");
+    // Should have exactly 3 entries (rounds 2, 3, 4), not round 1
+    assert.ok(!review.includes("Fix plan"));
+    assert.ok(review.includes("Still wrong"));
+    assert.ok(review.includes("Now good"));
+    assert.ok(review.includes("Confirmed"));
+  });
+
+  it("review.md contains separator between entries", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[PASS] OK\n\n- Good");
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Done\n\n- Confirmed");
+
+    const review = fs.readFileSync(path.join(TMP, ".dual-agent", "review.md"), "utf-8");
+    assert.ok(review.includes("---"));
+  });
+
+  it("read review --round N returns specific round from history", () => {
+    run("submit-ralph", "[PLAN] Plan A");
+    run("submit-lisa", "[NEEDS_WORK] Fix plan\n\n- Issue found");
+    run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass");
+    run("submit-lisa", "[PASS] Approved\n\n- Looks good");
+
+    const r = run("read", "review", "--round", "1");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Fix plan"));
+    assert.ok(r.stdout.includes("Issue found"));
+  });
+
+  it("read review --round returns correct round when multiple exist", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[NEEDS_WORK] Round 1 review\n\n- R1 issue");
+    run("submit-ralph", "[FIX] Fix\n\nTest Results\n- pass");
+    run("submit-lisa", "[PASS] Round 2 review\n\n- R2 good");
+
+    const r2 = run("read", "review", "--round", "2");
+    assert.strictEqual(r2.exitCode, 0);
+    assert.ok(r2.stdout.includes("Round 2 review"));
+    assert.ok(r2.stdout.includes("R2 good"));
+  });
+
+  it("read review --round with invalid round shows error", () => {
+    const r = run("read", "review", "--round", "abc");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("--round requires a positive integer"));
+  });
+
+  it("read review --round with out-of-range round shows not found", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[PASS] OK\n\n- Good");
+    const r = run("read", "review", "--round", "99");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("No review found for round 99"));
+  });
+
+  it("read review.md without --round still shows current file", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[PASS] Latest review\n\n- Current");
+    const r = run("read", "review.md");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Latest review"));
+  });
+});

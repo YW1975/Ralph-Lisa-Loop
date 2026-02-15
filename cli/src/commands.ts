@@ -266,10 +266,24 @@ export function cmdSubmitLisa(args: string[]): void {
   const summary = extractSummary(content);
   const dir = stateDir();
 
-  writeFile(
-    path.join(dir, "review.md"),
-    `# Lisa Review\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
-  );
+  // Append new review entry, keep last 3
+  const reviewPath = path.join(dir, "review.md");
+  const newEntry = `## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}`;
+  const existing = readFile(reviewPath);
+  // Split existing entries by separator, filter out header/empty
+  const REVIEW_SEP = "\n\n---\n\n";
+  let entries: string[] = [];
+  if (existing && !existing.startsWith("# Lisa Review\n\n(Waiting")) {
+    // Remove the "# Lisa Review" header if present
+    const body = existing.replace(/^# Lisa Review\n\n/, "");
+    entries = body.split(REVIEW_SEP).filter((e) => e.trim());
+  }
+  entries.push(newEntry);
+  // Keep only last 3
+  if (entries.length > 3) {
+    entries = entries.slice(-3);
+  }
+  writeFile(reviewPath, `# Lisa Review\n\n${entries.join(REVIEW_SEP)}\n`);
 
   // External sources (--file/--stdin) get compact history to reduce context bloat
   const historyContent = external
@@ -326,9 +340,28 @@ export function cmdRead(args: string[]): void {
   const file = args[0];
   if (!file) {
     console.error("Usage: ralph-lisa read <file>");
-    console.error("  work.md    - Ralph's work");
-    console.error("  review.md  - Lisa's feedback");
+    console.error("  work.md      - Ralph's work");
+    console.error("  review.md    - Lisa's feedback (last 3)");
+    console.error("  review --round N  - Lisa's review from round N (from history)");
     process.exit(1);
+  }
+
+  // Handle: ralph-lisa read review --round N
+  const roundIdx = args.indexOf("--round");
+  if ((file === "review" || file === "review.md") && roundIdx !== -1) {
+    const roundStr = args[roundIdx + 1];
+    const roundNum = parseInt(roundStr, 10);
+    if (!roundStr || isNaN(roundNum) || roundNum < 1) {
+      console.error("Error: --round requires a positive integer");
+      process.exit(1);
+    }
+    const review = extractReviewByRound(roundNum);
+    if (review) {
+      console.log(review);
+    } else {
+      console.log(`No review found for round ${roundNum}`);
+    }
+    return;
   }
 
   const filePath = path.join(stateDir(), file);
@@ -337,6 +370,30 @@ export function cmdRead(args: string[]): void {
   } else {
     console.log(`(File ${file} does not exist)`);
   }
+}
+
+/**
+ * Extract Lisa's review for a specific round from history.md.
+ */
+function extractReviewByRound(round: number): string | null {
+  const dir = stateDir();
+  const history = readFile(path.join(dir, "history.md"));
+  if (!history) return null;
+
+  // Find Lisa's entry for the given round
+  const entryRe = new RegExp(
+    `## \\[Lisa\\] \\[\\w+\\] Round ${round} \\| Step: .+`,
+    "m"
+  );
+  const match = entryRe.exec(history);
+  if (!match) return null;
+
+  // Extract from this header to the next entry separator (--- or end)
+  const start = match.index;
+  const rest = history.slice(start);
+  const nextSep = rest.indexOf("\n---\n");
+  const entry = nextSep !== -1 ? rest.slice(0, nextSep) : rest;
+  return entry.trim();
 }
 
 // ─── recap ───────────────────────────────────────
