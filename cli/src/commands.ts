@@ -5,6 +5,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execSync } from "node:child_process";
 import {
   STATE_DIR,
   ARCHIVE_DIR,
@@ -60,6 +61,23 @@ function resolveContent(args: string[]): { content: string; external: boolean } 
   }
 
   return { content: args.join(" "), external: false };
+}
+
+/**
+ * Get list of changed files via git diff.
+ * Returns empty array if not in a git repo or git fails.
+ */
+function getFilesChanged(): string[] {
+  try {
+    const output = execSync("git diff --name-only HEAD 2>/dev/null || git diff --name-only", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+    if (!output) return [];
+    return output.split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 // ─── init ────────────────────────────────────────
@@ -171,9 +189,18 @@ export function cmdSubmitRalph(args: string[]): void {
   const summary = extractSummary(content);
   const dir = stateDir();
 
+  // Auto-attach files_changed for CODE/FIX submissions
+  let filesChangedSection = "";
+  if (tag === "CODE" || tag === "FIX") {
+    const files = getFilesChanged();
+    if (files.length > 0) {
+      filesChangedSection = `**Files Changed**:\n${files.map((f) => `- ${f}`).join("\n")}\n\n`;
+    }
+  }
+
   writeFile(
     path.join(dir, "work.md"),
-    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
+    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n${filesChangedSection ? "\n" + filesChangedSection : "\n"}${content}\n`
   );
 
   // External sources (--file/--stdin) get compact history to reduce context bloat

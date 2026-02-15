@@ -292,6 +292,61 @@ describe("CLI: submit --file", () => {
   });
 });
 
+describe("CLI: submit files_changed", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    // Set up a git repo so git diff works
+    execFileSync("git", ["init"], { cwd: TMP, stdio: "pipe" });
+    execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: TMP, stdio: "pipe" });
+    execFileSync("git", ["config", "user.name", "Test"], { cwd: TMP, stdio: "pipe" });
+    // Create and commit an initial file
+    fs.writeFileSync(path.join(TMP, "app.ts"), "const x = 1;\n");
+    execFileSync("git", ["add", "app.ts"], { cwd: TMP, stdio: "pipe" });
+    execFileSync("git", ["commit", "-m", "initial"], { cwd: TMP, stdio: "pipe" });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("attaches files_changed to work.md for CODE tag", () => {
+    // Modify a tracked file
+    fs.writeFileSync(path.join(TMP, "app.ts"), "const x = 2;\n");
+    const r = run("submit-ralph", "[CODE] Updated app\n\nTest Results\n- pass");
+    assert.strictEqual(r.exitCode, 0);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("**Files Changed**:"));
+    assert.ok(work.includes("- app.ts"));
+  });
+
+  it("attaches files_changed to work.md for FIX tag", () => {
+    fs.writeFileSync(path.join(TMP, "app.ts"), "const x = 3;\n");
+    const r = run("submit-ralph", "[FIX] Fixed app\n\nTest Results\n- pass");
+    assert.strictEqual(r.exitCode, 0);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("**Files Changed**:"));
+    assert.ok(work.includes("- app.ts"));
+  });
+
+  it("does NOT attach files_changed for PLAN tag", () => {
+    fs.writeFileSync(path.join(TMP, "app.ts"), "const x = 4;\n");
+    const r = run("submit-ralph", "[PLAN] Just a plan");
+    assert.strictEqual(r.exitCode, 0);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(!work.includes("**Files Changed**:"));
+  });
+
+  it("no files_changed section when no files changed", () => {
+    // No modifications — git diff should return empty
+    const r = run("submit-ralph", "[CODE] No changes\n\nTest Results\n- pass");
+    assert.strictEqual(r.exitCode, 0);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(!work.includes("**Files Changed**:"));
+  });
+});
+
 describe("CLI: submit --stdin", () => {
   beforeEach(() => {
     fs.rmSync(TMP, { recursive: true, force: true });
