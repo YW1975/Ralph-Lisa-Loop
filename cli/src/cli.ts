@@ -131,7 +131,9 @@ function showHelp(): void {
   console.log("Turn Control:");
   console.log("  ralph-lisa whose-turn               Check whose turn");
   console.log('  ralph-lisa submit-ralph "[TAG]..."   Ralph submits');
+  console.log("  ralph-lisa submit-ralph --file <f>   Ralph submits from file");
   console.log('  ralph-lisa submit-lisa "[TAG]..."    Lisa submits');
+  console.log("  ralph-lisa submit-lisa --file <f>    Lisa submits from file");
   console.log("");
   console.log("Tags:");
   console.log(

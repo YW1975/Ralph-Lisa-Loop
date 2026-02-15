@@ -207,3 +207,147 @@ describe("CLI: init --minimal", () => {
     assert.ok(r.stdout.includes("Submitted"));
   });
 });
+
+describe("CLI: submit --file", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("ralph submits content from file", () => {
+    const contentFile = path.join(TMP, "submission.md");
+    fs.writeFileSync(contentFile, "[PLAN] My plan from file\n\nDetailed plan content here.");
+    const r = run("submit-ralph", "--file", contentFile);
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    assert.ok(r.stdout.includes("[PLAN]"));
+    // Verify work.md contains the file content
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("Detailed plan content here"));
+  });
+
+  it("lisa submits content from file", () => {
+    // Ralph submits first to give Lisa the turn
+    run("submit-ralph", "[PLAN] Setup");
+    const contentFile = path.join(TMP, "review.md");
+    fs.writeFileSync(contentFile, "[PASS] Approved from file\n\nLooks good to me.");
+    const r = run("submit-lisa", "--file", contentFile);
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    assert.ok(r.stdout.includes("[PASS]"));
+  });
+
+  it("fails when --file has no path", () => {
+    const r = run("submit-ralph", "--file");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("--file requires a file path"));
+  });
+
+  it("fails when file does not exist", () => {
+    const r = run("submit-ralph", "--file", "/nonexistent/path.md");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("File not found"));
+  });
+
+  it("handles file with special characters in content", () => {
+    const contentFile = path.join(TMP, "special.md");
+    fs.writeFileSync(contentFile, '[PLAN] Plan with "quotes" & $pecial chars\n\nContent with `backticks` and $(subshell)');
+    const r = run("submit-ralph", "--file", contentFile);
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("$(subshell)"));
+  });
+
+  it("--file history gets summary only, not full content", () => {
+    const contentFile = path.join(TMP, "submission.md");
+    fs.writeFileSync(contentFile, "[PLAN] File plan\n\nThis detailed body should NOT be in history.");
+    run("submit-ralph", "--file", contentFile);
+    const history = fs.readFileSync(path.join(TMP, ".dual-agent", "history.md"), "utf-8");
+    // History should have summary reference, not full body
+    assert.ok(history.includes("File plan"));
+    assert.ok(history.includes("(Full content in work.md)"));
+    assert.ok(!history.includes("This detailed body should NOT be in history"));
+  });
+
+  it("--file full content is still in work.md", () => {
+    const contentFile = path.join(TMP, "submission.md");
+    fs.writeFileSync(contentFile, "[PLAN] File plan\n\nFull body lives in work.md.");
+    run("submit-ralph", "--file", contentFile);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("Full body lives in work.md"));
+  });
+
+  it("inline args still write full content to history", () => {
+    const r = run("submit-ralph", "[PLAN] Inline plan\n\nInline body in history.");
+    assert.strictEqual(r.exitCode, 0);
+    const history = fs.readFileSync(path.join(TMP, ".dual-agent", "history.md"), "utf-8");
+    assert.ok(history.includes("Inline body in history"));
+    assert.ok(!history.includes("(Full content in work.md)"));
+  });
+});
+
+describe("CLI: submit --stdin", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  function runWithStdin(input: string, ...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd: TMP,
+        encoding: "utf-8",
+        input,
+        env: { ...process.env, RL_POLICY_MODE: "off" },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
+  it("ralph submits content from stdin", () => {
+    const r = runWithStdin(
+      "[PLAN] Plan from stdin\n\nStdin content here.",
+      "submit-ralph", "--stdin"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    assert.ok(r.stdout.includes("[PLAN]"));
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("Stdin content here"));
+  });
+
+  it("lisa submits content from stdin", () => {
+    run("submit-ralph", "[PLAN] Setup");
+    const r = runWithStdin(
+      "[PASS] Approved from stdin\n\nAll good.",
+      "submit-lisa", "--stdin"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    assert.ok(r.stdout.includes("[PASS]"));
+  });
+
+  it("--stdin history gets summary only, not full content", () => {
+    runWithStdin(
+      "[PLAN] Stdin plan\n\nDetailed stdin body not in history.",
+      "submit-ralph", "--stdin"
+    );
+    const history = fs.readFileSync(path.join(TMP, ".dual-agent", "history.md"), "utf-8");
+    assert.ok(history.includes("Stdin plan"));
+    assert.ok(history.includes("(Full content in work.md)"));
+    assert.ok(!history.includes("Detailed stdin body not in history"));
+  });
+});

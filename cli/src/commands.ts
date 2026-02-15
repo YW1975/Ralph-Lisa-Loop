@@ -30,6 +30,38 @@ function line(ch = "=", len = 40): string {
   return ch.repeat(len);
 }
 
+/**
+ * Resolve submission content from args, --file, or --stdin.
+ * Returns content and whether it came from an external source (file/stdin).
+ * External sources get compact history entries to reduce context bloat.
+ */
+function resolveContent(args: string[]): { content: string; external: boolean } {
+  const fileIdx = args.indexOf("--file");
+  if (fileIdx !== -1) {
+    const filePath = args[fileIdx + 1];
+    if (!filePath) {
+      console.error("Error: --file requires a file path");
+      process.exit(1);
+    }
+    if (!fs.existsSync(filePath)) {
+      console.error(`Error: File not found: ${filePath}`);
+      process.exit(1);
+    }
+    return { content: fs.readFileSync(filePath, "utf-8").trim(), external: true };
+  }
+
+  if (args.includes("--stdin")) {
+    try {
+      return { content: fs.readFileSync(0, "utf-8").trim(), external: true };
+    } catch {
+      console.error("Error: Failed to read from stdin");
+      process.exit(1);
+    }
+  }
+
+  return { content: args.join(" "), external: false };
+}
+
 // ─── init ────────────────────────────────────────
 
 export function cmdInit(args: string[]): void {
@@ -96,11 +128,13 @@ export function cmdWhoseTurn(): void {
 
 export function cmdSubmitRalph(args: string[]): void {
   checkSession();
-  const content = args.join(" ");
+  const { content, external } = resolveContent(args);
   if (!content) {
     console.error(
       'Usage: ralph-lisa submit-ralph "[TAG] summary\\n\\ndetails..."'
     );
+    console.error('       ralph-lisa submit-ralph --file <path>');
+    console.error("       echo content | ralph-lisa submit-ralph --stdin");
     console.error("");
     console.error(
       "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
@@ -142,7 +176,11 @@ export function cmdSubmitRalph(args: string[]): void {
     `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
   );
 
-  appendHistory("Ralph", content);
+  // External sources (--file/--stdin) get compact history to reduce context bloat
+  const historyContent = external
+    ? `[${tag}] ${summary}\n\n(Full content in work.md)`
+    : content;
+  appendHistory("Ralph", historyContent);
   updateLastAction("Ralph", content);
   setTurn("lisa");
 
@@ -158,11 +196,13 @@ export function cmdSubmitRalph(args: string[]): void {
 
 export function cmdSubmitLisa(args: string[]): void {
   checkSession();
-  const content = args.join(" ");
+  const { content, external } = resolveContent(args);
   if (!content) {
     console.error(
       'Usage: ralph-lisa submit-lisa "[TAG] summary\\n\\ndetails..."'
     );
+    console.error('       ralph-lisa submit-lisa --file <path>');
+    console.error("       echo content | ralph-lisa submit-lisa --stdin");
     console.error("");
     console.error(
       "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
@@ -204,7 +244,11 @@ export function cmdSubmitLisa(args: string[]): void {
     `# Lisa Review\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n\n${content}\n`
   );
 
-  appendHistory("Lisa", content);
+  // External sources (--file/--stdin) get compact history to reduce context bloat
+  const historyContent = external
+    ? `[${tag}] ${summary}\n\n(Full content in review.md)`
+    : content;
+  appendHistory("Lisa", historyContent);
   updateLastAction("Lisa", content);
   setTurn("ralph");
 
