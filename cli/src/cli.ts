@@ -26,6 +26,7 @@ import {
   cmdPolicy,
   cmdDoctor,
   cmdLogs,
+  cmdUpdateTask,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -103,6 +104,10 @@ switch (cmd) {
     cmdLogs(rest);
     break;
 
+  case "update-task":
+    cmdUpdateTask(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -156,6 +161,7 @@ function showHelp(): void {
   console.log("");
   console.log("Flow Control:");
   console.log('  ralph-lisa step "name"              Enter new step');
+  console.log('  ralph-lisa update-task "desc"        Update task direction');
   console.log("  ralph-lisa archive [name]           Archive session");
   console.log("  ralph-lisa clean                    Clean session");
   console.log("");

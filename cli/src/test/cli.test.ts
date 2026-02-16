@@ -646,3 +646,76 @@ describe("CLI: step consensus check", () => {
     assert.ok(r.stdout.includes("[CODE]"));
   });
 });
+
+describe("CLI: update-task", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("creates task entry with timestamp", () => {
+    const r = run("update-task", "New direction for the project");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Task updated"));
+    const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    assert.ok(task.includes("New direction for the project"));
+    assert.ok(task.includes("Updated:"));
+  });
+
+  it("preserves original task when updating", () => {
+    const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    const originalContent = task.trim();
+    run("update-task", "Changed direction");
+    const updated = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    // Original content still present
+    assert.ok(updated.includes("Waiting for task assignment"));
+    assert.ok(updated.includes("Changed direction"));
+  });
+
+  it("fails when no description given", () => {
+    const r = run("update-task");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+});
+
+describe("CLI: task context in work.md", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("auto-injects Task field into work.md from task.md", () => {
+    // Update task to have a meaningful description
+    run("update-task", "Implement login feature");
+    run("submit-ralph", "[PLAN] My plan");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("**Task**: Implement login feature"), "work.md should contain Task field");
+  });
+
+  it("work.md has no Task field when task.md has no meaningful content", () => {
+    // Default task.md has "Waiting for task assignment" — this IS meaningful content
+    run("submit-ralph", "[PLAN] My plan");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    // Should include the default task text
+    assert.ok(work.includes("**Task**:"), "work.md should have Task field even with default task");
+  });
+
+  it("uses latest task direction after multiple update-task calls", () => {
+    run("update-task", "First direction");
+    run("update-task", "Second direction");
+    run("update-task", "Final direction");
+    run("submit-ralph", "[PLAN] My plan");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("**Task**: Final direction"), "work.md should use latest task direction");
+    assert.ok(!work.includes("**Task**: First direction"), "work.md should NOT use first task direction");
+  });
+});
