@@ -81,6 +81,14 @@ This is required when the task involves reference implementations, protocols, or
 - Result: Passed / Failed (reason)
 - If skipping tests, must explain why
 
+## Round 1: Mandatory [PLAN]
+
+Your first submission MUST be [PLAN] (not [CODE]). This gives Lisa a chance to verify
+your understanding of the task before you start coding. Include:
+- Your understanding of the task goal
+- Proposed approach
+- Expected deliverables
+
 ## Workflow
 
 ```
