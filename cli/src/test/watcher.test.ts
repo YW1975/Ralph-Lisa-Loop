@@ -19,6 +19,7 @@ interface WatcherState {
   seenTurn: string;
   ackedTurn: string;
   failCount: number;
+  lastAckTime: number;
   panePromptHits: number;
   panePaused: boolean;
   panePauseSize: number;
@@ -29,6 +30,7 @@ function newState(): WatcherState {
     seenTurn: "",
     ackedTurn: "",
     failCount: 0,
+    lastAckTime: 0,
     panePromptHits: 0,
     panePaused: false,
     panePauseSize: 0,
@@ -36,23 +38,34 @@ function newState(): WatcherState {
 }
 
 /**
- * Simulate check_and_trigger logic (matches bash watcher v2).
+ * Simulate check_and_trigger logic (matches bash watcher v3).
  * Two-variable approach: seenTurn (observed) vs ackedTurn (delivered).
  * triggerResult: true = trigger succeeded, false = failed.
+ * nowTime: simulated current epoch time for cooldown testing.
  * Returns the action taken.
  */
 function checkAndTrigger(
   state: WatcherState,
   currentTurn: string,
-  triggerResult: boolean
-): "ack" | "retry" | "degraded" | "alert" | "noop" {
-  // Detect new turn change
+  triggerResult: boolean,
+  nowTime: number = 0
+): "ack" | "retry" | "degraded" | "alert" | "noop" | "cooldown" {
+  // 1. Detect new turn change (BEFORE cooldown — new turns are never suppressed)
   if (currentTurn && currentTurn !== state.seenTurn) {
     state.seenTurn = currentTurn;
     state.failCount = 0;
+    state.lastAckTime = 0; // Reset cooldown on new turn
   }
 
-  // Need to deliver? (seen but not acked)
+  // 2. Cooldown: skip delivery if last ack was < 30s ago
+  if (state.lastAckTime > 0 && nowTime > 0) {
+    const elapsed = nowTime - state.lastAckTime;
+    if (elapsed < 30) {
+      return "cooldown";
+    }
+  }
+
+  // 3. Need to deliver? (seen but not acked)
   if (state.seenTurn && state.seenTurn !== state.ackedTurn) {
     let mode: "retry" | "degraded" | "alert" = "retry";
     if (state.failCount >= 30) {
@@ -64,6 +77,7 @@ function checkAndTrigger(
     if (triggerResult) {
       state.ackedTurn = state.seenTurn;
       state.failCount = 0;
+      state.lastAckTime = nowTime;
       return "ack";
     } else {
       state.failCount++;
@@ -72,6 +86,32 @@ function checkAndTrigger(
   }
 
   return "noop";
+}
+
+/**
+ * Simulate send_go_to_pane retry-exhaustion logic (v3).
+ * Returns true if message was delivered, false if retries exhausted.
+ */
+function simulateSendGo(
+  agentAlive: boolean,
+  interactivePrompt: boolean,
+  enterRegistered: boolean[],  // per-attempt: did Enter register?
+  maxRetries: number = 3
+): boolean {
+  if (!agentAlive) return false;
+  if (interactivePrompt) return false;
+
+  let attempt = 0;
+  for (let i = 0; i < maxRetries; i++) {
+    if (enterRegistered[i] !== false) {
+      // Enter registered (message submitted)
+      return true;
+    }
+    attempt++;
+  }
+
+  // All retries exhausted — message never submitted
+  return attempt < maxRetries;
 }
 
 /**
@@ -252,5 +292,437 @@ describe("Watcher: interactive prompt pause/resume", () => {
     // No prompt this time
     handleInteractivePrompt(s, false, false, 100);
     assert.strictEqual(s.panePromptHits, 0);
+  });
+});
+
+describe("Watcher: send_go_to_pane retry exhaustion (RLL-001)", () => {
+  it("returns false when all retries fail (Enter never registers)", () => {
+    const result = simulateSendGo(true, false, [false, false, false]);
+    assert.strictEqual(result, false);
+  });
+
+  it("returns true when first attempt succeeds", () => {
+    const result = simulateSendGo(true, false, [true, false, false]);
+    assert.strictEqual(result, true);
+  });
+
+  it("returns true when second attempt succeeds", () => {
+    const result = simulateSendGo(true, false, [false, true, false]);
+    assert.strictEqual(result, true);
+  });
+
+  it("returns false when agent is dead", () => {
+    const result = simulateSendGo(false, false, [true, true, true]);
+    assert.strictEqual(result, false);
+  });
+
+  it("returns false when interactive prompt detected", () => {
+    const result = simulateSendGo(true, true, [true, true, true]);
+    assert.strictEqual(result, false);
+  });
+});
+
+describe("Watcher: cooldown does not block new turns (RLL-001)", () => {
+  it("cooldown suppresses re-delivery for same turn", () => {
+    const s = newState();
+    // Ack ralph at t=100
+    const action1 = checkAndTrigger(s, "ralph", true, 100);
+    assert.strictEqual(action1, "ack");
+    assert.strictEqual(s.lastAckTime, 100);
+
+    // Same turn at t=110 (within 30s) → cooldown kicks in before reaching noop
+    const action2 = checkAndTrigger(s, "ralph", true, 110);
+    assert.strictEqual(action2, "cooldown");
+  });
+
+  it("new turn within 30s is NOT suppressed by cooldown", () => {
+    const s = newState();
+    // Ack ralph at t=100
+    checkAndTrigger(s, "ralph", true, 100);
+    assert.strictEqual(s.lastAckTime, 100);
+
+    // New turn (lisa) at t=110 — within 30s of last ack
+    // Turn-change detection resets lastAckTime to 0, so cooldown does not apply
+    const action = checkAndTrigger(s, "lisa", true, 110);
+    assert.strictEqual(action, "ack");
+    assert.strictEqual(s.ackedTurn, "lisa");
+    assert.strictEqual(s.lastAckTime, 110);
+  });
+
+  it("cooldown expires after 30s for failed re-delivery", () => {
+    const s = newState();
+    // Ack ralph at t=100
+    checkAndTrigger(s, "ralph", true, 100);
+
+    // Force unacked state (simulate edge case: ack succeeded but need re-trigger)
+    s.ackedTurn = "";
+
+    // At t=110 (within 30s) → cooldown
+    const action1 = checkAndTrigger(s, "ralph", true, 110);
+    assert.strictEqual(action1, "cooldown");
+
+    // At t=135 (past 30s) → delivers
+    const action2 = checkAndTrigger(s, "ralph", true, 135);
+    assert.strictEqual(action2, "ack");
+  });
+});
+
+/**
+ * Checkpoint runtime state (RLL-003).
+ * Models the full watcher checkpoint behavior including reminder cadence
+ * and ack lifecycle across loop iterations.
+ *
+ * The bash watcher uses .checkpoint_ack FILE as persistent source of truth
+ * (crash-safe). The file is kept during the checkpoint round and only
+ * cleaned up when the round advances past the checkpoint.
+ */
+interface CheckpointState {
+  checkpointRounds: number;
+  remindTime: number;       // epoch of last reminder (0 = never)
+}
+
+function newCheckpointState(rounds: number): CheckpointState {
+  return { checkpointRounds: rounds, remindTime: 0 };
+}
+
+/**
+ * Simulate checkpoint check in check_and_trigger (matches bash watcher v3).
+ * ackFilePresent: whether .checkpoint_ack file exists on disk.
+ * nowTime: simulated epoch time.
+ * Returns: "pause" (blocked, reminder emitted), "pause_silent" (blocked, no reminder yet),
+ *          "proceed" (acked or not a checkpoint round), "no_checkpoint" (disabled/not applicable),
+ *          "cleanup" (not at checkpoint round, stale ack file should be removed).
+ */
+function checkCheckpoint(
+  state: CheckpointState,
+  round: number,
+  ackFilePresent: boolean,
+  nowTime: number
+): "pause" | "pause_silent" | "proceed" | "no_checkpoint" | "cleanup" {
+  if (state.checkpointRounds <= 0) return "no_checkpoint";
+  if (round <= 1) return "no_checkpoint";
+
+  const isCheckpointRound = (round - 1) % state.checkpointRounds === 0;
+
+  if (isCheckpointRound) {
+    // At checkpoint round — file is source of truth (crash-safe)
+    if (ackFilePresent) {
+      // Acked — proceed (keep file until round advances)
+      return "proceed";
+    }
+    // Not acked — pause with periodic 30s reminder
+    if (state.remindTime === 0 || nowTime - state.remindTime >= 30) {
+      state.remindTime = nowTime;
+      return "pause"; // reminder emitted
+    }
+    return "pause_silent"; // blocked but no new reminder
+  }
+
+  // Not at checkpoint round — clean up stale ack if present
+  if (ackFilePresent) return "cleanup";
+  return "no_checkpoint";
+}
+
+describe("Watcher: checkpoint round detection (RLL-003)", () => {
+  it("pauses at checkpoint round when not acked", () => {
+    const s = newCheckpointState(3);
+    // round=4 → (4-1)%3==0 → pause
+    assert.strictEqual(checkCheckpoint(s, 4, false, 100), "pause");
+  });
+
+  it("proceeds at checkpoint round when ack file present", () => {
+    const s = newCheckpointState(3);
+    assert.strictEqual(checkCheckpoint(s, 4, true, 100), "proceed");
+  });
+
+  it("does not checkpoint at non-checkpoint rounds", () => {
+    const s = newCheckpointState(3);
+    assert.strictEqual(checkCheckpoint(s, 2, false, 100), "no_checkpoint");
+    assert.strictEqual(checkCheckpoint(s, 3, false, 100), "no_checkpoint");
+    assert.strictEqual(checkCheckpoint(s, 5, false, 100), "no_checkpoint");
+  });
+
+  it("does not checkpoint at round 1", () => {
+    const s = newCheckpointState(3);
+    assert.strictEqual(checkCheckpoint(s, 1, false, 100), "no_checkpoint");
+  });
+
+  it("does not checkpoint when disabled (0)", () => {
+    const s = newCheckpointState(0);
+    assert.strictEqual(checkCheckpoint(s, 4, false, 100), "no_checkpoint");
+  });
+
+  it("checkpoints every N rounds correctly", () => {
+    const s = newCheckpointState(2);
+    // N=2: checkpoints at round 3, 5, 7...
+    assert.strictEqual(checkCheckpoint(s, 3, false, 100), "pause");
+    assert.strictEqual(checkCheckpoint(s, 5, false, 200), "pause");
+    assert.strictEqual(checkCheckpoint(s, 7, false, 300), "pause");
+    // Not at round 2, 4, 6
+    assert.strictEqual(checkCheckpoint(s, 2, false, 100), "no_checkpoint");
+    assert.strictEqual(checkCheckpoint(s, 4, false, 100), "no_checkpoint");
+    assert.strictEqual(checkCheckpoint(s, 6, false, 100), "no_checkpoint");
+  });
+});
+
+describe("Watcher: checkpoint reminder cadence (RLL-003)", () => {
+  it("emits reminder on first pause", () => {
+    const s = newCheckpointState(3);
+    assert.strictEqual(checkCheckpoint(s, 4, false, 100), "pause");
+    assert.strictEqual(s.remindTime, 100);
+  });
+
+  it("suppresses reminder within 30s", () => {
+    const s = newCheckpointState(3);
+    checkCheckpoint(s, 4, false, 100); // first reminder at t=100
+    assert.strictEqual(checkCheckpoint(s, 4, false, 110), "pause_silent"); // t=110 < 30s
+    assert.strictEqual(s.remindTime, 100); // unchanged
+  });
+
+  it("re-emits reminder after 30s", () => {
+    const s = newCheckpointState(3);
+    checkCheckpoint(s, 4, false, 100); // first at t=100
+    assert.strictEqual(checkCheckpoint(s, 4, false, 130), "pause"); // t=130 >= 30s
+    assert.strictEqual(s.remindTime, 130); // updated
+  });
+
+  it("re-emits multiple times at 30s intervals", () => {
+    const s = newCheckpointState(3);
+    assert.strictEqual(checkCheckpoint(s, 4, false, 100), "pause");
+    assert.strictEqual(checkCheckpoint(s, 4, false, 115), "pause_silent");
+    assert.strictEqual(checkCheckpoint(s, 4, false, 130), "pause");
+    assert.strictEqual(checkCheckpoint(s, 4, false, 145), "pause_silent");
+    assert.strictEqual(checkCheckpoint(s, 4, false, 160), "pause");
+  });
+});
+
+describe("Watcher: checkpoint ack lifecycle (RLL-003)", () => {
+  it("ack file persists — repeated checks at same round still proceed", () => {
+    const s = newCheckpointState(3);
+    // File present at round 4 — proceeds every time (file is NOT deleted)
+    assert.strictEqual(checkCheckpoint(s, 4, true, 100), "proceed");
+    assert.strictEqual(checkCheckpoint(s, 4, true, 110), "proceed");
+    assert.strictEqual(checkCheckpoint(s, 4, true, 200), "proceed");
+  });
+
+  it("ack file cleaned up when round advances past checkpoint", () => {
+    const s = newCheckpointState(3);
+    // Ack at checkpoint round 4
+    assert.strictEqual(checkCheckpoint(s, 4, true, 100), "proceed");
+    // Round advances to 5 (non-checkpoint) — stale ack triggers cleanup
+    assert.strictEqual(checkCheckpoint(s, 5, true, 200), "cleanup");
+    // After cleanup (file removed), normal no_checkpoint
+    assert.strictEqual(checkCheckpoint(s, 5, false, 200), "no_checkpoint");
+  });
+
+  it("next checkpoint round requires fresh ack", () => {
+    const s = newCheckpointState(3);
+    // Ack round 4, then round advances
+    assert.strictEqual(checkCheckpoint(s, 4, true, 100), "proceed");
+    // Next checkpoint: round 7 — no ack file → pauses
+    assert.strictEqual(checkCheckpoint(s, 7, false, 200), "pause");
+  });
+
+  it("watcher restart at same checkpoint round still proceeds if ack file exists", () => {
+    // Simulates crash+restart: in-memory state is fresh but file persists
+    const fresh = newCheckpointState(3);
+    // File still on disk from before crash — proceeds immediately
+    assert.strictEqual(checkCheckpoint(fresh, 4, true, 300), "proceed");
+  });
+});
+
+// ─── RLL-005: Watcher auto-restart simulations ──
+
+/**
+ * Simulate cleanup guard flag (RLL-005).
+ * Returns number of times cleanup body actually executed.
+ */
+function simulateCleanup(signals: number): number {
+  let cleanupDone = 0;
+  let executions = 0;
+  for (let i = 0; i < signals; i++) {
+    if (cleanupDone) continue;
+    cleanupDone = 1;
+    executions++;
+  }
+  return executions;
+}
+
+/**
+ * Simulate session-guarded restart loop (RLL-005).
+ * watcherExitCodes: sequence of exit codes from watcher runs.
+ * sessionAliveAfter: for each run index, whether tmux session is alive after exit.
+ * Returns number of watcher launches.
+ */
+function simulateRestartLoop(
+  watcherExitCodes: number[],
+  sessionAliveAfter: boolean[]
+): number {
+  let launches = 0;
+  for (let i = 0; i < watcherExitCodes.length; i++) {
+    // Loop condition: session must be alive to enter
+    if (i > 0 && !sessionAliveAfter[i - 1]) break;
+    launches++;
+    // After watcher exits, check session
+    if (!sessionAliveAfter[i]) break;
+  }
+  return launches;
+}
+
+describe("Watcher: cleanup guard flag (RLL-005)", () => {
+  it("executes cleanup exactly once on single signal", () => {
+    assert.strictEqual(simulateCleanup(1), 1);
+  });
+
+  it("executes cleanup exactly once on double signal", () => {
+    assert.strictEqual(simulateCleanup(2), 1);
+  });
+
+  it("executes cleanup exactly once on triple signal", () => {
+    assert.strictEqual(simulateCleanup(3), 1);
+  });
+});
+
+describe("Watcher: session-guarded restart loop (RLL-005)", () => {
+  it("restarts after crash when session is alive", () => {
+    // Watcher crashes (exit 1), session alive → restarts, then exits clean
+    const launches = simulateRestartLoop([1, 0], [true, true]);
+    assert.strictEqual(launches, 2);
+  });
+
+  it("does NOT restart when session is gone after exit", () => {
+    // Watcher exits, session gone → no restart
+    const launches = simulateRestartLoop([0, 0], [false, true]);
+    assert.strictEqual(launches, 1);
+  });
+
+  it("does NOT restart when session disappears mid-crash", () => {
+    // Watcher crashes (exit 1), session gone → no restart
+    const launches = simulateRestartLoop([1, 0], [false, true]);
+    assert.strictEqual(launches, 1);
+  });
+
+  it("handles multiple crashes before stable run", () => {
+    // 3 crashes then stable exit, session alive throughout
+    const launches = simulateRestartLoop([1, 1, 1, 0], [true, true, true, true]);
+    assert.strictEqual(launches, 4);
+  });
+
+  it("stops after session teardown mid-sequence", () => {
+    // 2 crashes (session alive), then session gone on 3rd exit
+    const launches = simulateRestartLoop([1, 1, 1], [true, true, false]);
+    assert.strictEqual(launches, 3);
+  });
+});
+
+/**
+ * Simulate wrapper singleton management with process-identity validation (RLL-005).
+ * processArgs: what `ps -p PID -o args=` returns for the old PID.
+ *   - null = process already dead (PID not running)
+ *   - string = process args (must contain "tmux has-session" to be a valid wrapper)
+ * Returns whether the old PID was killed.
+ */
+function simulateWrapperKill(
+  oldPidExists: boolean,
+  processArgs: string | null
+): "killed" | "skipped_dead" | "skipped_wrong_process" | "no_pid_file" {
+  if (!oldPidExists) return "no_pid_file";
+  if (processArgs === null) return "skipped_dead";
+  if (!processArgs.includes("tmux has-session")) return "skipped_wrong_process";
+  return "killed";
+}
+
+describe("Watcher: wrapper singleton management (RLL-005)", () => {
+  it("kills old wrapper when process matches", () => {
+    assert.strictEqual(
+      simulateWrapperKill(true, "bash -c while tmux has-session -t rll ..."),
+      "killed"
+    );
+  });
+
+  it("skips kill when no PID file", () => {
+    assert.strictEqual(
+      simulateWrapperKill(false, null),
+      "no_pid_file"
+    );
+  });
+
+  it("skips kill when PID is dead (process not running)", () => {
+    assert.strictEqual(
+      simulateWrapperKill(true, null),
+      "skipped_dead"
+    );
+  });
+
+  it("skips kill when PID was reused by unrelated process", () => {
+    assert.strictEqual(
+      simulateWrapperKill(true, "/usr/bin/python3 my_app.py"),
+      "skipped_wrong_process"
+    );
+  });
+
+  it("skips kill when PID reused by similar but wrong command", () => {
+    assert.strictEqual(
+      simulateWrapperKill(true, "bash -c some_other_script.sh"),
+      "skipped_wrong_process"
+    );
+  });
+});
+
+// ─── RLL-006: Pane log threshold simulations ─────
+
+/**
+ * Simulate truncate_log_if_needed logic (RLL-006).
+ * Returns whether truncation would occur, and the computed thresholds.
+ */
+function shouldTruncate(
+  fileSize: number,
+  maxMb: number
+): { truncate: boolean; maxBytes: number; tailBytes: number } {
+  if (maxMb < 1) maxMb = 1; // floor guard
+  const maxBytes = maxMb * 1048576;
+  const tailBytes = maxMb * 102400; // ~10% of max
+  return { truncate: fileSize > maxBytes, maxBytes, tailBytes };
+}
+
+describe("Watcher: pane log threshold (RLL-006)", () => {
+  it("default 5MB threshold: no truncation under limit", () => {
+    const r = shouldTruncate(4 * 1048576, 5); // 4MB
+    assert.strictEqual(r.truncate, false);
+    assert.strictEqual(r.maxBytes, 5 * 1048576);
+  });
+
+  it("default 5MB threshold: truncates over limit", () => {
+    const r = shouldTruncate(6 * 1048576, 5); // 6MB
+    assert.strictEqual(r.truncate, true);
+    assert.strictEqual(r.tailBytes, 5 * 102400); // 500KB retention
+  });
+
+  it("custom 10MB threshold via RL_LOG_MAX_MB", () => {
+    const r = shouldTruncate(8 * 1048576, 10); // 8MB < 10MB
+    assert.strictEqual(r.truncate, false);
+    assert.strictEqual(r.maxBytes, 10 * 1048576);
+  });
+
+  it("custom 10MB threshold: truncates over limit", () => {
+    const r = shouldTruncate(11 * 1048576, 10); // 11MB > 10MB
+    assert.strictEqual(r.truncate, true);
+    assert.strictEqual(r.tailBytes, 10 * 102400); // 1000KB retention
+  });
+
+  it("tail retention scales with max_mb", () => {
+    assert.strictEqual(shouldTruncate(0, 1).tailBytes, 102400);   // 1MB → 100KB
+    assert.strictEqual(shouldTruncate(0, 5).tailBytes, 512000);   // 5MB → 500KB
+    assert.strictEqual(shouldTruncate(0, 10).tailBytes, 1024000); // 10MB → 1000KB
+  });
+
+  it("floor guard: zero/negative RL_LOG_MAX_MB clamps to 1MB", () => {
+    const r0 = shouldTruncate(2 * 1048576, 0); // 0 → clamped to 1
+    assert.strictEqual(r0.maxBytes, 1048576);
+    assert.strictEqual(r0.truncate, true); // 2MB > 1MB
+
+    const rNeg = shouldTruncate(500000, -3); // negative → clamped to 1
+    assert.strictEqual(rNeg.maxBytes, 1048576);
+    assert.strictEqual(rNeg.truncate, false); // 500KB < 1MB
   });
 });

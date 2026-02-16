@@ -189,6 +189,12 @@ export function cmdSubmitRalph(args: string[]): void {
   const summary = extractSummary(content);
   const dir = stateDir();
 
+  // Auto-inject task context so Lisa always sees the task goal
+  // Use last meaningful line (update-task appends new directions at the end)
+  const taskFile = readFile(path.join(dir, "task.md"));
+  const taskLines = taskFile.split("\n").filter((l) => l.trim() && !l.startsWith("#") && !l.startsWith("---") && !l.startsWith("Created:") && !l.startsWith("Updated:"));
+  const taskContext = taskLines[taskLines.length - 1] || "";
+
   // Auto-attach files_changed for CODE/FIX submissions
   let filesChangedSection = "";
   if (tag === "CODE" || tag === "FIX") {
@@ -198,9 +204,10 @@ export function cmdSubmitRalph(args: string[]): void {
     }
   }
 
+  const taskLine = taskContext ? `**Task**: ${taskContext}\n` : "";
   writeFile(
     path.join(dir, "work.md"),
-    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n**Updated**: ${ts}\n**Summary**: ${summary}\n${filesChangedSection ? "\n" + filesChangedSection : "\n"}${content}\n`
+    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n${taskLine}**Updated**: ${ts}\n**Summary**: ${summary}\n${filesChangedSection ? "\n" + filesChangedSection : "\n"}${content}\n`
   );
 
   // External sources (--file/--stdin) get compact history to reduce context bloat
@@ -591,6 +598,31 @@ export function cmdClean(): void {
     fs.rmSync(dir, { recursive: true, force: true });
     console.log("Session cleaned");
   }
+}
+
+// ─── update-task ─────────────────────────────────
+
+export function cmdUpdateTask(args: string[]): void {
+  checkSession();
+  const newTask = args.join(" ");
+  if (!newTask) {
+    console.error('Usage: ralph-lisa update-task "new task description"');
+    process.exit(1);
+  }
+
+  const dir = stateDir();
+  const taskPath = path.join(dir, "task.md");
+  const ts = timestamp();
+
+  // Append new direction with timestamp (preserves history)
+  fs.appendFileSync(
+    taskPath,
+    `\n---\nUpdated: ${ts}\n\n${newTask}\n`,
+    "utf-8"
+  );
+
+  console.log(`Task updated: ${newTask}`);
+  console.log(`(Appended to ${taskPath})`);
 }
 
 // ─── uninit ──────────────────────────────────────
@@ -1192,8 +1224,9 @@ export function cmdAuto(args: string[]): void {
   // Create watcher script
   const watcherScript = path.join(dir, "watcher.sh");
   let watcherContent = `#!/bin/bash
-# Turn watcher v2 - reliable agent triggering with health checks
+# Turn watcher v3 - fire-and-forget agent triggering
 # Architecture: polling main loop + optional event acceleration
+# v3: Removed output stability wait + delivery verification (RLL-001)
 
 STATE_DIR=".dual-agent"
 SESSION="${sessionName}"
@@ -1202,6 +1235,10 @@ SEEN_TURN=""
 ACKED_TURN=""
 FAIL_COUNT=0
 ACCEL_PID=""
+LAST_ACK_TIME=0
+CHECKPOINT_ROUNDS=\${RL_CHECKPOINT_ROUNDS:-0}
+CHECKPOINT_REMIND_TIME=0
+CLEANUP_DONE=0
 
 PANE0_LOG="\${STATE_DIR}/pane0.log"
 PANE1_LOG="\${STATE_DIR}/pane1.log"
@@ -1237,6 +1274,8 @@ echo \$\$ > "\$PID_FILE"
 # ─── Cleanup trap ────────────────────────────────
 
 cleanup() {
+  if (( CLEANUP_DONE )); then return; fi
+  CLEANUP_DONE=1
   echo "[Watcher] Shutting down..."
   # Stop pipe-pane capture
   tmux pipe-pane -t "\${SESSION}:0.0" 2>/dev/null || true
@@ -1340,15 +1379,18 @@ check_for_interactive_prompt() {
 truncate_log_if_needed() {
   local pane="\$1"
   local log_file="\$2"
-  local max_bytes=1048576  # 1MB
+  local max_mb=\${RL_LOG_MAX_MB:-5}
+  if (( max_mb < 1 )); then max_mb=1; fi
+  local max_bytes=$(( max_mb * 1048576 ))
+  local tail_bytes=$(( max_mb * 102400 ))  # ~10% of max
 
   if [[ ! -f "\$log_file" ]]; then return; fi
   local size
   size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
   if (( size > max_bytes )); then
-    echo "[Watcher] Truncating \$log_file (\${size} bytes > 1MB)"
+    echo "[Watcher] Truncating \$log_file (\${size} bytes > \${max_mb}MB)"
     tmux pipe-pane -t "\${SESSION}:\${pane}" 2>/dev/null || true
-    tail -c 102400 "\$log_file" > "\${log_file}.tmp" && mv "\${log_file}.tmp" "\$log_file"
+    tail -c \$tail_bytes "\$log_file" > "\${log_file}.tmp" && mv "\${log_file}.tmp" "\$log_file"
     tmux pipe-pane -o -t "\${SESSION}:\${pane}" "cat >> \\"\$log_file\\"" 2>/dev/null || true
   fi
 }
@@ -1375,35 +1417,8 @@ send_go_to_pane() {
     return 1
   fi
 
-  # 3. Wait for output to stabilize (max 60s, then FAIL — not continue)
-  local wait_count=0
-  while ! check_output_stable "\$log_file" 5; do
-    wait_count=\$((wait_count + 1))
-    if (( wait_count > 30 )); then
-      echo "[Watcher] WARNING: \$agent_name output not stabilizing after 60s, returning failure"
-      return 1
-    fi
-    sleep 2
-  done
-
-  # 4. Double-confirm stability
-  sleep 2
-  if ! check_output_stable "\$log_file" 2; then
-    echo "[Watcher] \$agent_name output resumed during confirmation wait, returning failure"
-    return 1
-  fi
-
-  # 5. Re-check interactive prompt
-  if check_for_interactive_prompt "\$pane"; then
-    echo "[Watcher] Skipping \$agent_name - interactive prompt detected (post-wait)"
-    return 1
-  fi
-
-  # 6. Record log size before sending
-  local pre_size
-  pre_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
-
-  # 7. Send trigger message + Enter with retry
+  # 3. Send trigger message + Enter with retry
+  # tmux send-keys is synchronous — no need to verify delivery via log growth
   # Use first 20 chars as detection marker (long messages wrap in narrow panes)
   local detect_marker="\${go_msg:0:20}"
   while (( attempt < max_retries )); do
@@ -1425,16 +1440,13 @@ send_go_to_pane() {
     fi
   done
 
-  # 8. Verify delivery: did log file grow?
-  sleep 5
-  local post_size
-  post_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ' || echo 0)
-  if (( post_size <= pre_size )); then
-    echo "[Watcher] WARNING: No new output from \$agent_name after sending 'go'"
+  # Check if retries exhausted (message never submitted)
+  if (( attempt >= max_retries )); then
+    echo "[Watcher] FAILED: Could not deliver message to \$agent_name after \$max_retries retries"
     return 1
   fi
 
-  echo "[Watcher] OK: \$agent_name is working (output \$pre_size -> \$post_size)"
+  echo "[Watcher] OK: Message sent to \$agent_name (fire-and-forget)"
   return 0
 }
 
@@ -1442,6 +1454,15 @@ send_go_to_pane() {
 
 trigger_agent() {
   local turn="\$1"
+
+  # Read task context for trigger messages (last meaningful line = latest direction)
+  local task_ctx=""
+  if [[ -f "\$STATE_DIR/task.md" ]]; then
+    # Extract last meaningful line (skip header, separators, timestamps)
+    # Consistent with cmdSubmitRalph which also uses last meaningful line
+    task_ctx=\$(grep -v '^#\\|^---\\|^Created:\\|^Updated:\\|^$' "\$STATE_DIR/task.md" 2>/dev/null | tail -1)
+  fi
+
   if [[ "\$turn" == "ralph" ]]; then
     # Check pause state
     if (( PANE0_PAUSED )); then
@@ -1456,7 +1477,11 @@ trigger_agent() {
         return 1
       fi
     fi
-    local ralph_msg="Your turn. Lisa's feedback is ready — run: ralph-lisa read review.md"
+    local ralph_msg="Your turn."
+    if [[ -n "\$task_ctx" ]]; then
+      ralph_msg="Your turn. Task: \${task_ctx}."
+    fi
+    ralph_msg="\${ralph_msg} Lisa's feedback is ready — run: ralph-lisa read review.md"
     send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG" "\$ralph_msg"
     local rc=\$?
     if (( rc != 0 )); then
@@ -1486,7 +1511,11 @@ trigger_agent() {
         return 1
       fi
     fi
-    local lisa_msg="Your turn. Ralph's work is ready — run: ralph-lisa read work.md"
+    local lisa_msg="Your turn."
+    if [[ -n "\$task_ctx" ]]; then
+      lisa_msg="Your turn. Task: \${task_ctx}."
+    fi
+    lisa_msg="\${lisa_msg} Ralph's work is ready — run: ralph-lisa read work.md"
     send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG" "\$lisa_msg"
     local rc=\$?
     if (( rc != 0 )); then
@@ -1511,6 +1540,9 @@ trigger_agent() {
 check_and_trigger() {
   check_session_alive
 
+  # Heartbeat: write epoch so external tools can check watcher liveness
+  echo \$(date +%s) > "\${STATE_DIR}/.watcher_heartbeat"
+
   # Truncate logs if too large
   truncate_log_if_needed "0.0" "\$PANE0_LOG"
   truncate_log_if_needed "0.1" "\$PANE1_LOG"
@@ -1518,11 +1550,12 @@ check_and_trigger() {
   if [[ -f "\$STATE_DIR/turn.txt" ]]; then
     CURRENT_TURN=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
 
-    # Detect new turn change (reset fail count)
+    # Detect new turn change (reset fail count + cooldown)
     if [[ -n "\$CURRENT_TURN" && "\$CURRENT_TURN" != "\$SEEN_TURN" ]]; then
       echo "[Watcher] Turn changed: \$SEEN_TURN -> \$CURRENT_TURN"
       SEEN_TURN="\$CURRENT_TURN"
       FAIL_COUNT=0
+      LAST_ACK_TIME=0
 
       # Write round separator to pane logs for transcript tracking
       local round_ts
@@ -1530,6 +1563,43 @@ check_and_trigger() {
       local round_marker="\\n\\n===== [Turn -> \$CURRENT_TURN] \$round_ts =====\\n\\n"
       echo -e "\$round_marker" >> "\$PANE0_LOG" 2>/dev/null || true
       echo -e "\$round_marker" >> "\$PANE1_LOG" 2>/dev/null || true
+    fi
+
+    # Cooldown: skip delivery if last ack was < 30s ago (prevents re-triggering during normal work)
+    # Placed AFTER turn-change detection so new turns are never suppressed
+    if (( LAST_ACK_TIME > 0 )); then
+      local now_epoch
+      now_epoch=\$(date +%s)
+      local elapsed=\$(( now_epoch - LAST_ACK_TIME ))
+      if (( elapsed < 30 )); then
+        return
+      fi
+    fi
+
+    # Checkpoint: pause for user review at configured round intervals
+    if (( CHECKPOINT_ROUNDS > 0 )); then
+      local round
+      round=\$(cat "\$STATE_DIR/round.txt" 2>/dev/null || echo 1)
+      if (( round > 1 )) && (( (round - 1) % CHECKPOINT_ROUNDS == 0 )); then
+        # At checkpoint round — file is source of truth (crash-safe)
+        if [[ -f "\${STATE_DIR}/.checkpoint_ack" ]]; then
+          # Acked — proceed (keep file until round advances past checkpoint)
+          :
+        else
+          # Not acked — pause with periodic 30s reminder
+          local now_epoch
+          now_epoch=\$(date +%s)
+          if (( CHECKPOINT_REMIND_TIME == 0 )) || (( now_epoch - CHECKPOINT_REMIND_TIME >= 30 )); then
+            echo "[Watcher] CHECKPOINT: Round \$round. Review direction before continuing."
+            echo "[Watcher] To continue: touch \${STATE_DIR}/.checkpoint_ack"
+            CHECKPOINT_REMIND_TIME=\$now_epoch
+          fi
+          return
+        fi
+      else
+        # Not at checkpoint round — clean up stale ack from previous checkpoint
+        rm -f "\${STATE_DIR}/.checkpoint_ack"
+      fi
     fi
 
     # Need to deliver? (seen but not yet acked)
@@ -1546,7 +1616,8 @@ check_and_trigger() {
       if trigger_agent "\$SEEN_TURN"; then
         ACKED_TURN="\$SEEN_TURN"
         FAIL_COUNT=0
-        echo "[Watcher] Turn acknowledged: \$SEEN_TURN"
+        LAST_ACK_TIME=\$(date +%s)
+        echo "[Watcher] Turn acknowledged: \$SEEN_TURN (cooldown 30s)"
       else
         FAIL_COUNT=\$((FAIL_COUNT + 1))
         echo "[Watcher] Trigger failed (fail_count=\$FAIL_COUNT), will retry next cycle"
@@ -1557,9 +1628,12 @@ check_and_trigger() {
 
 # ─── Main ────────────────────────────────────────
 
-echo "[Watcher] Starting v2... (Ctrl+C to stop)"
+echo "[Watcher] Starting v3... (Ctrl+C to stop)"
 echo "[Watcher] Monitoring \$STATE_DIR/turn.txt"
 echo "[Watcher] Pane logs: \$PANE0_LOG, \$PANE1_LOG"
+if (( CHECKPOINT_ROUNDS > 0 )); then
+  echo "[Watcher] Checkpoint every \$CHECKPOINT_ROUNDS rounds (RL_CHECKPOINT_ROUNDS)"
+fi
 echo "[Watcher] PID: \$\$"
 
 sleep 5
@@ -1625,9 +1699,32 @@ done
   );
   execSync(`tmux select-pane -t "${sessionName}:0.0"`);
 
-  // Watcher runs in background (logs to .dual-agent/watcher.log)
+  // Kill old wrapper process if present (prevents duplication on repeated cmdAuto)
+  const wrapperPidFile = path.join(dir, "watcher_wrapper.pid");
+  if (fs.existsSync(wrapperPidFile)) {
+    const oldWrapperPid = readFile(wrapperPidFile).trim();
+    if (oldWrapperPid) {
+      try {
+        // Validate process identity before killing (avoid PID reuse hazard)
+        const oldArgs = execSync(
+          `ps -p ${oldWrapperPid} -o args= 2>/dev/null || true`
+        ).toString().trim();
+        if (oldArgs && oldArgs.includes("tmux has-session")) {
+          execSync(`kill ${oldWrapperPid} 2>/dev/null || true`);
+          try { execSync(`sleep 0.5`); } catch { /* ignore */ }
+        }
+      } catch {
+        // ignore — process already dead or PID invalid
+      }
+    }
+    fs.unlinkSync(wrapperPidFile);
+  }
+
+  // Watcher runs in background with session-guarded restart loop
   const watcherLog = path.join(dir, "watcher.log");
-  execSync(`bash -c 'nohup "${watcherScript}" > "${watcherLog}" 2>&1 &'`);
+  execSync(
+    `bash -c 'nohup bash -c '"'"'while tmux has-session -t "${sessionName}" 2>/dev/null; do bash "${watcherScript}"; EXIT_CODE=$?; if ! tmux has-session -t "${sessionName}" 2>/dev/null; then echo "[Watcher] Session gone, not restarting." >> "${watcherLog}"; break; fi; echo "[Watcher] Exited ($EXIT_CODE), restarting in 5s..." >> "${watcherLog}"; sleep 5; done'"'"' > "${watcherLog}" 2>&1 & echo $! > "${wrapperPidFile}"'`
+  );
 
   console.log("");
   console.log(line());
