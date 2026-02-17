@@ -144,6 +144,27 @@ Policy rules:
 - Ralph's [RESEARCH] must have substantive content
 - Lisa's [PASS]/[NEEDS_WORK] must include at least 1 reason
 
+### Mid-Session Task Update
+Change direction without restarting:
+```bash
+ralph-lisa update-task "switch to REST instead of GraphQL"
+```
+Appends to task.md (preserving history). Task context is auto-injected into work.md submissions and watcher trigger messages so both agents always see the current goal.
+
+### Round 1 Mandatory Plan
+Ralph's first submission must be `[PLAN]` — gives Lisa a chance to verify task understanding before coding begins.
+
+### Goal Guardian
+Lisa reads task.md before every review and checks for direction drift. Catching misalignment early is prioritized over code-level review.
+
+### Watcher v3
+- **Fire-and-forget triggering**: Removed output stability wait and delivery verification for faster turn transitions
+- **30s cooldown**: Prevents re-triggering during normal work
+- **Checkpoint system**: Set `RL_CHECKPOINT_ROUNDS=N` to pause for human review every N rounds
+- **Auto-restart**: Watcher automatically restarts on crash (session-guarded)
+- **Configurable log threshold**: `RL_LOG_MAX_MB` (default 5, min 1) with proportional tail retention
+- **Heartbeat file**: `.dual-agent/.watcher_heartbeat` for external liveness checks
+
 ### Deadlock Escape
 After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).
 
@@ -172,6 +193,7 @@ ralph-lisa history                       # Full history
 
 # Flow control
 ralph-lisa step "phase-name"             # Enter new phase
+ralph-lisa update-task "new direction"   # Update task direction mid-session
 ralph-lisa archive [name]                # Archive session
 ralph-lisa clean                         # Clean session
 
@@ -199,6 +221,7 @@ your-project/
 │   └── skills/            # Codex skills
 └── .dual-agent/           # Session state
     ├── turn.txt           # Current turn
+    ├── task.md            # Task goal (updated via update-task)
     ├── work.md            # Ralph's submissions
     ├── review.md          # Lisa's submissions
     └── history.md         # Full history
@@ -219,6 +242,14 @@ your-project/
 For auto mode:
 - tmux (required)
 - fswatch (macOS) or inotify-tools (Linux) — optional, speeds up turn detection; falls back to polling without them
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RL_POLICY_MODE` | `off` | Policy check mode: `off`, `warn`, `block` |
+| `RL_CHECKPOINT_ROUNDS` | `0` (disabled) | Pause for human review every N rounds |
+| `RL_LOG_MAX_MB` | `5` | Pane log truncation threshold in MB (min 1) |
 
 ## Ecosystem
 

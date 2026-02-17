@@ -198,6 +198,7 @@ ralph-lisa history                       # Full history
 
 # Flow control
 ralph-lisa step "phase-name"             # Enter new phase
+ralph-lisa update-task "new direction"   # Update task direction mid-session
 ralph-lisa archive [name]                # Archive session
 ralph-lisa clean                         # Clean session
 
@@ -228,6 +229,7 @@ your-project/
 │   └── skills/            # Codex skills
 └── .dual-agent/           # Session state
     ├── turn.txt           # Current turn
+    ├── task.md            # Task goal (updated via update-task)
     ├── work.md            # Ralph's submissions
     ├── review.md          # Lisa's submissions
     └── history.md         # Full history
@@ -244,6 +246,22 @@ your-project/
 For auto mode:
 - tmux (required)
 - fswatch (macOS) or inotify-tools (Linux) — optional, speeds up turn detection; falls back to polling without them
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RL_POLICY_MODE` | `off` | Policy check mode: `off`, `warn`, `block` |
+| `RL_CHECKPOINT_ROUNDS` | `0` (disabled) | Pause for human review every N rounds |
+| `RL_LOG_MAX_MB` | `5` | Pane log truncation threshold in MB (min 1) |
+
+## What's New in v0.3
+
+- **`update-task` command**: Change task direction mid-session without restarting. Appends to task.md so history is preserved. Task context is auto-injected into submissions and watcher trigger messages.
+- **Round 1 mandatory [PLAN]**: Ralph's first submission must be [PLAN], giving Lisa a chance to verify understanding before coding begins.
+- **Goal Guardian**: Lisa now reads task.md before every review and checks for direction drift. Catching misalignment early is prioritized over code-level review.
+- **Factual verification**: Lisa must provide `file:line` evidence when claiming something is "missing" or "not implemented".
+- **Watcher v3**: Fire-and-forget triggering (removed output stability wait + delivery verification), 30s cooldown between triggers, checkpoint system (`RL_CHECKPOINT_ROUNDS`), auto-restart on crash, configurable log threshold (`RL_LOG_MAX_MB`), heartbeat file for liveness detection.
 
 ## What Didn't Work
 
