@@ -5,11 +5,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import {
   STATE_DIR,
   ARCHIVE_DIR,
   stateDir,
+  findProjectRoot,
   checkSession,
   readFile,
   writeFile,
@@ -29,6 +31,20 @@ import { runPolicyCheck, checkRalph, checkLisa } from "./policy.js";
 
 function line(ch = "=", len = 40): string {
   return ch.repeat(len);
+}
+
+/**
+ * Generate a project-specific tmux session name to avoid conflicts
+ * when running multiple projects simultaneously.
+ * Format: rll-{sanitized-dirname}-{short-hash}
+ * tmux session names cannot contain '.' or ':'.
+ */
+export function generateSessionName(projectDir: string): string {
+  const dirName = path.basename(projectDir);
+  const hash = crypto.createHash("md5").update(projectDir).digest("hex").slice(0, 6);
+  // Sanitize: keep alphanumeric and hyphens only, truncate to 20 chars
+  const sanitized = dirName.replace(/[^a-zA-Z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 20);
+  return `rll-${sanitized || "project"}-${hash}`;
 }
 
 /**
@@ -60,7 +76,8 @@ function resolveContent(args: string[]): { content: string; external: boolean } 
     }
   }
 
-  return { content: args.join(" "), external: false };
+  // Replace literal \n sequences with real newlines (IMP-3: inline format fix)
+  return { content: args.join(" ").replace(/\\n/g, "\n"), external: false };
 }
 
 /**
@@ -89,7 +106,8 @@ export function cmdInit(args: string[]): void {
     process.exit(1);
   }
 
-  const dir = stateDir();
+  // Always create in CWD — init is a creation command, not a discovery command
+  const dir = stateDir(process.cwd());
   if (fs.existsSync(dir)) {
     console.log("Warning: Existing session will be overwritten");
   }
@@ -130,7 +148,7 @@ export function cmdInit(args: string[]): void {
   console.log("Turn: ralph");
   console.log("");
   console.log(
-    'Ralph should start with: ralph-lisa submit-ralph "[PLAN] summary..."'
+    "Ralph should start with: ralph-lisa submit-ralph --file .dual-agent/submit.md"
   );
   console.log(line());
 }
@@ -149,10 +167,12 @@ export function cmdSubmitRalph(args: string[]): void {
   const { content, external } = resolveContent(args);
   if (!content) {
     console.error(
-      'Usage: ralph-lisa submit-ralph "[TAG] summary\\n\\ndetails..."'
+      "Usage: ralph-lisa submit-ralph --file <path>  (recommended)"
     );
-    console.error('       ralph-lisa submit-ralph --file <path>');
     console.error("       echo content | ralph-lisa submit-ralph --stdin");
+    console.error(
+      '       ralph-lisa submit-ralph "[TAG] ..."     (deprecated, shell escaping issues)'
+    );
     console.error("");
     console.error(
       "Valid tags: PLAN, RESEARCH, CODE, FIX, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
@@ -178,8 +198,15 @@ export function cmdSubmitRalph(args: string[]): void {
     process.exit(1);
   }
 
-  // Policy check
-  if (!runPolicyCheck("ralph", tag, content)) {
+  // Policy check (IMP-4: clear status/warning separation)
+  const { proceed, violations } = runPolicyCheck("ralph", tag, content);
+  if (!proceed) {
+    console.error(line());
+    console.error("Submission BLOCKED by policy:");
+    for (const v of violations) {
+      console.error(`  - ${v.message}`);
+    }
+    console.error(line());
     process.exit(1);
   }
 
@@ -219,7 +246,17 @@ export function cmdSubmitRalph(args: string[]): void {
   setTurn("lisa");
 
   console.log(line());
-  console.log(`Submitted: [${tag}] ${summary}`);
+  if (violations.length > 0) {
+    console.log(`Submitted OK (with warnings): [${tag}] ${summary}`);
+    console.log("");
+    console.log("Policy warnings:");
+    for (const v of violations) {
+      console.log(`  - ${v.message}`);
+    }
+    console.log("");
+  } else {
+    console.log(`Submitted: [${tag}] ${summary}`);
+  }
   console.log("Turn passed to: Lisa");
   console.log(line());
   console.log("");
@@ -233,10 +270,12 @@ export function cmdSubmitLisa(args: string[]): void {
   const { content, external } = resolveContent(args);
   if (!content) {
     console.error(
-      'Usage: ralph-lisa submit-lisa "[TAG] summary\\n\\ndetails..."'
+      "Usage: ralph-lisa submit-lisa --file <path>  (recommended)"
     );
-    console.error('       ralph-lisa submit-lisa --file <path>');
     console.error("       echo content | ralph-lisa submit-lisa --stdin");
+    console.error(
+      '       ralph-lisa submit-lisa "[TAG] ..."     (deprecated, shell escaping issues)'
+    );
     console.error("");
     console.error(
       "Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS"
@@ -262,8 +301,15 @@ export function cmdSubmitLisa(args: string[]): void {
     process.exit(1);
   }
 
-  // Policy check
-  if (!runPolicyCheck("lisa", tag, content)) {
+  // Policy check (IMP-4: clear status/warning separation)
+  const { proceed, violations } = runPolicyCheck("lisa", tag, content);
+  if (!proceed) {
+    console.error(line());
+    console.error("Submission BLOCKED by policy:");
+    for (const v of violations) {
+      console.error(`  - ${v.message}`);
+    }
+    console.error(line());
     process.exit(1);
   }
 
@@ -305,7 +351,17 @@ export function cmdSubmitLisa(args: string[]): void {
   setRound(nextRound);
 
   console.log(line());
-  console.log(`Submitted: [${tag}] ${summary}`);
+  if (violations.length > 0) {
+    console.log(`Submitted OK (with warnings): [${tag}] ${summary}`);
+    console.log("");
+    console.log("Policy warnings:");
+    for (const v of violations) {
+      console.log(`  - ${v.message}`);
+    }
+    console.log("");
+  } else {
+    console.log(`Submitted: [${tag}] ${summary}`);
+  }
   console.log("Turn passed to: Ralph");
   console.log(`Round: ${round} -> ${nextRound}`);
   console.log(line());
@@ -583,7 +639,9 @@ export function cmdHistory(): void {
 export function cmdArchive(args: string[]): void {
   checkSession();
   const name = args[0] || new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const archiveDir = path.join(process.cwd(), ARCHIVE_DIR);
+  // Place archive next to .dual-agent/ (in project root, not CWD)
+  const root = findProjectRoot() || process.cwd();
+  const archiveDir = path.join(root, ARCHIVE_DIR);
   const dest = path.join(archiveDir, name);
   fs.mkdirSync(dest, { recursive: true });
   fs.cpSync(stateDir(), dest, { recursive: true });
@@ -1081,7 +1139,7 @@ end tell'`,
     try {
       execSync("which tmux", { stdio: "pipe" });
       console.log("Launching with tmux...");
-      const sessionName = "ralph-lisa";
+      const sessionName = generateSessionName(projectDir);
       execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null || true`);
       execSync(
         `tmux new-session -d -s "${sessionName}" -n "Ralph" "bash -c '${ralphCmd}; exec bash'"`
@@ -1202,7 +1260,7 @@ export function cmdAuto(args: string[]): void {
     console.log("");
   }
 
-  const sessionName = "ralph-lisa-auto";
+  const sessionName = generateSessionName(projectDir);
   const dir = stateDir(projectDir);
   fs.mkdirSync(dir, { recursive: true });
 

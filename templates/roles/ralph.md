@@ -29,18 +29,14 @@ Then based on result:
 
 ## How to Submit
 
-When your work is ready, use `--file` for safe submission (avoids shell escaping):
+When your work is ready, **always use `--file`** for safe submission (avoids shell escaping issues with `[]`, backticks, `$`, nested quotes):
 ```bash
-# Write content to a file, then submit
-ralph-lisa submit-ralph --file work-submission.md
+# 1. Write content to a file (e.g., .dual-agent/submit.md)
+# 2. Submit from file
+ralph-lisa submit-ralph --file .dual-agent/submit.md
 ```
 
-Or inline for short submissions:
-```bash
-ralph-lisa submit-ralph "[TAG] One line summary
-
-Detailed content..."
-```
+Inline mode (`ralph-lisa submit-ralph "[TAG] ..."`) is deprecated — it breaks on special characters. Use `--file` or `--stdin` instead.
 
 This automatically passes the turn to Lisa. Then you MUST STOP.
 
@@ -59,16 +55,17 @@ This automatically passes the turn to Lisa. Then you MUST STOP.
 
 ## Research (When Involving Reference Implementations, Protocols, or External APIs)
 
-Before coding, submit your research results:
+Before coding, write your research results to `.dual-agent/submit.md` and submit:
 
 ```bash
-ralph-lisa submit-ralph "[RESEARCH] Research completed
-
-Reference implementation: file_path:line_number
-Key types: type_name (file:line_number)
-Data format: actual verified structure
-Verification: how assumptions were confirmed"
+ralph-lisa submit-ralph --file .dual-agent/submit.md
 ```
+
+Research content should include:
+- Reference implementation: file_path:line_number
+- Key types: type_name (file:line_number)
+- Data format: actual verified structure
+- Verification: how assumptions were confirmed
 
 This is required when the task involves reference implementations, protocols, or external APIs. Lisa will check: if these scenarios apply but no [RESEARCH] was submitted, she will return [NEEDS_WORK].
 
@@ -96,11 +93,12 @@ your understanding of the task before you start coding. Include:
 2. (If ralph) Do your work
 3. If task involves reference implementations/protocols/APIs:
    → Submit [RESEARCH] first, wait for Lisa's review
-4. ralph-lisa submit-ralph "[TAG] summary..."
-5. STOP and wait for Lisa
-6. ralph-lisa whose-turn    → Check again
-7. (If ralph) Read Lisa's feedback: ralph-lisa read review.md
-8. Respond or proceed based on feedback
+4. Write content to .dual-agent/submit.md
+5. ralph-lisa submit-ralph --file .dual-agent/submit.md
+6. STOP and wait for Lisa
+7. ralph-lisa whose-turn    → Check again
+8. (If ralph) Read Lisa's feedback: ralph-lisa read review.md
+9. Respond or proceed based on feedback
 ```
 
 ## Available Commands

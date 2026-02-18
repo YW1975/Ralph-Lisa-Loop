@@ -108,34 +108,26 @@ export function checkLisa(
 }
 
 /**
- * Run policy checks and handle output/exit based on mode.
- * Returns true if submission should proceed, false if blocked.
+ * Run policy checks based on mode.
+ * Returns { proceed, violations } so callers can format output clearly (IMP-4).
  */
 export function runPolicyCheck(
   role: "ralph" | "lisa",
   tag: string,
   content: string
-): boolean {
+): { proceed: boolean; violations: PolicyViolation[] } {
   const mode = getPolicyMode();
-  if (mode === "off") return true;
+  if (mode === "off") return { proceed: true, violations: [] };
 
   const violations =
     role === "ralph" ? checkRalph(tag, content) : checkLisa(tag, content);
 
-  if (violations.length === 0) return true;
-
-  console.error("");
-  console.error("⚠️  Policy warnings:");
-  for (const v of violations) {
-    console.error(`  - ${v.message}`);
-  }
-  console.error("");
+  if (violations.length === 0) return { proceed: true, violations: [] };
 
   if (mode === "block") {
-    console.error("Policy mode is 'block'. Submission rejected.");
-    return false;
+    return { proceed: false, violations };
   }
 
-  // warn mode: print but continue
-  return true;
+  // warn mode: proceed but pass violations to caller
+  return { proceed: true, violations };
 }

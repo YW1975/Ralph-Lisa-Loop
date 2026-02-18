@@ -45,6 +45,7 @@ switch (cmd) {
     break;
 
   case "whose-turn":
+  case "check-turn":
     cmdWhoseTurn();
     break;
 
@@ -64,11 +65,16 @@ switch (cmd) {
     cmdRead(rest);
     break;
 
+  case "read-review":
+    cmdRead(["review.md", ...rest]);
+    break;
+
   case "recap":
     cmdRecap();
     break;
 
   case "step":
+  case "next-step":
     cmdStep(rest);
     break;
 
@@ -139,11 +145,13 @@ function showHelp(): void {
   console.log('  ralph-lisa auto --full-auto "task"  Auto mode without permission prompts');
   console.log("");
   console.log("Turn Control:");
-  console.log("  ralph-lisa whose-turn               Check whose turn");
-  console.log('  ralph-lisa submit-ralph "[TAG]..."   Ralph submits');
-  console.log("  ralph-lisa submit-ralph --file <f>   Ralph submits from file");
-  console.log('  ralph-lisa submit-lisa "[TAG]..."    Lisa submits');
-  console.log("  ralph-lisa submit-lisa --file <f>    Lisa submits from file");
+  console.log("  ralph-lisa check-turn                Check whose turn (alias: whose-turn)");
+  console.log("  ralph-lisa submit-ralph --file <f>   Ralph submits from file (recommended)");
+  console.log("  ralph-lisa submit-lisa --file <f>    Lisa submits from file (recommended)");
+  console.log("  ralph-lisa submit-ralph --stdin      Ralph submits from stdin");
+  console.log("  ralph-lisa submit-lisa --stdin       Lisa submits from stdin");
+  console.log('  ralph-lisa submit-ralph "[TAG]..."   Ralph submits inline (deprecated)');
+  console.log('  ralph-lisa submit-lisa "[TAG]..."    Lisa submits inline (deprecated)');
   console.log("");
   console.log("Tags:");
   console.log(
@@ -155,12 +163,13 @@ function showHelp(): void {
   console.log("");
   console.log("Information:");
   console.log("  ralph-lisa status                   Show current status");
-  console.log("  ralph-lisa read <file>              Read work.md/review.md");
+  console.log("  ralph-lisa read-review              Read Lisa's review (alias: read review.md)");
+  console.log("  ralph-lisa read <file>              Read work.md/review.md/etc");
   console.log("  ralph-lisa recap                    Context recovery summary");
   console.log("  ralph-lisa history                  Show full history");
   console.log("");
   console.log("Flow Control:");
-  console.log('  ralph-lisa step "name"              Enter new step');
+  console.log('  ralph-lisa next-step "name"         Enter new step (alias: step)');
   console.log('  ralph-lisa update-task "desc"        Update task direction');
   console.log("  ralph-lisa archive [name]           Archive session");
   console.log("  ralph-lisa clean                    Clean session");

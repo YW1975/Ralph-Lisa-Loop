@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import * as assert from "node:assert";
-import { checkRalph, checkLisa } from "../policy.js";
+import { checkRalph, checkLisa, runPolicyCheck } from "../policy.js";
 
 describe("checkRalph", () => {
   it("warns when CODE missing Test Results and file:line", () => {
@@ -144,5 +144,52 @@ describe("checkLisa", () => {
   it("no file:line required for CONSENSUS", () => {
     const violations = checkLisa("CONSENSUS", "[CONSENSUS] Agreed");
     assert.strictEqual(violations.length, 0);
+  });
+});
+
+describe("runPolicyCheck (IMP-4)", () => {
+  const origMode = process.env.RL_POLICY_MODE;
+
+  afterEach(() => {
+    if (origMode !== undefined) {
+      process.env.RL_POLICY_MODE = origMode;
+    } else {
+      delete process.env.RL_POLICY_MODE;
+    }
+  });
+
+  it("returns proceed=true, violations=[] when mode is off", () => {
+    process.env.RL_POLICY_MODE = "off";
+    const result = runPolicyCheck("ralph", "CODE", "[CODE] Done");
+    assert.strictEqual(result.proceed, true);
+    assert.strictEqual(result.violations.length, 0);
+  });
+
+  it("returns proceed=true, violations=[] when no violations in warn mode", () => {
+    process.env.RL_POLICY_MODE = "warn";
+    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan");
+    assert.strictEqual(result.proceed, true);
+    assert.strictEqual(result.violations.length, 0);
+  });
+
+  it("returns proceed=true with violations in warn mode", () => {
+    process.env.RL_POLICY_MODE = "warn";
+    const result = runPolicyCheck("ralph", "CODE", "[CODE] Done");
+    assert.strictEqual(result.proceed, true);
+    assert.ok(result.violations.length > 0);
+  });
+
+  it("returns proceed=false with violations in block mode", () => {
+    process.env.RL_POLICY_MODE = "block";
+    const result = runPolicyCheck("ralph", "CODE", "[CODE] Done");
+    assert.strictEqual(result.proceed, false);
+    assert.ok(result.violations.length > 0);
+  });
+
+  it("returns proceed=true, violations=[] when no violations in block mode", () => {
+    process.env.RL_POLICY_MODE = "block";
+    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan details");
+    assert.strictEqual(result.proceed, true);
+    assert.strictEqual(result.violations.length, 0);
   });
 });

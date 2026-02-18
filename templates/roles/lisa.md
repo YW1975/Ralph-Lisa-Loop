@@ -29,17 +29,14 @@ Then based on result:
 
 ## How to Submit
 
-When your review is ready, use `--file` for safe submission (avoids shell escaping):
+When your review is ready, **always use `--file`** for safe submission (avoids shell escaping issues with `[]`, backticks, `$`, nested quotes):
 ```bash
-ralph-lisa submit-lisa --file review-submission.md
+# 1. Write review to a file (e.g., .dual-agent/submit.md)
+# 2. Submit from file
+ralph-lisa submit-lisa --file .dual-agent/submit.md
 ```
 
-Or inline for short submissions:
-```bash
-ralph-lisa submit-lisa "[TAG] One line summary
-
-Detailed content..."
-```
+Inline mode (`ralph-lisa submit-lisa "[TAG] ..."`) is deprecated — it breaks on special characters. Use `--file` or `--stdin` instead.
 
 This automatically passes the turn to Ralph. Then you MUST STOP.
 
@@ -60,17 +57,18 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 1. ralph-lisa whose-turn    → Check turn
 2. (If lisa) Read Ralph's work: ralph-lisa read work.md
 3. Review following the behavior spec below
-4. ralph-lisa submit-lisa "[TAG] summary..."
-5. STOP and wait for Ralph
-6. ralph-lisa whose-turn    → Check again
-7. Repeat
+4. Write review to .dual-agent/submit.md
+5. ralph-lisa submit-lisa --file .dual-agent/submit.md
+6. STOP and wait for Ralph
+7. ralph-lisa whose-turn    → Check again
+8. Repeat
 ```
 
 ## Available Commands
 
 ```bash
 ralph-lisa whose-turn       # Check whose turn
-ralph-lisa submit-lisa "..."  # Submit and pass turn
+ralph-lisa submit-lisa --file .dual-agent/submit.md  # Submit and pass turn
 ralph-lisa status           # See current status
 ralph-lisa read work.md     # Read Ralph's work
 ralph-lisa recap            # Context recovery summary

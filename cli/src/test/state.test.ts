@@ -1,6 +1,8 @@
-import { describe, it } from "node:test";
+import { describe, it, beforeEach, afterEach } from "node:test";
 import * as assert from "node:assert";
-import { extractTag, extractSummary, VALID_TAGS } from "../state.js";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { extractTag, extractSummary, VALID_TAGS, findProjectRoot, resetProjectRootCache, stateDir, STATE_DIR } from "../state.js";
 
 describe("extractTag", () => {
   it("extracts known tags", () => {
@@ -51,5 +53,151 @@ describe("VALID_TAGS", () => {
     assert.ok(tags.includes("QUESTION"));
     assert.ok(tags.includes("CONSENSUS"));
     assert.strictEqual(tags.length, 10);
+  });
+});
+
+describe("findProjectRoot", () => {
+  const TMP = path.join(__dirname, "..", "..", ".test-tmp-state");
+
+  beforeEach(() => {
+    resetProjectRootCache();
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+  });
+
+  afterEach(() => {
+    resetProjectRootCache();
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("finds .dual-agent/ in startDir", () => {
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const root = findProjectRoot(TMP);
+    assert.strictEqual(root, path.resolve(TMP));
+  });
+
+  it("finds .dual-agent/ in parent directory", () => {
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const subDir = path.join(TMP, "src", "components");
+    fs.mkdirSync(subDir, { recursive: true });
+    const root = findProjectRoot(subDir);
+    assert.strictEqual(root, path.resolve(TMP));
+  });
+
+  it("finds .dual-agent/ two levels up", () => {
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const deepDir = path.join(TMP, "a", "b", "c");
+    fs.mkdirSync(deepDir, { recursive: true });
+    const root = findProjectRoot(deepDir);
+    assert.strictEqual(root, path.resolve(TMP));
+  });
+
+  it("returns null when no .dual-agent/ found", () => {
+    // Use /tmp/ to avoid finding the real project's .dual-agent/ via upward search
+    const isolated = path.join("/tmp", ".rll-test-no-session-" + process.pid);
+    fs.mkdirSync(isolated, { recursive: true });
+    try {
+      resetProjectRootCache();
+      const root = findProjectRoot(isolated);
+      assert.strictEqual(root, null);
+    } finally {
+      fs.rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+
+  it("finds nearest .dual-agent/ when nested", () => {
+    // Parent has .dual-agent/
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    // Child also has .dual-agent/
+    const childProject = path.join(TMP, "child-project");
+    fs.mkdirSync(path.join(childProject, STATE_DIR), { recursive: true });
+    const subDir = path.join(childProject, "src");
+    fs.mkdirSync(subDir, { recursive: true });
+
+    // From child/src, should find child's .dual-agent/, not parent's
+    resetProjectRootCache();
+    const root = findProjectRoot(subDir);
+    assert.strictEqual(root, path.resolve(childProject));
+  });
+
+  it("caches result across calls with same startDir", () => {
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const root1 = findProjectRoot(TMP);
+    const root2 = findProjectRoot(TMP);
+    assert.strictEqual(root1, root2);
+    assert.strictEqual(root1, path.resolve(TMP));
+  });
+
+  it("returns correct root for different startDirs without reset", () => {
+    // Lisa's repro: two independent project roots, no resetProjectRootCache() between calls
+    const projA = path.join(TMP, "a");
+    const projB = path.join(TMP, "b");
+    fs.mkdirSync(path.join(projA, STATE_DIR), { recursive: true });
+    fs.mkdirSync(path.join(projB, STATE_DIR), { recursive: true });
+    const subA = path.join(projA, "sub");
+    const subB = path.join(projB, "sub");
+    fs.mkdirSync(subA, { recursive: true });
+    fs.mkdirSync(subB, { recursive: true });
+
+    const rootA = findProjectRoot(subA);
+    assert.strictEqual(rootA, path.resolve(projA));
+    // Second call with different startDir — must NOT return cached A
+    const rootB = findProjectRoot(subB);
+    assert.strictEqual(rootB, path.resolve(projB));
+  });
+
+  it("invalidates cache when .dual-agent/ removed", () => {
+    // Use /tmp/ to avoid finding the real project's .dual-agent/ after removal
+    const isolated = path.join("/tmp", ".rll-test-cache-invalidate-" + process.pid);
+    fs.mkdirSync(path.join(isolated, STATE_DIR), { recursive: true });
+    try {
+      resetProjectRootCache();
+      const root1 = findProjectRoot(isolated);
+      assert.strictEqual(root1, path.resolve(isolated));
+
+      // Remove .dual-agent/ — cache should invalidate
+      fs.rmSync(path.join(isolated, STATE_DIR), { recursive: true });
+      resetProjectRootCache();
+      const root2 = findProjectRoot(isolated);
+      assert.strictEqual(root2, null);
+    } finally {
+      fs.rmSync(isolated, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("stateDir", () => {
+  const TMP = path.join(__dirname, "..", "..", ".test-tmp-state2");
+
+  beforeEach(() => {
+    resetProjectRootCache();
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+  });
+
+  afterEach(() => {
+    resetProjectRootCache();
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("returns explicit projectDir path when given", () => {
+    const result = stateDir("/some/explicit/path");
+    assert.strictEqual(result, path.join("/some/explicit/path", STATE_DIR));
+  });
+
+  it("uses upward search when no projectDir given", () => {
+    // Create .dual-agent/ in TMP
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    // Temporarily change CWD to a subdirectory
+    const origCwd = process.cwd();
+    const subDir = path.join(TMP, "sub");
+    fs.mkdirSync(subDir, { recursive: true });
+    process.chdir(subDir);
+    try {
+      const result = stateDir();
+      assert.strictEqual(result, path.join(path.resolve(TMP), STATE_DIR));
+    } finally {
+      process.chdir(origCwd);
+    }
   });
 });

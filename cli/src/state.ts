@@ -14,12 +14,75 @@ export const VALID_TAGS =
 
 const TAG_RE = new RegExp(`^\\[(${VALID_TAGS})\\]`);
 
-export function stateDir(projectDir: string = process.cwd()): string {
-  return path.join(projectDir, STATE_DIR);
+/**
+ * Walk up from startDir to find the nearest directory containing .dual-agent/.
+ * Similar to how git finds .git/ from any subdirectory.
+ * Result is cached per process invocation for efficiency.
+ */
+/**
+ * Cache keyed by resolved startDir to avoid returning wrong root
+ * when called with different directories in the same process.
+ */
+let _cachedStartDir: string | undefined;
+let _cachedProjectRoot: string | null | undefined;
+
+export function findProjectRoot(startDir: string = process.cwd()): string | null {
+  const resolved = path.resolve(startDir);
+
+  // Cache hit: same startDir as last call
+  if (_cachedStartDir === resolved && _cachedProjectRoot !== undefined) {
+    if (_cachedProjectRoot === null) return null;
+    // Validate cached root still exists
+    if (fs.existsSync(path.join(_cachedProjectRoot, STATE_DIR))) {
+      return _cachedProjectRoot;
+    }
+    // Invalidate stale cache
+    _cachedStartDir = undefined;
+    _cachedProjectRoot = undefined;
+  }
+
+  let dir = resolved;
+  while (true) {
+    if (fs.existsSync(path.join(dir, STATE_DIR))) {
+      _cachedStartDir = resolved;
+      _cachedProjectRoot = dir;
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // reached filesystem root
+    dir = parent;
+  }
+  _cachedStartDir = resolved;
+  _cachedProjectRoot = null;
+  return null;
 }
 
-export function checkSession(projectDir: string = process.cwd()): void {
-  const dir = stateDir(projectDir);
+/**
+ * Reset the cached project root. Used in tests.
+ */
+export function resetProjectRootCache(): void {
+  _cachedStartDir = undefined;
+  _cachedProjectRoot = undefined;
+}
+
+/**
+ * Get the .dual-agent/ state directory path.
+ * When projectDir is explicitly given, uses that path directly.
+ * When omitted, searches upward from CWD to find .dual-agent/ (like git).
+ */
+export function stateDir(projectDir?: string): string {
+  if (projectDir !== undefined) {
+    return path.join(projectDir, STATE_DIR);
+  }
+  const root = findProjectRoot();
+  return path.join(root || process.cwd(), STATE_DIR);
+}
+
+/**
+ * Check that a session exists. Searches upward from CWD when no explicit dir given.
+ */
+export function checkSession(projectDir?: string): void {
+  const dir = projectDir !== undefined ? stateDir(projectDir) : stateDir();
   if (!fs.existsSync(dir)) {
     console.error(
       'Error: Session not initialized. Run: ralph-lisa init "task description"'
@@ -46,36 +109,27 @@ export function appendFile(filePath: string, content: string): void {
   fs.appendFileSync(filePath, content, "utf-8");
 }
 
-export function getTurn(projectDir: string = process.cwd()): string {
+export function getTurn(projectDir?: string): string {
   return readFile(path.join(stateDir(projectDir), "turn.txt")) || "ralph";
 }
 
-export function setTurn(
-  turn: string,
-  projectDir: string = process.cwd()
-): void {
+export function setTurn(turn: string, projectDir?: string): void {
   writeFile(path.join(stateDir(projectDir), "turn.txt"), turn);
 }
 
-export function getRound(projectDir: string = process.cwd()): string {
+export function getRound(projectDir?: string): string {
   return readFile(path.join(stateDir(projectDir), "round.txt")) || "?";
 }
 
-export function setRound(
-  round: number,
-  projectDir: string = process.cwd()
-): void {
+export function setRound(round: number, projectDir?: string): void {
   writeFile(path.join(stateDir(projectDir), "round.txt"), String(round));
 }
 
-export function getStep(projectDir: string = process.cwd()): string {
+export function getStep(projectDir?: string): string {
   return readFile(path.join(stateDir(projectDir), "step.txt")) || "?";
 }
 
-export function setStep(
-  step: string,
-  projectDir: string = process.cwd()
-): void {
+export function setStep(step: string, projectDir?: string): void {
   writeFile(path.join(stateDir(projectDir), "step.txt"), step);
 }
 
@@ -105,7 +159,7 @@ export function timeShort(): string {
 export function appendHistory(
   role: string,
   content: string,
-  projectDir: string = process.cwd()
+  projectDir?: string
 ): void {
   const tag = extractTag(content);
   const summary = extractSummary(content);
@@ -129,7 +183,7 @@ ${content}
 export function updateLastAction(
   role: string,
   content: string,
-  projectDir: string = process.cwd()
+  projectDir?: string
 ): void {
   const tag = extractTag(content);
   const summary = extractSummary(content);

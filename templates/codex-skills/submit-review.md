@@ -2,13 +2,24 @@
 
 Submit your review and pass the turn to Ralph.
 
-## Command
+## Recommended: File-based submission (avoids shell escaping issues)
+
+1. Write your review to `.dual-agent/submit.md` (or any file)
+2. Run:
+
+```bash
+ralph-lisa submit-lisa --file .dual-agent/submit.md
+```
+
+## Alternative: Inline (short, simple content only)
 
 ```bash
 ralph-lisa submit-lisa "[TAG] summary
 
 detailed content..."
 ```
+
+**Warning**: Inline mode may fail with special characters (`[]`, backticks, `$`, nested quotes). Use `--file` for anything beyond simple text.
 
 ## Required Format
 

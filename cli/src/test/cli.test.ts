@@ -3,6 +3,7 @@ import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
+import { generateSessionName } from "../commands.js";
 
 const CLI = path.join(__dirname, "..", "cli.js");
 const TMP = path.join(__dirname, "..", "..", ".test-tmp");
@@ -717,5 +718,312 @@ describe("CLI: task context in work.md", () => {
     const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
     assert.ok(work.includes("**Task**: Final direction"), "work.md should use latest task direction");
     assert.ok(!work.includes("**Task**: First direction"), "work.md should NOT use first task direction");
+  });
+});
+
+describe("CLI: upward .dual-agent/ search (BUG-2)", () => {
+  const TMP_ROOT = path.join(__dirname, "..", "..", ".test-tmp-bug2");
+
+  function runFromDir(cwd: string, ...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd,
+        encoding: "utf-8",
+        env: { ...process.env, RL_POLICY_MODE: "off" },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
+  beforeEach(() => {
+    fs.rmSync(TMP_ROOT, { recursive: true, force: true });
+    fs.mkdirSync(TMP_ROOT, { recursive: true });
+    // Initialize session in root
+    runFromDir(TMP_ROOT, "init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP_ROOT, { recursive: true, force: true });
+  });
+
+  it("whose-turn works from subdirectory", () => {
+    const subDir = path.join(TMP_ROOT, "src", "components");
+    fs.mkdirSync(subDir, { recursive: true });
+    const r = runFromDir(subDir, "whose-turn");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.trim() === "ralph");
+  });
+
+  it("submit-ralph works from subdirectory", () => {
+    const subDir = path.join(TMP_ROOT, "src");
+    fs.mkdirSync(subDir, { recursive: true });
+    const r = runFromDir(subDir, "submit-ralph", "[PLAN] Plan from subdir");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted"));
+    // Verify state was written to the root .dual-agent/
+    const work = fs.readFileSync(path.join(TMP_ROOT, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("Plan from subdir"));
+  });
+
+  it("status works from subdirectory", () => {
+    const subDir = path.join(TMP_ROOT, "src");
+    fs.mkdirSync(subDir, { recursive: true });
+    const r = runFromDir(subDir, "status");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Turn: ralph"));
+  });
+
+  it("read works from subdirectory", () => {
+    // Submit something first from root
+    runFromDir(TMP_ROOT, "submit-ralph", "[PLAN] Root plan");
+    // Then read from subdirectory
+    const subDir = path.join(TMP_ROOT, "lib");
+    fs.mkdirSync(subDir, { recursive: true });
+    const r = runFromDir(subDir, "read", "work.md");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Root plan"));
+  });
+
+  it("recap works from subdirectory", () => {
+    runFromDir(TMP_ROOT, "submit-ralph", "[PLAN] Plan");
+    const subDir = path.join(TMP_ROOT, "src");
+    fs.mkdirSync(subDir, { recursive: true });
+    const r = runFromDir(subDir, "recap");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("RECAP"));
+  });
+
+  it("deeply nested subdirectory finds root", () => {
+    const deepDir = path.join(TMP_ROOT, "a", "b", "c", "d");
+    fs.mkdirSync(deepDir, { recursive: true });
+    const r = runFromDir(deepDir, "whose-turn");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.trim() === "ralph");
+  });
+
+  it("error when no .dual-agent/ anywhere in path", () => {
+    // Use /tmp/ to avoid finding the real project's .dual-agent/ via upward search
+    const isolatedDir = path.join("/tmp", ".rll-test-no-session-" + process.pid);
+    fs.rmSync(isolatedDir, { recursive: true, force: true });
+    fs.mkdirSync(isolatedDir, { recursive: true });
+    try {
+      const r = runFromDir(isolatedDir, "whose-turn");
+      assert.notStrictEqual(r.exitCode, 0);
+      assert.ok(r.stdout.includes("Session not initialized"));
+    } finally {
+      fs.rmSync(isolatedDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("generateSessionName (BUG-3)", () => {
+  it("generates different names for different project paths", () => {
+    const name1 = generateSessionName("/home/user/project-a");
+    const name2 = generateSessionName("/home/user/project-b");
+    assert.notStrictEqual(name1, name2);
+  });
+
+  it("generates same name for same project path", () => {
+    const name1 = generateSessionName("/home/user/my-project");
+    const name2 = generateSessionName("/home/user/my-project");
+    assert.strictEqual(name1, name2);
+  });
+
+  it("starts with rll- prefix", () => {
+    const name = generateSessionName("/home/user/my-project");
+    assert.ok(name.startsWith("rll-"));
+  });
+
+  it("contains project directory name", () => {
+    const name = generateSessionName("/home/user/my-cool-project");
+    assert.ok(name.includes("my-cool-project"));
+  });
+
+  it("contains 6-char hash suffix", () => {
+    const name = generateSessionName("/home/user/project");
+    // Format: rll-{dirName}-{6-char-hash}
+    const parts = name.split("-");
+    const hash = parts[parts.length - 1];
+    assert.strictEqual(hash.length, 6);
+    assert.ok(/^[0-9a-f]{6}$/.test(hash));
+  });
+
+  it("sanitizes special characters for tmux compatibility", () => {
+    const name = generateSessionName("/home/user/my.project:v2");
+    // tmux session names cannot contain . or :
+    assert.ok(!name.includes("."));
+    assert.ok(!name.includes(":"));
+  });
+
+  it("handles spaces in directory name", () => {
+    const name = generateSessionName("/home/user/My Project");
+    assert.ok(!name.includes(" "));
+    assert.ok(name.startsWith("rll-"));
+  });
+
+  it("handles very long directory names", () => {
+    const longName = "a".repeat(100);
+    const name = generateSessionName(`/home/user/${longName}`);
+    // Dir portion truncated to 20 chars + prefix + hash = reasonable length
+    assert.ok(name.length <= 32);
+  });
+
+  it("differentiates same-named dirs in different parents", () => {
+    // Same basename "app" but different full paths
+    const name1 = generateSessionName("/home/user/project-a/app");
+    const name2 = generateSessionName("/home/user/project-b/app");
+    // Names differ because hash is based on full path
+    assert.notStrictEqual(name1, name2);
+  });
+});
+
+describe("CLI: command aliases (IMP-2)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("check-turn works as alias for whose-turn", () => {
+    const r = run("check-turn");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.trim() === "ralph");
+  });
+
+  it("check-turn and whose-turn return same result", () => {
+    const r1 = run("check-turn");
+    const r2 = run("whose-turn");
+    assert.strictEqual(r1.stdout.trim(), r2.stdout.trim());
+  });
+
+  it("next-step works as alias for step", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    const r = run("next-step", "impl-feature");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: impl-feature"));
+  });
+
+  it("read-review shows review.md content", () => {
+    run("submit-ralph", "[PLAN] Test plan");
+    run("submit-lisa", "[PASS] Looks good\n\n- Clean");
+    const r = run("read-review");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Looks good"));
+  });
+
+  it("read-review --round N works", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[NEEDS_WORK] Fix needed\n\n- Issue");
+    const r = run("read-review", "--round", "1");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Fix needed"));
+  });
+});
+
+// ─── IMP-3: inline literal \n replacement ───────
+describe("CLI: inline literal newline replacement (IMP-3)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("replaces literal backslash-n with real newlines in inline content", () => {
+    run("submit-ralph", "[PLAN] Plan\\n\\nDetailed plan line 1\\nLine 2");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    // Should contain real newlines, not literal \n
+    assert.ok(work.includes("Detailed plan line 1\nLine 2"));
+    assert.ok(!work.includes("\\n"));
+  });
+
+  it("does NOT alter file-based content (backslash-n stays literal if in file)", () => {
+    const submitFile = path.join(TMP, "submit.md");
+    fs.writeFileSync(submitFile, "[PLAN] File plan\n\nContent with literal \\n in it");
+    run("submit-ralph", "--file", submitFile);
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    // File content should be preserved as-is (literal \n stays)
+    assert.ok(work.includes("literal \\n in it"));
+  });
+});
+
+// ─── IMP-4: warning/error separation ────────────
+describe("CLI: policy warning/error separation (IMP-4)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  function runWithPolicy(mode: string, ...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd: TMP,
+        encoding: "utf-8",
+        env: { ...process.env, RL_POLICY_MODE: mode },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
+  it("shows 'Submitted OK (with warnings)' in warn mode for ralph", () => {
+    // [CODE] without Test Results or file:line → 2 warnings
+    const r = runWithPolicy("warn", "submit-ralph", "[CODE] Implementation done");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted OK (with warnings)"));
+    assert.ok(r.stdout.includes("Policy warnings:"));
+    assert.ok(r.stdout.includes("Turn passed to: Lisa"));
+  });
+
+  it("shows 'Submission BLOCKED' in block mode for ralph", () => {
+    const r = runWithPolicy("block", "submit-ralph", "[CODE] Implementation done");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submission BLOCKED by policy"));
+  });
+
+  it("shows clean 'Submitted:' with no warnings when policy passes", () => {
+    const r = runWithPolicy("warn", "submit-ralph", "[PLAN] My plan");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted: [PLAN] My plan"));
+    assert.ok(!r.stdout.includes("warning"));
+  });
+
+  it("shows 'Submitted OK (with warnings)' in warn mode for lisa", () => {
+    runWithPolicy("off", "submit-ralph", "[PLAN] Plan");
+    // [PASS] without reason or file:line → warnings
+    const r = runWithPolicy("warn", "submit-lisa", "[PASS] Looks good");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted OK (with warnings)"));
+    assert.ok(r.stdout.includes("Policy warnings:"));
+    assert.ok(r.stdout.includes("Turn passed to: Ralph"));
+  });
+
+  it("shows 'Submission BLOCKED' in block mode for lisa", () => {
+    runWithPolicy("off", "submit-ralph", "[PLAN] Plan");
+    const r = runWithPolicy("block", "submit-lisa", "[PASS] Looks good");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submission BLOCKED by policy"));
+  });
+
+  it("no warnings shown when policy mode is off", () => {
+    const r = runWithPolicy("off", "submit-ralph", "[CODE] Done without refs");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted: [CODE]"));
+    assert.ok(!r.stdout.includes("warning"));
+    assert.ok(!r.stdout.includes("BLOCKED"));
   });
 });
