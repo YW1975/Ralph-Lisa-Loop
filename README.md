@@ -85,22 +85,16 @@ ralph-lisa auto "implement login feature"
 **Terminal 1 — Ralph (Claude Code)**:
 ```bash
 ralph-lisa whose-turn                    # Check turn
-# ... do work ...
-ralph-lisa submit-ralph "[PLAN] Login feature design
-
-1. Create login form component
-2. Add validation
-3. Connect to API"
+# ... do work, write submission to .dual-agent/submit.md ...
+ralph-lisa submit-ralph --file .dual-agent/submit.md
 ```
 
 **Terminal 2 — Lisa (Codex)**:
 ```bash
 ralph-lisa whose-turn                    # Check turn
 ralph-lisa read work.md                  # Read Ralph's work
-ralph-lisa submit-lisa "[PASS] Plan looks good
-
-- Clear structure
-- Good separation of concerns"
+# ... write review to .dual-agent/submit.md ...
+ralph-lisa submit-lisa --file .dual-agent/submit.md
 ```
 
 ---
@@ -146,7 +140,7 @@ export RL_POLICY_MODE=warn
 # Enable block mode (rejects non-compliant submissions)
 export RL_POLICY_MODE=block
 
-# Disable (default)
+# Disable
 export RL_POLICY_MODE=off
 ```
 
@@ -187,17 +181,27 @@ ralph-lisa auto --full-auto "task"       # Auto mode without permission prompts
 
 # Turn control
 ralph-lisa whose-turn                    # Check whose turn
-ralph-lisa submit-ralph "[TAG] ..."      # Ralph submits
-ralph-lisa submit-lisa "[TAG] ..."       # Lisa submits
+ralph-lisa check-turn                    # Alias for whose-turn
+ralph-lisa submit-ralph --file f.md      # Ralph submits (recommended)
+ralph-lisa submit-lisa --file f.md       # Lisa submits (recommended)
+ralph-lisa submit-ralph --stdin          # Submit via stdin pipe
+ralph-lisa submit-lisa --stdin           # Lisa submit via stdin pipe
+ralph-lisa submit-ralph "[TAG] ..."      # Inline (deprecated)
 
 # Information
 ralph-lisa status                        # Current status
 ralph-lisa read work.md                  # Ralph's latest
 ralph-lisa read review.md                # Lisa's latest
+ralph-lisa read-review                   # Alias for read review.md
+ralph-lisa read review --round N         # Read review from round N
 ralph-lisa history                       # Full history
+ralph-lisa recap                         # Context recovery summary
+ralph-lisa logs                          # List transcript logs
+ralph-lisa logs cat [name]               # View a specific log
 
 # Flow control
-ralph-lisa step "phase-name"             # Enter new phase
+ralph-lisa step "phase-name"             # Enter new phase (requires consensus)
+ralph-lisa step --force "phase-name"     # Enter new phase (skip consensus check)
 ralph-lisa update-task "new direction"   # Update task direction mid-session
 ralph-lisa archive [name]                # Archive session
 ralph-lisa clean                         # Clean session
@@ -251,7 +255,7 @@ For auto mode:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RL_POLICY_MODE` | `off` | Policy check mode: `off`, `warn`, `block` |
+| `RL_POLICY_MODE` | `warn` | Policy check mode: `off`, `warn`, `block` |
 | `RL_CHECKPOINT_ROUNDS` | `0` (disabled) | Pause for human review every N rounds |
 | `RL_LOG_MAX_MB` | `5` | Pane log truncation threshold in MB (min 1) |
 
@@ -279,8 +283,6 @@ Part of the [TigerHill](https://github.com/Click-Intelligence-LLC/TigerHill) pro
 ## Learn More
 
 - [CONCEPT.md](CONCEPT.md) — Why dual-agent collaboration works
-- [DESIGN_V2.md](DESIGN_V2.md) — Architecture and design
-- [UPGRADE_PLAN_V3.md](UPGRADE_PLAN_V3.md) — V3 development roadmap
 
 ## Acknowledgments
 

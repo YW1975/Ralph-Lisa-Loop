@@ -96,11 +96,9 @@ Check if it's your turn before taking action.
 
 ### Submit Review
 ```bash
-ralph-lisa submit-lisa "[TAG] summary
-
-detailed content..."
+ralph-lisa submit-lisa --file .dual-agent/submit.md
 ```
-Submit your review. Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS
+Write review to .dual-agent/submit.md, then submit. Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS
 
 ### View Status
 ```bash

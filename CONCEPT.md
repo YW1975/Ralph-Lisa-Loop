@@ -105,8 +105,8 @@ Configurable submission quality checks:
 
 | Mode | Behavior |
 |------|----------|
-| `off` | No checks (default) |
-| `warn` | Print warnings, don't block |
+| `off` | No checks |
+| `warn` | Print warnings, don't block (default) |
 | `block` | Reject non-compliant submissions |
 
 ```bash
