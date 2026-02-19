@@ -97,6 +97,61 @@ function getFilesChanged(): string[] {
   }
 }
 
+/**
+ * V4-01: Ralph Auto Gate — run test/lint commands before CODE/FIX submission.
+ * Config via env vars only (config file deferred to future version):
+ *   RL_RALPH_GATE=true          — enable gate (default: false)
+ *   RL_GATE_COMMANDS=cmd1|cmd2  — pipe-separated commands
+ *   RL_GATE_MODE=warn|block     — warn (default) or block on failure
+ * Gate results are NOT written to work.md (prevents Lisa anchoring).
+ */
+export function runGate(tag: string): void {
+  if (tag !== "CODE" && tag !== "FIX") return;
+  if (process.env.RL_RALPH_GATE !== "true") return;
+
+  const commands = (process.env.RL_GATE_COMMANDS || "").split("|").filter(Boolean);
+  if (commands.length === 0) return;
+
+  const mode = process.env.RL_GATE_MODE === "block" ? "block" : "warn";
+  const failures: Array<{ cmd: string; error: string }> = [];
+
+  console.log("Running gate checks...");
+  for (const cmd of commands) {
+    try {
+      execSync(cmd, { stdio: "pipe", timeout: 120000 });
+      console.log(`  PASS  ${cmd}`);
+    } catch (e: any) {
+      const stderr = e.stderr ? e.stderr.toString().trim().split("\n").slice(-3).join("\n") : "exit code " + e.status;
+      failures.push({ cmd, error: stderr });
+      console.log(`  FAIL  ${cmd}`);
+    }
+  }
+
+  if (failures.length === 0) {
+    console.log("Gate: all checks passed.");
+    console.log("");
+    return;
+  }
+
+  console.log("");
+  console.log(line());
+  if (mode === "block") {
+    console.error("Gate BLOCKED submission:");
+    for (const f of failures) {
+      console.error(`  - ${f.cmd}: ${f.error}`);
+    }
+    console.error(line());
+    process.exit(1);
+  } else {
+    console.log("Gate warnings (submission proceeds):");
+    for (const f of failures) {
+      console.log(`  - ${f.cmd}: ${f.error}`);
+    }
+    console.log(line());
+    console.log("");
+  }
+}
+
 // ─── init ────────────────────────────────────────
 
 export function cmdInit(args: string[]): void {
@@ -209,6 +264,9 @@ export function cmdSubmitRalph(args: string[]): void {
     console.error(line());
     process.exit(1);
   }
+
+  // V4-01: Auto gate — run test/lint before CODE/FIX submission
+  runGate(tag);
 
   const round = getRound();
   const step = getStep();
@@ -681,6 +739,58 @@ export function cmdUpdateTask(args: string[]): void {
 
   console.log(`Task updated: ${newTask}`);
   console.log(`(Appended to ${taskPath})`);
+}
+
+// ─── force-turn ─────────────────────────────────
+
+export function cmdForceTurn(args: string[], confirmed = false): void {
+  checkSession();
+  const agent = args[0];
+  if (agent !== "ralph" && agent !== "lisa") {
+    console.error("Usage: ralph-lisa force-turn <ralph|lisa>");
+    process.exit(1);
+  }
+
+  const dir = stateDir();
+
+  // Block in full-auto mode (watcher running = auto mode)
+  const watcherPid = path.join(dir, "watcher.pid");
+  if (fs.existsSync(watcherPid)) {
+    const pid = readFile(watcherPid).trim();
+    try {
+      process.kill(Number(pid), 0); // check if alive
+      console.error("Error: force-turn is disabled in auto mode (watcher is running).");
+      console.error("Stop auto mode first, or manually edit turn.txt.");
+      process.exit(1);
+    } catch {
+      // watcher not running, PID stale — allow
+    }
+  }
+
+  if (!confirmed) {
+    const readline = require("node:readline");
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(`Force turn to ${agent}? This skips normal review flow. (y/N) `, (answer: string) => {
+      rl.close();
+      if (answer.trim().toLowerCase() === "y") {
+        executeForceTurn(agent, dir);
+      } else {
+        console.log("Aborted.");
+      }
+    });
+    return;
+  }
+
+  executeForceTurn(agent, dir);
+}
+
+export function executeForceTurn(agent: string, dir: string): void {
+  setTurn(agent);
+  const ts = timestamp();
+  appendHistory("System", `[FORCE] Turn manually assigned to ${agent} by user`);
+  updateLastAction("System", `[FORCE] Turn assigned to ${agent}`);
+  console.log(`Turn forced to: ${agent}`);
+  console.log("(Logged to history.md)");
 }
 
 // ─── uninit ──────────────────────────────────────
@@ -2074,6 +2184,143 @@ export function cmdLogs(args: string[]): void {
   console.log("  ralph-lisa logs cat <file>    View specific log file");
 }
 
+// ─── remote (ttyd) ──────────────────────────────
+
+/**
+ * Check if a PID belongs to a ttyd process to avoid killing unrelated processes.
+ */
+function isTtydProcess(pid: number): boolean {
+  try {
+    // Check if process is alive first
+    process.kill(pid, 0);
+    // Verify it's actually ttyd by checking command line
+    const cmdline = execSync(`ps -p ${pid} -o comm=`, { encoding: "utf-8", stdio: "pipe" }).trim();
+    return cmdline.includes("ttyd");
+  } catch {
+    return false;
+  }
+}
+
+export function cmdRemote(args: string[]): void {
+  checkSession();
+  const dir = stateDir();
+  const pidFile = path.join(dir, "ttyd.pid");
+
+  // --stop: kill existing ttyd
+  if (args.includes("--stop")) {
+    if (!fs.existsSync(pidFile)) {
+      console.log("No ttyd server running.");
+      return;
+    }
+    const pid = Number(readFile(pidFile));
+    if (isTtydProcess(pid)) {
+      process.kill(pid, "SIGTERM");
+      console.log(`Stopped ttyd (PID ${pid}).`);
+    } else {
+      console.log(`Stale PID ${pid} (not a ttyd process). Cleaning up.`);
+    }
+    try { fs.unlinkSync(pidFile); } catch {}
+    return;
+  }
+
+  // Check ttyd installed
+  try {
+    execSync("which ttyd", { stdio: "pipe" });
+  } catch {
+    console.error("Error: ttyd not found.");
+    console.error("Install: brew install ttyd (macOS) / apt install ttyd (Linux)");
+    console.error("Or visit: https://github.com/tsl0922/ttyd");
+    process.exit(1);
+  }
+
+  // Find tmux session
+  const projectRoot = findProjectRoot() || process.cwd();
+  const sessionName = generateSessionName(projectRoot);
+  try {
+    execSync(`tmux has-session -t ${sessionName}`, { stdio: "pipe" });
+  } catch {
+    console.error(`Error: tmux session '${sessionName}' not found.`);
+    console.error("Start a session first: ralph-lisa auto \"task\"");
+    process.exit(1);
+  }
+
+  // Parse options
+  let port = 7681;
+  let authFlag = "";
+  const portIdx = args.indexOf("--port");
+  if (portIdx !== -1 && args[portIdx + 1]) {
+    port = Number(args[portIdx + 1]);
+    if (isNaN(port) || port < 1 || port > 65535) {
+      console.error("Error: --port must be a valid port number (1-65535).");
+      process.exit(1);
+    }
+  }
+  const authIdx = args.indexOf("--auth");
+  if (authIdx !== -1 && args[authIdx + 1]) {
+    authFlag = `-c ${args[authIdx + 1]}`;
+  }
+
+  // Kill existing ttyd if running
+  if (fs.existsSync(pidFile)) {
+    const oldPid = Number(readFile(pidFile));
+    if (isTtydProcess(oldPid)) {
+      try { process.kill(oldPid, "SIGTERM"); } catch {}
+    }
+    try { fs.unlinkSync(pidFile); } catch {}
+  }
+
+  // Launch ttyd
+  const { spawn } = require("node:child_process");
+  const ttydArgs = ["-p", String(port)];
+  if (authFlag) {
+    const [user, pass] = args[authIdx + 1].split(":");
+    ttydArgs.push("-c", `${user}:${pass}`);
+  }
+  ttydArgs.push("tmux", "attach", "-t", sessionName);
+
+  const child = spawn("ttyd", ttydArgs, {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+
+  writeFile(pidFile, String(child.pid));
+
+  // Detect LAN IP
+  let lanIp = "localhost";
+  try {
+    const os = require("node:os");
+    const nets = os.networkInterfaces();
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === "IPv4" && !net.internal) {
+          lanIp = net.address;
+          break;
+        }
+      }
+      if (lanIp !== "localhost") break;
+    }
+  } catch {}
+
+  console.log(line());
+  console.log("ttyd server started");
+  console.log(line());
+  console.log("");
+  console.log(`  Local:   http://localhost:${port}`);
+  console.log(`  Network: http://${lanIp}:${port}`);
+  console.log("");
+  console.log(`  Session: ${sessionName}`);
+  console.log(`  PID:     ${child.pid}`);
+  if (authFlag) {
+    console.log("  Auth:    enabled");
+  } else {
+    console.log("  Auth:    none (use --auth user:pass for LAN access)");
+  }
+  console.log("");
+  console.log("Stop with: ralph-lisa remote --stop");
+  console.log(line());
+}
+
 // ─── doctor ──────────────────────────────────────
 
 export function cmdDoctor(args: string[]): void {
@@ -2127,6 +2374,13 @@ export function cmdDoctor(args: string[]): void {
       cmd: "which inotifywait",
       required: false,
       installHint: "apt install inotify-tools (Linux)",
+    },
+    {
+      name: "ttyd (remote access)",
+      cmd: "which ttyd",
+      versionCmd: "ttyd --version",
+      required: false,
+      installHint: "brew install ttyd (macOS) / apt install ttyd (Linux)",
     },
   ];
 

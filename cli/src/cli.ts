@@ -27,6 +27,8 @@ import {
   cmdDoctor,
   cmdLogs,
   cmdUpdateTask,
+  cmdForceTurn,
+  cmdRemote,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -114,6 +116,14 @@ switch (cmd) {
     cmdUpdateTask(rest);
     break;
 
+  case "force-turn":
+    cmdForceTurn(rest);
+    break;
+
+  case "remote":
+    cmdRemote(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -171,6 +181,7 @@ function showHelp(): void {
   console.log("Flow Control:");
   console.log('  ralph-lisa next-step "name"         Enter new step (alias: step)');
   console.log('  ralph-lisa update-task "desc"        Update task direction');
+  console.log("  ralph-lisa force-turn <agent>       Manual turn override (disabled in auto mode)");
   console.log("  ralph-lisa archive [name]           Archive session");
   console.log("  ralph-lisa clean                    Clean session");
   console.log("");
@@ -192,6 +203,12 @@ function showHelp(): void {
   console.log("  ralph-lisa logs                     List all transcript logs");
   console.log("  ralph-lisa logs cat                  View live pane logs");
   console.log("  ralph-lisa logs cat <file>            View specific log file");
+  console.log("");
+  console.log("Remote Access:");
+  console.log("  ralph-lisa remote                   Start ttyd server (default port 7681)");
+  console.log("  ralph-lisa remote --port 8080       Custom port");
+  console.log("  ralph-lisa remote --auth user:pass   Enable basic auth");
+  console.log("  ralph-lisa remote --stop             Stop ttyd server");
   console.log("");
   console.log("Diagnostics:");
   console.log("  ralph-lisa doctor                   Check all dependencies");

@@ -3,7 +3,8 @@ import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import { generateSessionName } from "../commands.js";
+import { generateSessionName, executeForceTurn } from "../commands.js";
+import { resetProjectRootCache } from "../state.js";
 
 const CLI = path.join(__dirname, "..", "cli.js");
 const TMP = path.join(__dirname, "..", "..", ".test-tmp");
@@ -1025,5 +1026,226 @@ describe("CLI: policy warning/error separation (IMP-4)", () => {
     assert.ok(r.stdout.includes("Submitted: [CODE]"));
     assert.ok(!r.stdout.includes("warning"));
     assert.ok(!r.stdout.includes("BLOCKED"));
+  });
+});
+
+// ─── V4-02: force-turn ──────────────────────────
+
+function runEnv(env: Record<string, string>, ...args: string[]): { stdout: string; exitCode: number } {
+  try {
+    const stdout = execFileSync(process.execPath, [CLI, ...args], {
+      cwd: TMP,
+      encoding: "utf-8",
+      env: { ...process.env, RL_POLICY_MODE: "off", ...env },
+    });
+    return { stdout, exitCode: 0 };
+  } catch (e: any) {
+    return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+  }
+}
+
+describe("CLI: force-turn (V4-02)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("rejects invalid agent name", () => {
+    const r = run("force-turn", "bob");
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("Usage:"));
+  });
+
+  it("rejects missing agent name", () => {
+    const r = run("force-turn");
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("Usage:"));
+  });
+
+  it("executeForceTurn switches turn and writes history + last_action", () => {
+    // Submit something to make it lisa's turn
+    run("submit-ralph", "[PLAN] test plan");
+    const before = run("whose-turn");
+    assert.ok(before.stdout.includes("lisa"));
+
+    // Call the exported executeForceTurn directly (bypasses readline)
+    const dualAgent = path.join(TMP, ".dual-agent");
+    const origCwd = process.cwd();
+    process.chdir(TMP);
+    resetProjectRootCache();
+    try {
+      executeForceTurn("ralph", dualAgent);
+    } finally {
+      process.chdir(origCwd);
+      resetProjectRootCache();
+    }
+
+    // Verify turn was switched
+    const after = run("whose-turn");
+    assert.ok(after.stdout.includes("ralph"));
+
+    // Verify history contains [FORCE]
+    const history = fs.readFileSync(path.join(dualAgent, "history.md"), "utf-8");
+    assert.ok(history.includes("[FORCE]"));
+    assert.ok(history.includes("Turn manually assigned to ralph by user"));
+
+    // Verify last_action was updated
+    const lastAction = fs.readFileSync(path.join(dualAgent, "last_action.txt"), "utf-8");
+    assert.ok(lastAction.includes("[FORCE]"));
+  });
+
+  it("blocks when watcher PID is alive (auto mode)", () => {
+    // Write a watcher.pid with our own PID (which is alive)
+    const dualAgent = path.join(TMP, ".dual-agent");
+    fs.writeFileSync(path.join(dualAgent, "watcher.pid"), String(process.pid));
+    const r = run("force-turn", "ralph");
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("disabled in auto mode"));
+  });
+
+  it("allows when watcher.pid exists but process is dead (confirmed=true)", () => {
+    // Write a fake dead PID
+    const dualAgent = path.join(TMP, ".dual-agent");
+    fs.writeFileSync(path.join(dualAgent, "watcher.pid"), "99999");
+
+    // Use CLI with confirmed flag — the watcher PID is dead so it should proceed
+    // but then hang on readline. Instead use the exported function directly.
+    const origCwd = process.cwd();
+    process.chdir(TMP);
+    resetProjectRootCache();
+    try {
+      // cmdForceTurn with confirmed=true bypasses readline
+      const { cmdForceTurn: ft } = require("../commands.js");
+      ft(["ralph"], true);
+    } finally {
+      process.chdir(origCwd);
+      resetProjectRootCache();
+    }
+
+    const after = run("whose-turn");
+    assert.ok(after.stdout.includes("ralph"));
+  });
+});
+
+// ─── V4-01: auto gate ──────────────────────────
+
+describe("CLI: Ralph auto gate (V4-01)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("does not trigger gate when RL_RALPH_GATE is not set", () => {
+    const r = run("submit-ralph", "[CODE] Some code\n\n## Test Results\nPassed\n\ncommands.ts:42");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted:"));
+    assert.ok(!r.stdout.includes("gate"));
+    assert.ok(!r.stdout.includes("Gate"));
+  });
+
+  it("does not trigger gate for PLAN tag even with gate enabled", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "false" },
+      "submit-ralph", "[PLAN] Some plan"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Submitted:"));
+    assert.ok(!r.stdout.includes("Gate"));
+  });
+
+  it("warn mode: prints warning but allows submission on failure", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "false", RL_GATE_MODE: "warn" },
+      "submit-ralph", "[CODE] Some code\n\n## Test Results\nPassed\n\ncommands.ts:42"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("FAIL"));
+    assert.ok(r.stdout.includes("Submitted:") || r.stdout.includes("Submitted OK"));
+  });
+
+  it("block mode: rejects submission on failure", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "false", RL_GATE_MODE: "block" },
+      "submit-ralph", "[CODE] Some code\n\n## Test Results\nPassed\n\ncommands.ts:42"
+    );
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("BLOCKED"));
+  });
+
+  it("passes gate when commands succeed", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "true", RL_GATE_MODE: "block" },
+      "submit-ralph", "[CODE] Some code\n\n## Test Results\nPassed\n\ncommands.ts:42"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("all checks passed"));
+    assert.ok(r.stdout.includes("Submitted:"));
+  });
+
+  it("supports multiple pipe-separated commands", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "true|true", RL_GATE_MODE: "block" },
+      "submit-ralph", "[FIX] Fixed it\n\n## Test Results\nPassed\n\ncommands.ts:42"
+    );
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("all checks passed"));
+  });
+
+  it("block mode: first command fails among multiple", () => {
+    const r = runEnv(
+      { RL_RALPH_GATE: "true", RL_GATE_COMMANDS: "false|true", RL_GATE_MODE: "block" },
+      "submit-ralph", "[CODE] Some code\n\n## Test Results\nPassed\n\ncommands.ts:42"
+    );
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("BLOCKED"));
+  });
+});
+
+// ─── V4-11: remote (ttyd) ──────────────────────
+
+describe("CLI: remote ttyd (V4-11)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("--stop with no PID file prints 'not running'", () => {
+    const r = run("remote", "--stop");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("No ttyd server running"));
+  });
+
+  it("--stop cleans up stale PID file without killing", () => {
+    const dualAgent = path.join(TMP, ".dual-agent");
+    // Write a fake dead PID (not a ttyd process)
+    fs.writeFileSync(path.join(dualAgent, "ttyd.pid"), "99999");
+    const r = run("remote", "--stop");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Stale PID") || r.stdout.includes("already gone"));
+    assert.ok(!fs.existsSync(path.join(dualAgent, "ttyd.pid")));
+  });
+
+  it("fails when ttyd is not installed (mocked via PATH)", () => {
+    const r = runEnv(
+      { PATH: "/nonexistent" },
+      "remote"
+    );
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("ttyd not found") || r.stdout.includes("not found"));
   });
 });
