@@ -1651,4 +1651,37 @@ describe("CLI: Lisa tests dir cleanup on CONSENSUS (Proposal §3.6)", () => {
     assert.strictEqual(r.exitCode, 0);
     assert.ok(!r.stdout.includes("Cleaned .dual-agent/tests/"));
   });
+
+  it("cleans .dual-agent/tests/ on single-round closure (Lisa PASS + Ralph CONSENSUS)", () => {
+    // Lisa PASS (tests dir created before PASS, preserved)
+    run("submit-ralph", "[PLAN] Plan");
+    const testsDir = path.join(TMP, ".dual-agent", "tests");
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    run("submit-lisa", "[PASS] Approved\n\n- Clean code at commands.ts:42");
+    assert.ok(fs.existsSync(testsDir), "tests dir should survive PASS");
+    // Ralph CONSENSUS closes the topic — tests should be cleaned
+    const r = run("submit-ralph", "[CONSENSUS] Agreed");
+    assert.ok(r.stdout.includes("Cleaned .dual-agent/tests/"));
+    assert.ok(!fs.existsSync(testsDir), "tests dir should be cleaned after Ralph CONSENSUS");
+  });
+
+  it("Ralph CONSENSUS cleans tests dir even without prior Lisa PASS", () => {
+    // Both sides CONSENSUS
+    run("submit-ralph", "[PLAN] Plan");
+    const testsDir = path.join(TMP, ".dual-agent", "tests");
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    run("submit-lisa", "[CONSENSUS] Agreed\n\n- All good at commands.ts:1");
+    // Lisa CONSENSUS already cleaned it, but if it somehow remained:
+    // Ralph CONSENSUS should also clean
+    if (!fs.existsSync(testsDir)) {
+      // Already cleaned by Lisa — re-create to test Ralph path
+      fs.mkdirSync(testsDir, { recursive: true });
+      fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    }
+    const r = run("submit-ralph", "[CONSENSUS] Agreed too");
+    assert.ok(r.stdout.includes("Cleaned .dual-agent/tests/"));
+    assert.ok(!fs.existsSync(testsDir));
+  });
 });

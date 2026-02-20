@@ -348,8 +348,17 @@ export function cmdSubmitRalph(args: string[]): void {
   updateLastAction("Ralph", content);
   setTurn("lisa");
 
-  // Subtask reminder on CONSENSUS (Proposal §3.7 — explicit, not auto-mark)
+  // CONSENSUS actions (Proposal §3.7 + §3.6)
   if (tag === "CONSENSUS") {
+    // Clean .dual-agent/tests/ on Ralph CONSENSUS (covers single-round closure:
+    // Lisa [PASS] + Ralph [CONSENSUS] — Lisa never submits [CONSENSUS] in this path)
+    const testsDir = path.join(dir, "tests");
+    if (fs.existsSync(testsDir)) {
+      fs.rmSync(testsDir, { recursive: true, force: true });
+      console.log("Cleaned .dual-agent/tests/ (topic closed)");
+    }
+
+    // Subtask reminder (explicit, not auto-mark)
     const taskContent = readFile(path.join(dir, "task.md"));
     const incomplete = parseSubtasks(taskContent).filter((s) => !s.done);
     if (incomplete.length > 0) {

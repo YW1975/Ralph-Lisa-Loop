@@ -88,7 +88,8 @@ export function checkRalph(
     }
 
     // RESEARCH verification markers (Proposal §3.9)
-    // Each factual claim should have "Verified:" or "Evidence:" support
+    // Checks for at least one global Verified:/Evidence: marker per submission.
+    // Per-claim enforcement is not mechanically feasible — Lisa reviews claim-level rigor.
     const hasVerifiedMarker = /\bverified\s*:/i.test(content);
     const hasEvidenceMarker = /\bevidence\s*:/i.test(content);
     if (!hasVerifiedMarker && !hasEvidenceMarker) {
