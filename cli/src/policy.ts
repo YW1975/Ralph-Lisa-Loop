@@ -48,6 +48,21 @@ export function checkRalph(
         message: `[${tag}] submission must include at least one file:line reference (e.g., commands.ts:42).`,
       });
     }
+    // New tests count check (Proposal §3.6)
+    // Warn if "New tests: 0" without valid justification
+    const lc = content.toLowerCase();
+    const hasNewTests = /new tests?:\s*[1-9]/i.test(content);
+    const hasZeroTests = /new tests?:\s*0/i.test(content);
+    if (hasZeroTests && !hasNewTests) {
+      // Check for valid justification keywords
+      const hasJustification = /\b(ui.only|layout.only|config.only|no.testable.logic|template.only|documentation)\b/i.test(content);
+      if (!hasJustification) {
+        violations.push({
+          rule: "new-tests-required",
+          message: `[${tag}] reports 0 new tests without valid justification. Add unit tests or explain why (e.g., "config-only change").`,
+        });
+      }
+    }
   }
 
   // [RESEARCH] must have substance
@@ -105,6 +120,29 @@ export function checkLisa(
   }
 
   return violations;
+}
+
+/**
+ * NEEDS_WORK response enforcement (Proposal §3.2).
+ * When Lisa's last review was [NEEDS_WORK], Ralph must respond with
+ * [FIX], [CHALLENGE], [DISCUSS], or [QUESTION] — not unrelated [CODE]/[RESEARCH]/[PLAN].
+ */
+const NEEDS_WORK_ALLOWED_TAGS = new Set(["FIX", "CHALLENGE", "DISCUSS", "QUESTION"]);
+const NEEDS_WORK_BLOCKED_TAGS = new Set(["CODE", "RESEARCH", "PLAN", "CONSENSUS"]);
+
+export function checkNeedsWorkResponse(
+  ralphTag: string,
+  lastLisaTag: string
+): PolicyViolation[] {
+  if (lastLisaTag !== "NEEDS_WORK") return [];
+  if (NEEDS_WORK_ALLOWED_TAGS.has(ralphTag)) return [];
+  if (NEEDS_WORK_BLOCKED_TAGS.has(ralphTag)) {
+    return [{
+      rule: "needs-work-response",
+      message: `[${ralphTag}] submitted after Lisa's [NEEDS_WORK]. You must respond with [FIX], [CHALLENGE], [DISCUSS], or [QUESTION] first. If the task scope changed, run: ralph-lisa scope-update "new scope"`,
+    }];
+  }
+  return [];
 }
 
 /**

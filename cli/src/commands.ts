@@ -12,6 +12,8 @@ import {
   ARCHIVE_DIR,
   stateDir,
   findProjectRoot,
+  resolveStateDir,
+  getTmuxStateDir,
   checkSession,
   readFile,
   writeFile,
@@ -27,7 +29,7 @@ import {
   appendHistory,
   updateLastAction,
 } from "./state.js";
-import { runPolicyCheck, checkRalph, checkLisa } from "./policy.js";
+import { runPolicyCheck, checkRalph, checkLisa, checkNeedsWorkResponse } from "./policy.js";
 
 function line(ch = "=", len = 40): string {
   return ch.repeat(len);
@@ -265,6 +267,36 @@ export function cmdSubmitRalph(args: string[]): void {
     process.exit(1);
   }
 
+  // NEEDS_WORK response enforcement (Proposal §3.2)
+  const dir = stateDir();
+  const reviewContent = readFile(path.join(dir, "review.md"));
+  const lastLisaTag = extractLastTag(reviewContent);
+  const { getPolicyMode } = require("./policy.js");
+  const nwMode = getPolicyMode();
+  if (nwMode !== "off") {
+    const nwViolations = checkNeedsWorkResponse(tag, lastLisaTag);
+    if (nwViolations.length > 0) {
+      if (nwMode === "block") {
+        console.error(line());
+        console.error("Submission BLOCKED — must respond to NEEDS_WORK:");
+        for (const v of nwViolations) {
+          console.error(`  - ${v.message}`);
+        }
+        console.error(line());
+        process.exit(1);
+      } else {
+        console.log(line());
+        console.log("Warning — submitting after NEEDS_WORK without addressing it:");
+        for (const v of nwViolations) {
+          console.log(`  - ${v.message}`);
+        }
+        console.log(line());
+        console.log("");
+      }
+      violations.push(...nwViolations);
+    }
+  }
+
   // V4-01: Auto gate — run test/lint before CODE/FIX submission
   runGate(tag);
 
@@ -272,7 +304,6 @@ export function cmdSubmitRalph(args: string[]): void {
   const step = getStep();
   const ts = timestamp();
   const summary = extractSummary(content);
-  const dir = stateDir();
 
   // Auto-inject task context so Lisa always sees the task goal
   // Use last meaningful line (update-task appends new directions at the end)
@@ -403,6 +434,30 @@ export function cmdSubmitLisa(args: string[]): void {
   appendHistory("Lisa", historyContent);
   updateLastAction("Lisa", content);
   setTurn("ralph");
+
+  // Deadlock counter: track consecutive NEEDS_WORK rounds (Proposal §3.2)
+  const nwCountPath = path.join(dir, "needs_work_count.txt");
+  if (tag === "NEEDS_WORK") {
+    const currentCount = parseInt(readFile(nwCountPath) || "0", 10);
+    const newCount = currentCount + 1;
+    writeFile(nwCountPath, String(newCount));
+    if (newCount >= 3) {
+      // Trigger deadlock — write flag for watcher to detect
+      const deadlockPath = path.join(dir, "deadlock.txt");
+      writeFile(deadlockPath, `DEADLOCK at round ${round}: ${newCount} consecutive NEEDS_WORK rounds\nTimestamp: ${ts}\nAction: Watcher will pause. User intervention required.`);
+      console.log("");
+      console.log(line("!", 40));
+      console.log(`DEADLOCK: ${newCount} consecutive NEEDS_WORK rounds.`);
+      console.log("Watcher will pause for user intervention.");
+      console.log("To resolve: ralph-lisa scope-update or ralph-lisa force-turn");
+      console.log(line("!", 40));
+    }
+  } else {
+    // Reset counter on non-NEEDS_WORK review
+    writeFile(nwCountPath, "0");
+    const deadlockPath = path.join(dir, "deadlock.txt");
+    try { fs.unlinkSync(deadlockPath); } catch {}
+  }
 
   // Increment round
   const nextRound = (parseInt(round, 10) || 0) + 1;
@@ -716,13 +771,14 @@ export function cmdClean(): void {
   }
 }
 
-// ─── update-task ─────────────────────────────────
+// ─── scope-update / update-task ──────────────────
 
 export function cmdUpdateTask(args: string[]): void {
   checkSession();
   const newTask = args.join(" ");
   if (!newTask) {
-    console.error('Usage: ralph-lisa update-task "new task description"');
+    console.error('Usage: ralph-lisa scope-update "new scope description"');
+    console.error('       ralph-lisa update-task "new scope description"  (alias)');
     process.exit(1);
   }
 
@@ -737,8 +793,18 @@ export function cmdUpdateTask(args: string[]): void {
     "utf-8"
   );
 
-  console.log(`Task updated: ${newTask}`);
-  console.log(`(Appended to ${taskPath})`);
+  // Log scope change to history (Proposal §3.1)
+  appendHistory("System", `[SCOPE] Task scope updated: ${newTask}`);
+  updateLastAction("System", `[SCOPE] ${newTask}`);
+
+  // Clear deadlock flag — scope change resolves deadlocks (Proposal §3.2)
+  const deadlockPath = path.join(dir, "deadlock.txt");
+  try { fs.unlinkSync(deadlockPath); } catch {}
+  const nwCountPath = path.join(dir, "needs_work_count.txt");
+  writeFile(nwCountPath, "0");
+
+  console.log(`Scope updated: ${newTask}`);
+  console.log(`(Appended to ${taskPath}, logged to history.md)`);
 }
 
 // ─── force-turn ─────────────────────────────────
@@ -983,13 +1049,20 @@ export function cmdInitProject(args: string[]): void {
   // Find templates directory (shipped inside npm package)
   const templatesDir = findTemplatesDir();
 
-  // 1. Append Ralph role to CLAUDE.md
+  // 1. Append/update Ralph role in CLAUDE.md
   const claudeMd = path.join(resolvedDir, "CLAUDE.md");
+  const ralphRole = readFile(path.join(templatesDir, "roles", "ralph.md"));
   if (fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER)) {
-    console.log("[Claude] Ralph role already in CLAUDE.md, skipping...");
+    // Marker present — we own this content, update to latest template
+    console.log("[Claude] Updating Ralph role in CLAUDE.md...");
+    const existing = fs.readFileSync(claudeMd, "utf-8");
+    const markerTag = `<!-- ${MARKER} -->`;
+    const markerIdx = existing.indexOf(markerTag);
+    const before = markerIdx > 0 ? existing.slice(0, markerIdx) : "";
+    fs.writeFileSync(claudeMd, before + ralphRole, "utf-8");
+    console.log("[Claude] Updated.");
   } else {
     console.log("[Claude] Appending Ralph role to CLAUDE.md...");
-    const ralphRole = readFile(path.join(templatesDir, "roles", "ralph.md"));
     if (fs.existsSync(claudeMd)) {
       fs.appendFileSync(claudeMd, "\n\n", "utf-8");
     }
@@ -999,11 +1072,18 @@ export function cmdInitProject(args: string[]): void {
 
   // 2. Create/update CODEX.md with Lisa role
   const codexMd = path.join(resolvedDir, "CODEX.md");
+  const lisaRole = readFile(path.join(templatesDir, "roles", "lisa.md"));
   if (fs.existsSync(codexMd) && readFile(codexMd).includes(MARKER)) {
-    console.log("[Codex] Lisa role already in CODEX.md, skipping...");
+    // Marker present — we own this content, update to latest template
+    console.log("[Codex] Updating Lisa role in CODEX.md...");
+    const existing = fs.readFileSync(codexMd, "utf-8");
+    const markerTag = `<!-- ${MARKER} -->`;
+    const markerIdx = existing.indexOf(markerTag);
+    const before = markerIdx > 0 ? existing.slice(0, markerIdx) : "";
+    fs.writeFileSync(codexMd, before + lisaRole, "utf-8");
+    console.log("[Codex] Updated.");
   } else {
     console.log("[Codex] Creating CODEX.md with Lisa role...");
-    const lisaRole = readFile(path.join(templatesDir, "roles", "lisa.md"));
     if (fs.existsSync(codexMd)) {
       fs.appendFileSync(codexMd, "\n\n", "utf-8");
     }
@@ -1406,6 +1486,7 @@ ACCEL_PID=""
 LAST_ACK_TIME=0
 CHECKPOINT_ROUNDS=\${RL_CHECKPOINT_ROUNDS:-0}
 CHECKPOINT_REMIND_TIME=0
+DEADLOCK_REMIND_TIME=0
 CLEANUP_DONE=0
 
 PANE0_LOG="\${STATE_DIR}/pane0.log"
@@ -1715,6 +1796,19 @@ check_and_trigger() {
   truncate_log_if_needed "0.0" "\$PANE0_LOG"
   truncate_log_if_needed "0.1" "\$PANE1_LOG"
 
+  # Deadlock detection (Proposal §3.2): pause if deadlock.txt exists
+  if [[ -f "\$STATE_DIR/deadlock.txt" ]]; then
+    local now_epoch
+    now_epoch=\$(date +%s)
+    if (( DEADLOCK_REMIND_TIME == 0 )) || (( now_epoch - DEADLOCK_REMIND_TIME >= 30 )); then
+      echo "[Watcher] DEADLOCK detected — pausing. See: \$STATE_DIR/deadlock.txt"
+      echo "[Watcher] To resolve: ralph-lisa scope-update or ralph-lisa force-turn"
+      echo "[Watcher] Or remove: rm \$STATE_DIR/deadlock.txt"
+      DEADLOCK_REMIND_TIME=\$now_epoch
+    fi
+    return
+  fi
+
   if [[ -f "\$STATE_DIR/turn.txt" ]]; then
     CURRENT_TURN=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
 
@@ -1854,6 +1948,13 @@ done
   execSync(
     `tmux new-session -d -s "${sessionName}" -n "main" -c "${projectDir}"`
   );
+
+  // Set authoritative state directory in tmux env (Proposal §3.10)
+  // Both agents resolve to this regardless of their working directory
+  execSync(
+    `tmux set-environment -t "${sessionName}" RL_STATE_DIR "${dir}"`
+  );
+
   execSync(
     `tmux split-window -h -t "${sessionName}" -c "${projectDir}"`
   );
@@ -2206,8 +2307,8 @@ export function cmdRemote(args: string[]): void {
   const dir = stateDir();
   const pidFile = path.join(dir, "ttyd.pid");
 
-  // --stop: kill existing ttyd
-  if (args.includes("--stop")) {
+  // --stop / stop: kill existing ttyd
+  if (args.includes("--stop") || args.includes("stop")) {
     if (!fs.existsSync(pidFile)) {
       console.log("No ttyd server running.");
       return;
@@ -2220,6 +2321,12 @@ export function cmdRemote(args: string[]): void {
       console.log(`Stale PID ${pid} (not a ttyd process). Cleaning up.`);
     }
     try { fs.unlinkSync(pidFile); } catch {}
+    // Clean up the dedicated remote tmux session
+    try { execSync("tmux list-sessions -F '#{session_name}'", { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
+      .trim().split("\n")
+      .filter((s: string) => s.endsWith("-remote"))
+      .forEach((s: string) => { try { execSync(`tmux kill-session -t ${s}`, { stdio: "pipe" }); } catch {} });
+    } catch {}
     return;
   }
 
@@ -2233,14 +2340,51 @@ export function cmdRemote(args: string[]): void {
     process.exit(1);
   }
 
-  // Find tmux session
-  const projectRoot = findProjectRoot() || process.cwd();
-  const sessionName = generateSessionName(projectRoot);
+  // Find tmux session: explicit arg > auto-detect > list available
+  const knownFlags = ["--port", "--auth", "--stop"];
+  const reservedWords = ["stop"];
+  const explicitSession = args.find(
+    (a) => !a.startsWith("--") && !reservedWords.includes(a) && !knownFlags.includes(args[args.indexOf(a) - 1])
+  );
+
+  // Resolve session: explicit arg > auto-detect from cwd > single running rll-* session
+  let rllSessions: string[] = [];
+  try {
+    rllSessions = execSync("tmux list-sessions -F '#{session_name}'", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    })
+      .trim()
+      .split("\n")
+      .filter((s: string) => s.startsWith("rll-") && !/-\d+$/.test(s));
+  } catch {}
+
+  let sessionName: string;
+  if (explicitSession) {
+    sessionName = explicitSession;
+  } else {
+    // Try auto-detect from project dir
+    const projectRoot = findProjectRoot() || process.cwd();
+    const detected = generateSessionName(projectRoot);
+    if (rllSessions.includes(detected)) {
+      sessionName = detected;
+    } else if (rllSessions.length === 1) {
+      // Only one rll-* session running — use it
+      sessionName = rllSessions[0];
+    } else {
+      sessionName = detected; // will fail below with helpful hint
+    }
+  }
+
   try {
     execSync(`tmux has-session -t ${sessionName}`, { stdio: "pipe" });
   } catch {
-    console.error(`Error: tmux session '${sessionName}' not found.`);
-    console.error("Start a session first: ralph-lisa auto \"task\"");
+    let hint = "";
+    if (rllSessions.length > 0) {
+      hint = `\nAvailable sessions:\n${rllSessions.map((s: string) => `  ${s}`).join("\n")}\n\nUsage: ralph-lisa remote <session-name>`;
+    }
+    console.error(`Error: tmux session '${sessionName}' not found.${hint}`);
+    if (!hint) console.error("Start a session first: ralph-lisa auto \"task\"");
     process.exit(1);
   }
 
@@ -2269,14 +2413,24 @@ export function cmdRemote(args: string[]): void {
     try { fs.unlinkSync(pidFile); } catch {}
   }
 
-  // Launch ttyd
+  // Create a dedicated grouped session for ttyd so browser clients
+  // get their own tmux client (independent input/scroll from Mac).
+  // Re-use the same grouped session across browser refreshes.
+  const remoteSession = `${sessionName}-remote`;
+  try {
+    execSync(`tmux has-session -t ${remoteSession}`, { stdio: "pipe" });
+  } catch {
+    execSync(`tmux new-session -d -s ${remoteSession} -t ${sessionName}`, { stdio: "pipe" });
+  }
+
+  // Launch ttyd — attach to the dedicated remote session
   const { spawn } = require("node:child_process");
   const ttydArgs = ["-p", String(port)];
   if (authFlag) {
     const [user, pass] = args[authIdx + 1].split(":");
     ttydArgs.push("-c", `${user}:${pass}`);
   }
-  ttydArgs.push("tmux", "attach", "-t", sessionName);
+  ttydArgs.push("tmux", "attach", "-t", remoteSession);
 
   const child = spawn("ttyd", ttydArgs, {
     detached: true,
@@ -2319,6 +2473,42 @@ export function cmdRemote(args: string[]): void {
   console.log("");
   console.log("Stop with: ralph-lisa remote --stop");
   console.log(line());
+}
+
+// ─── state-dir ───────────────────────────────────
+
+export function cmdStateDir(args: string[]): void {
+  const setPath = args[0];
+
+  if (setPath) {
+    // Set mode: write to tmux env if in tmux, otherwise show instructions
+    const resolvedPath = path.resolve(setPath);
+    if (process.env.TMUX) {
+      try {
+        execSync(`tmux set-environment RL_STATE_DIR "${resolvedPath}"`, { stdio: "pipe" });
+        console.log(`State dir set (tmux env): ${resolvedPath}`);
+      } catch {
+        console.error("Error: Failed to set tmux environment variable.");
+        process.exit(1);
+      }
+    } else {
+      console.log(`Not in tmux session. Set manually:`);
+      console.log(`  export RL_STATE_DIR="${resolvedPath}"`);
+    }
+    return;
+  }
+
+  // Show mode: display all sources + active
+  const tmuxDir = getTmuxStateDir();
+  const envDir = process.env.RL_STATE_DIR || null;
+  const root = findProjectRoot();
+  const autoDir = root ? path.join(root, STATE_DIR) : path.join(process.cwd(), STATE_DIR);
+  const resolved = resolveStateDir();
+
+  console.log(`tmux env:    ${tmuxDir || "(not set)"}`);
+  console.log(`shell env:   ${envDir || "(not set)"}`);
+  console.log(`auto-detect: ${autoDir}`);
+  console.log(`→ using:     ${resolved.dir}   [${resolved.source}]`);
 }
 
 // ─── doctor ──────────────────────────────────────

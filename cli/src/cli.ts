@@ -29,6 +29,7 @@ import {
   cmdUpdateTask,
   cmdForceTurn,
   cmdRemote,
+  cmdStateDir,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -112,6 +113,7 @@ switch (cmd) {
     cmdLogs(rest);
     break;
 
+  case "scope-update":
   case "update-task":
     cmdUpdateTask(rest);
     break;
@@ -122,6 +124,10 @@ switch (cmd) {
 
   case "remote":
     cmdRemote(rest);
+    break;
+
+  case "state-dir":
+    cmdStateDir(rest);
     break;
 
   case "help":
@@ -180,7 +186,7 @@ function showHelp(): void {
   console.log("");
   console.log("Flow Control:");
   console.log('  ralph-lisa next-step "name"         Enter new step (alias: step)');
-  console.log('  ralph-lisa update-task "desc"        Update task direction');
+  console.log('  ralph-lisa scope-update "desc"       Update task scope (alias: update-task)');
   console.log("  ralph-lisa force-turn <agent>       Manual turn override (disabled in auto mode)");
   console.log("  ralph-lisa archive [name]           Archive session");
   console.log("  ralph-lisa clean                    Clean session");
@@ -211,6 +217,8 @@ function showHelp(): void {
   console.log("  ralph-lisa remote --stop             Stop ttyd server");
   console.log("");
   console.log("Diagnostics:");
+  console.log("  ralph-lisa state-dir                Show state directory resolution");
+  console.log("  ralph-lisa state-dir /path           Set state directory (tmux env)");
   console.log("  ralph-lisa doctor                   Check all dependencies");
   console.log("  ralph-lisa doctor --strict           Exit 1 if any missing (for CI)");
 }

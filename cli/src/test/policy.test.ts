@@ -1,6 +1,6 @@
 import { describe, it, beforeEach, afterEach } from "node:test";
 import * as assert from "node:assert";
-import { checkRalph, checkLisa, runPolicyCheck } from "../policy.js";
+import { checkRalph, checkLisa, runPolicyCheck, checkNeedsWorkResponse } from "../policy.js";
 
 describe("checkRalph", () => {
   it("warns when CODE missing Test Results and file:line", () => {
@@ -191,5 +191,90 @@ describe("runPolicyCheck (IMP-4)", () => {
     const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan details");
     assert.strictEqual(result.proceed, true);
     assert.strictEqual(result.violations.length, 0);
+  });
+});
+
+describe("checkNeedsWorkResponse (Proposal §3.2)", () => {
+  it("blocks [CODE] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("CODE", "NEEDS_WORK");
+    assert.strictEqual(v.length, 1);
+    assert.strictEqual(v[0].rule, "needs-work-response");
+  });
+
+  it("blocks [RESEARCH] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("RESEARCH", "NEEDS_WORK");
+    assert.strictEqual(v.length, 1);
+  });
+
+  it("blocks [PLAN] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("PLAN", "NEEDS_WORK");
+    assert.strictEqual(v.length, 1);
+  });
+
+  it("allows [FIX] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("FIX", "NEEDS_WORK");
+    assert.strictEqual(v.length, 0);
+  });
+
+  it("allows [CHALLENGE] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("CHALLENGE", "NEEDS_WORK");
+    assert.strictEqual(v.length, 0);
+  });
+
+  it("allows [DISCUSS] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("DISCUSS", "NEEDS_WORK");
+    assert.strictEqual(v.length, 0);
+  });
+
+  it("allows [QUESTION] after NEEDS_WORK", () => {
+    const v = checkNeedsWorkResponse("QUESTION", "NEEDS_WORK");
+    assert.strictEqual(v.length, 0);
+  });
+
+  it("blocks [CONSENSUS] after NEEDS_WORK (cannot bypass unresolved feedback)", () => {
+    const v = checkNeedsWorkResponse("CONSENSUS", "NEEDS_WORK");
+    assert.strictEqual(v.length, 1);
+    assert.strictEqual(v[0].rule, "needs-work-response");
+  });
+
+  it("no restriction when last Lisa tag is PASS", () => {
+    const v = checkNeedsWorkResponse("CODE", "PASS");
+    assert.strictEqual(v.length, 0);
+  });
+
+  it("no restriction when last Lisa tag is empty", () => {
+    const v = checkNeedsWorkResponse("CODE", "");
+    assert.strictEqual(v.length, 0);
+  });
+});
+
+describe("checkRalph new-tests-required (Proposal §3.6)", () => {
+  it("warns when New tests: 0 without justification", () => {
+    const v = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Regression: pass\n- New tests: 0"
+    );
+    assert.ok(v.some((x) => x.rule === "new-tests-required"));
+  });
+
+  it("passes when New tests: 0 with valid justification", () => {
+    const v = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Regression: pass\n- New tests: 0 (config-only change)"
+    );
+    assert.ok(!v.some((x) => x.rule === "new-tests-required"));
+  });
+
+  it("passes when New tests: 3", () => {
+    const v = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Regression: pass\n- New tests: 3 added"
+    );
+    assert.ok(!v.some((x) => x.rule === "new-tests-required"));
+  });
+
+  it("no warning for PLAN submissions", () => {
+    const v = checkRalph("PLAN", "[PLAN] Plan\n\nNew tests: 0");
+    assert.ok(!v.some((x) => x.rule === "new-tests-required"));
   });
 });

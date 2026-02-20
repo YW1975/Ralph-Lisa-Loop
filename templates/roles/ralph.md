@@ -120,17 +120,33 @@ After context compaction, run `ralph-lisa recap` to recover current state:
 
 ## Handling Lisa's Feedback
 
-- `[PASS]` → Confirm consensus, then `/next-step`
+- `[PASS]` → Submit [CONSENSUS] to close. Lisa's [PASS] already approves — no need to wait for her [CONSENSUS] back (single-round consensus).
 - `[NEEDS_WORK]` → You MUST explain your reasoning:
   - If you agree: explain WHY Lisa is right, then submit [FIX]
   - If you disagree: use [CHALLENGE] to provide counter-argument
   - **Never submit a bare [FIX] without explanation. No silent acceptance.**
-- After 5 rounds deadlock → OVERRIDE or HANDOFF
+  - **You CANNOT submit [CODE]/[RESEARCH]/[PLAN] after NEEDS_WORK** — the CLI will reject it. Address the feedback first, or run `ralph-lisa scope-update` if the task scope changed.
+- After 3 consecutive NEEDS_WORK rounds → DEADLOCK auto-detected, watcher pauses for user intervention
+
+## Submission Test Requirements
+
+**[CODE] or [FIX] must report both regression and new tests:**
+
+```markdown
+### Test Results
+- Regression: npm test → 150/150 pass (no breakage)
+- New tests: 3 added
+  - resolveConfigDir.test.ts: platform path resolution (3 cases)
+  - ipc-shape.test.ts: getConversationMessages returns TMessage[]
+```
+
+- "New tests: 0" requires justification (valid: pure UI layout, config-only change)
+- Invalid excuse: "requires E2E" for pure functions, data shape validation, or mock-able IPC
 
 ## Your Responsibilities
 
 1. Planning and coding
 2. Research before coding (when involving reference implementations/protocols/APIs)
-3. Writing and running tests, including Test Results in submissions
+3. Writing and running tests — **both regression and new unit tests**
 4. Responding to Lisa's reviews with reasoning
 5. Getting consensus before proceeding

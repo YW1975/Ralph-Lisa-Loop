@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { extractTag, extractSummary, VALID_TAGS, findProjectRoot, resetProjectRootCache, stateDir, STATE_DIR } from "../state.js";
+import { extractTag, extractSummary, VALID_TAGS, findProjectRoot, resetProjectRootCache, stateDir, resolveStateDir, STATE_DIR } from "../state.js";
 
 describe("extractTag", () => {
   it("extracts known tags", () => {
@@ -196,6 +196,90 @@ describe("stateDir", () => {
     try {
       const result = stateDir();
       assert.strictEqual(result, path.join(path.resolve(TMP), STATE_DIR));
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
+});
+
+describe("resolveStateDir (Proposal §3.10)", () => {
+  const TMP = path.join(__dirname, "..", "..", ".test-tmp-resolve");
+  let origEnv: string | undefined;
+
+  beforeEach(() => {
+    resetProjectRootCache();
+    origEnv = process.env.RL_STATE_DIR;
+    delete process.env.RL_STATE_DIR;
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+  });
+
+  afterEach(() => {
+    resetProjectRootCache();
+    if (origEnv !== undefined) {
+      process.env.RL_STATE_DIR = origEnv;
+    } else {
+      delete process.env.RL_STATE_DIR;
+    }
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("uses RL_STATE_DIR env var when set (priority 2)", () => {
+    const envPath = path.join(TMP, "from-env", ".dual-agent");
+    process.env.RL_STATE_DIR = envPath;
+    const result = resolveStateDir();
+    assert.strictEqual(result.dir, envPath);
+    assert.strictEqual(result.source, "env");
+  });
+
+  it("falls back to auto-detect when no env vars set (priority 3)", () => {
+    // Create .dual-agent/ in TMP
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const origCwd = process.cwd();
+    process.chdir(TMP);
+    try {
+      const result = resolveStateDir();
+      assert.strictEqual(result.dir, path.join(path.resolve(TMP), STATE_DIR));
+      assert.strictEqual(result.source, "auto-detect");
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
+
+  it("env var takes precedence over auto-detect", () => {
+    // Set up both: env var AND .dual-agent/ in cwd
+    fs.mkdirSync(path.join(TMP, STATE_DIR), { recursive: true });
+    const envPath = path.join(TMP, "override", ".dual-agent");
+    process.env.RL_STATE_DIR = envPath;
+    const origCwd = process.cwd();
+    process.chdir(TMP);
+    try {
+      const result = resolveStateDir();
+      assert.strictEqual(result.dir, envPath);
+      assert.strictEqual(result.source, "env");
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
+
+  it("two calls from different cwds with env var set return same result", () => {
+    const envPath = path.join(TMP, "shared", ".dual-agent");
+    process.env.RL_STATE_DIR = envPath;
+
+    // Create two subdirs
+    const dirA = path.join(TMP, "projectA", "src");
+    const dirB = path.join(TMP, "projectB", "lib");
+    fs.mkdirSync(dirA, { recursive: true });
+    fs.mkdirSync(dirB, { recursive: true });
+
+    const origCwd = process.cwd();
+    try {
+      process.chdir(dirA);
+      const resultA = resolveStateDir();
+      process.chdir(dirB);
+      const resultB = resolveStateDir();
+      assert.strictEqual(resultA.dir, resultB.dir);
+      assert.strictEqual(resultA.dir, envPath);
     } finally {
       process.chdir(origCwd);
     }

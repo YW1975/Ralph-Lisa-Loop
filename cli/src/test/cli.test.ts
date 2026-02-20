@@ -662,7 +662,7 @@ describe("CLI: update-task", () => {
   it("creates task entry with timestamp", () => {
     const r = run("update-task", "New direction for the project");
     assert.strictEqual(r.exitCode, 0);
-    assert.ok(r.stdout.includes("Task updated"));
+    assert.ok(r.stdout.includes("Scope updated"));
     const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
     assert.ok(task.includes("New direction for the project"));
     assert.ok(task.includes("Updated:"));
@@ -1247,5 +1247,121 @@ describe("CLI: remote ttyd (V4-11)", () => {
     );
     assert.strictEqual(r.exitCode, 1);
     assert.ok(r.stdout.includes("ttyd not found") || r.stdout.includes("not found"));
+  });
+});
+
+describe("CLI: NEEDS_WORK enforcement (Proposal §3.2)", () => {
+  function runMode(mode: string, ...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd: TMP,
+        encoding: "utf-8",
+        env: { ...process.env, RL_POLICY_MODE: mode },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("NEEDS_WORK gate fully disabled when RL_POLICY_MODE=off", () => {
+    // Set up: Ralph submits, Lisa returns NEEDS_WORK
+    run("submit-ralph", "[PLAN] Initial plan");
+    run("submit-lisa", "[NEEDS_WORK] Fix it\n\n- Issue at commands.ts:42");
+    // Ralph submits [CODE] (normally blocked) in off mode — should succeed with no warning
+    const r = runMode("off", "submit-ralph", "[CODE] Done\n\nTest Results\n- pass\ncommands.ts:42");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(!r.stdout.includes("NEEDS_WORK"), "off mode should not mention NEEDS_WORK");
+    assert.ok(r.stdout.includes("Submitted:"));
+  });
+
+  it("NEEDS_WORK gate warns in warn mode", () => {
+    run("submit-ralph", "[PLAN] Initial plan");
+    run("submit-lisa", "[NEEDS_WORK] Fix it\n\n- Issue at commands.ts:42");
+    const r = runMode("warn", "submit-ralph", "[CODE] Done\n\nTest Results\n- pass\ncommands.ts:42");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("NEEDS_WORK"));
+    assert.ok(r.stdout.includes("Warning"));
+  });
+
+  it("NEEDS_WORK gate blocks in block mode", () => {
+    runMode("off", "submit-ralph", "[PLAN] Initial plan");
+    runMode("off", "submit-lisa", "[NEEDS_WORK] Fix it\n\n- Issue at commands.ts:42");
+    const r = runMode("block", "submit-ralph", "[CODE] Done\n\nTest Results\n- pass\ncommands.ts:42");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("BLOCKED"));
+  });
+});
+
+describe("CLI: deadlock counter (Proposal §3.2)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("triggers deadlock after 3 consecutive NEEDS_WORK rounds with FIX attempts", () => {
+    // Round 1: Ralph submits, Lisa returns NEEDS_WORK
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[NEEDS_WORK] Issue 1\n\n- commands.ts:1");
+    // Round 2: Ralph tries FIX, Lisa returns NEEDS_WORK again
+    run("submit-ralph", "[FIX] Fixed issue 1\n\nTest Results\n- pass\ncommands.ts:2");
+    run("submit-lisa", "[NEEDS_WORK] Issue 2\n\n- commands.ts:3");
+    // Round 3: Ralph tries FIX again, Lisa returns NEEDS_WORK third time
+    run("submit-ralph", "[FIX] Fixed issue 2\n\nTest Results\n- pass\ncommands.ts:4");
+    const r = run("submit-lisa", "[NEEDS_WORK] Issue 3\n\n- commands.ts:5");
+    // Check deadlock triggered
+    assert.ok(r.stdout.includes("DEADLOCK"), "Should trigger DEADLOCK after 3 consecutive NEEDS_WORK");
+    // Verify deadlock.txt exists
+    const deadlockPath = path.join(TMP, ".dual-agent", "deadlock.txt");
+    assert.ok(fs.existsSync(deadlockPath), "deadlock.txt should exist");
+    // Verify counter is 3
+    const count = fs.readFileSync(path.join(TMP, ".dual-agent", "needs_work_count.txt"), "utf-8").trim();
+    assert.strictEqual(count, "3");
+  });
+
+  it("resets counter when Lisa submits non-NEEDS_WORK", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[NEEDS_WORK] Issue\n\n- commands.ts:1");
+    run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass\ncommands.ts:2");
+    run("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- commands.ts:3");
+    // Now Lisa passes — counter should reset
+    run("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass\ncommands.ts:4");
+    run("submit-lisa", "[PASS] Looks good\n\n- commands.ts:5");
+    // Verify counter is reset
+    const count = fs.readFileSync(path.join(TMP, ".dual-agent", "needs_work_count.txt"), "utf-8").trim();
+    assert.strictEqual(count, "0");
+    // No deadlock
+    const deadlockPath = path.join(TMP, ".dual-agent", "deadlock.txt");
+    assert.ok(!fs.existsSync(deadlockPath));
+  });
+
+  it("scope-update clears deadlock", () => {
+    // Build up to deadlock
+    run("submit-ralph", "[PLAN] Plan");
+    run("submit-lisa", "[NEEDS_WORK] Issue\n\n- commands.ts:1");
+    run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass\ncommands.ts:2");
+    run("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- commands.ts:3");
+    run("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass\ncommands.ts:4");
+    run("submit-lisa", "[NEEDS_WORK] Third time\n\n- commands.ts:5");
+    // Verify deadlock
+    assert.ok(fs.existsSync(path.join(TMP, ".dual-agent", "deadlock.txt")));
+    // scope-update should clear it
+    run("scope-update", "New direction");
+    assert.ok(!fs.existsSync(path.join(TMP, ".dual-agent", "deadlock.txt")));
+    const count = fs.readFileSync(path.join(TMP, ".dual-agent", "needs_work_count.txt"), "utf-8").trim();
+    assert.strictEqual(count, "0");
   });
 });

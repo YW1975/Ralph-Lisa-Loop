@@ -5,6 +5,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { execSync } from "node:child_process";
 
 export const STATE_DIR = ".dual-agent";
 export const ARCHIVE_DIR = ".dual-agent-archive";
@@ -66,16 +67,60 @@ export function resetProjectRootCache(): void {
 }
 
 /**
+ * Try to read RL_STATE_DIR from tmux session environment.
+ * Returns null if not in tmux or env var not set.
+ */
+export function getTmuxStateDir(): string | null {
+  try {
+    const tmuxEnv = process.env.TMUX;
+    if (!tmuxEnv) return null;
+    const result = execSync("tmux show-environment RL_STATE_DIR 2>/dev/null", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 3000,
+    }).trim();
+    // Format: "RL_STATE_DIR=/path" or "-RL_STATE_DIR" (unset)
+    if (result.startsWith("RL_STATE_DIR=")) {
+      return result.slice("RL_STATE_DIR=".length);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve state directory with priority (Proposal §3.10):
+ *   1. tmux show-environment RL_STATE_DIR  (authoritative in auto mode)
+ *   2. $RL_STATE_DIR environment variable  (manual mode / override)
+ *   3. findProjectRoot() upward search     (fallback)
+ *
+ * Returns { dir, source } for diagnostics.
+ */
+export function resolveStateDir(): { dir: string; source: "tmux" | "env" | "auto-detect" } {
+  // 1. tmux env (authoritative in auto mode)
+  const tmuxDir = getTmuxStateDir();
+  if (tmuxDir) return { dir: tmuxDir, source: "tmux" };
+
+  // 2. Shell env var
+  const envDir = process.env.RL_STATE_DIR;
+  if (envDir) return { dir: envDir, source: "env" };
+
+  // 3. Fallback: upward search
+  const root = findProjectRoot();
+  return { dir: path.join(root || process.cwd(), STATE_DIR), source: "auto-detect" };
+}
+
+/**
  * Get the .dual-agent/ state directory path.
  * When projectDir is explicitly given, uses that path directly.
- * When omitted, searches upward from CWD to find .dual-agent/ (like git).
+ * When omitted, uses priority resolution: tmux env → shell env → upward search.
  */
 export function stateDir(projectDir?: string): string {
   if (projectDir !== undefined) {
     return path.join(projectDir, STATE_DIR);
   }
-  const root = findProjectRoot();
-  return path.join(root || process.cwd(), STATE_DIR);
+  return resolveStateDir().dir;
 }
 
 /**
