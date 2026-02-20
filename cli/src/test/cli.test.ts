@@ -3,7 +3,7 @@ import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import { generateSessionName, executeForceTurn } from "../commands.js";
+import { generateSessionName, executeForceTurn, parseSubtasks } from "../commands.js";
 import { resetProjectRootCache } from "../state.js";
 
 const CLI = path.join(__dirname, "..", "cli.js");
@@ -1363,5 +1363,202 @@ describe("CLI: deadlock counter (Proposal §3.2)", () => {
     assert.ok(!fs.existsSync(path.join(TMP, ".dual-agent", "deadlock.txt")));
     const count = fs.readFileSync(path.join(TMP, ".dual-agent", "needs_work_count.txt"), "utf-8").trim();
     assert.strictEqual(count, "0");
+  });
+});
+
+// ─── Phase 2: subtask commands (Proposal §3.4) ──
+
+describe("CLI: subtask commands (Proposal §3.4)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+    // Enter a step so task.md has subtask structure
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    run("step", "step34", "--task", "First task description");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("step --task creates task.md with step header and first subtask", () => {
+    const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    assert.ok(task.includes("# step34"));
+    assert.ok(task.includes("## Subtasks"));
+    assert.ok(task.includes("- [ ] #1 First task description"));
+  });
+
+  it("subtask add appends new subtask with auto-incrementing index", () => {
+    const r = run("subtask", "add", "Second task");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Added subtask #2"));
+    const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    assert.ok(task.includes("- [ ] #2 Second task"));
+  });
+
+  it("subtask done marks subtask as complete", () => {
+    const r = run("subtask", "done", "1");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Completed subtask #1"));
+    const task = fs.readFileSync(path.join(TMP, ".dual-agent", "task.md"), "utf-8");
+    assert.ok(task.includes("- [x] #1 First task description"));
+  });
+
+  it("subtask done on nonexistent index fails", () => {
+    const r = run("subtask", "done", "99");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("not found"));
+  });
+
+  it("subtask list shows all subtasks with status", () => {
+    run("subtask", "add", "Second task");
+    run("subtask", "done", "1");
+    const r = run("subtask", "list");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("[x] #1"));
+    assert.ok(r.stdout.includes("[ ] #2"));
+    assert.ok(r.stdout.includes("1/2 completed"));
+  });
+
+  it("subtask add fails with no description", () => {
+    const r = run("subtask", "add");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+
+  it("subtask with no subcommand shows usage", () => {
+    const r = run("subtask");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+});
+
+describe("CLI: step blocks with incomplete subtasks (Proposal §3.4)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("step blocks when incomplete subtasks exist", () => {
+    // Set up consensus + step with subtask
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Done\n\n- ok");
+    run("step", "step34", "--task", "Task A");
+    // Add another subtask
+    run("subtask", "add", "Task B");
+    // Complete only one
+    run("subtask", "done", "1");
+    // Reach consensus again
+    run("submit-ralph", "[CONSENSUS] Agreed on step35");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- ok");
+    // Try to move to next step — should fail (subtask #2 incomplete)
+    const r = run("step", "step35");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Incomplete subtasks"));
+    assert.ok(r.stdout.includes("#2 Task B"));
+  });
+
+  it("step succeeds when all subtasks complete", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Done\n\n- ok");
+    run("step", "step34", "--task", "Task A");
+    run("subtask", "done", "1");
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Done\n\n- ok");
+    const r = run("step", "step35");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: step35"));
+  });
+
+  it("step --force bypasses subtask check", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Done\n\n- ok");
+    run("step", "step34", "--task", "Task A");
+    // Don't complete subtask — use --force
+    const r = run("step", "--force", "step35");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Entered step: step35"));
+  });
+});
+
+// ─── Phase 2: parseSubtasks unit tests ──────────
+
+describe("parseSubtasks (Proposal §3.4)", () => {
+  it("parses todo and done subtasks", () => {
+    const content = "# Step\n\n## Subtasks\n- [ ] #1 Task A\n- [x] #2 Task B\n- [ ] #3 Task C\n";
+    const subtasks = parseSubtasks(content);
+    assert.strictEqual(subtasks.length, 3);
+    assert.strictEqual(subtasks[0].index, 1);
+    assert.strictEqual(subtasks[0].done, false);
+    assert.strictEqual(subtasks[1].index, 2);
+    assert.strictEqual(subtasks[1].done, true);
+    assert.strictEqual(subtasks[2].index, 3);
+    assert.strictEqual(subtasks[2].done, false);
+  });
+
+  it("returns empty array for no subtasks", () => {
+    const subtasks = parseSubtasks("# Task\n\nSome description\n");
+    assert.strictEqual(subtasks.length, 0);
+  });
+
+  it("handles uppercase [X] as done", () => {
+    const subtasks = parseSubtasks("- [X] #1 Done task\n");
+    assert.strictEqual(subtasks.length, 1);
+    assert.strictEqual(subtasks[0].done, true);
+  });
+});
+
+// ─── Phase 2: add-context (Proposal §3.5) ───────
+
+describe("CLI: add-context (Proposal §3.5)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("creates context.md and adds entry", () => {
+    const r = run("add-context", "Skip --remote feature for now");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Context added"));
+    const ctx = fs.readFileSync(path.join(TMP, ".dual-agent", "context.md"), "utf-8");
+    assert.ok(ctx.includes("# Context Notes"));
+    assert.ok(ctx.includes("Skip --remote feature for now"));
+  });
+
+  it("appends multiple entries to context.md", () => {
+    run("add-context", "First directive");
+    run("add-context", "Second directive");
+    const ctx = fs.readFileSync(path.join(TMP, ".dual-agent", "context.md"), "utf-8");
+    assert.ok(ctx.includes("First directive"));
+    assert.ok(ctx.includes("Second directive"));
+  });
+
+  it("fails with no description", () => {
+    const r = run("add-context");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+
+  it("context is injected into work.md on submit", () => {
+    run("add-context", "User wants: verify all features");
+    run("submit-ralph", "[PLAN] My plan");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(work.includes("**Context**:"));
+    assert.ok(work.includes("verify all features"));
+  });
+
+  it("work.md has no Context field when no context exists", () => {
+    run("submit-ralph", "[PLAN] My plan");
+    const work = fs.readFileSync(path.join(TMP, ".dual-agent", "work.md"), "utf-8");
+    assert.ok(!work.includes("**Context**:"));
   });
 });

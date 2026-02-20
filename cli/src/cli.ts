@@ -30,6 +30,8 @@ import {
   cmdForceTurn,
   cmdRemote,
   cmdStateDir,
+  cmdSubtask,
+  cmdAddContext,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -130,6 +132,14 @@ switch (cmd) {
     cmdStateDir(rest);
     break;
 
+  case "subtask":
+    cmdSubtask(rest);
+    break;
+
+  case "add-context":
+    cmdAddContext(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -185,11 +195,16 @@ function showHelp(): void {
   console.log("  ralph-lisa history                  Show full history");
   console.log("");
   console.log("Flow Control:");
-  console.log('  ralph-lisa next-step "name"         Enter new step (alias: step)');
-  console.log('  ralph-lisa scope-update "desc"       Update task scope (alias: update-task)');
-  console.log("  ralph-lisa force-turn <agent>       Manual turn override (disabled in auto mode)");
-  console.log("  ralph-lisa archive [name]           Archive session");
-  console.log("  ralph-lisa clean                    Clean session");
+  console.log('  ralph-lisa next-step "name"              Enter new step (alias: step)');
+  console.log('  ralph-lisa next-step "name" --task "t"   Enter step with first subtask');
+  console.log('  ralph-lisa scope-update "desc"            Update task scope (alias: update-task)');
+  console.log('  ralph-lisa subtask add "desc"             Add subtask to current step');
+  console.log("  ralph-lisa subtask done <N>               Mark subtask N as complete");
+  console.log("  ralph-lisa subtask list                   List all subtasks");
+  console.log('  ralph-lisa add-context "note"             Add context note (visible to Lisa)');
+  console.log("  ralph-lisa force-turn <agent>             Manual turn override (disabled in auto mode)");
+  console.log("  ralph-lisa archive [name]                Archive session");
+  console.log("  ralph-lisa clean                         Clean session");
   console.log("");
   console.log("Policy:");
   console.log(

@@ -79,9 +79,13 @@ ralph-lisa history          # View full history
 
 **Before every review**, check task alignment:
 1. Read task.md: `ralph-lisa read task.md`
-2. Compare Ralph's work direction with the task goal
-3. If misaligned: return [NEEDS_WORK] with "Direction misalignment" before reviewing code details
-4. If aligned: proceed with normal code review
+2. Read context.md: `ralph-lisa read context.md` (if it exists — contains runtime directives)
+3. Compare Ralph's work direction with the task goal + context
+4. If misaligned: return [NEEDS_WORK] with "Direction misalignment" before reviewing code details
+5. If aligned: proceed with normal code review
+
+**Auto-suggestion rule:** After 2 consecutive off-task NEEDS_WORK rounds, include in your review:
+> "If the task scope has changed, ask Ralph to run `ralph-lisa scope-update` before resubmitting."
 
 This is your PRIMARY responsibility — catching direction drift early saves more time than catching code bugs.
 
@@ -92,6 +96,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Requirement | Details |
 |-------------|---------|
 | Read task.md first | Before reviewing, run `ralph-lisa read task.md` to understand the user's original intent. Verify Ralph's work aligns with the task goal. |
+| Read context.md | If it exists, run `ralph-lisa read context.md` for runtime directives and user decisions that supplement the task. Context is also auto-injected into work.md. |
 | Read actual code | For `[CODE]`/`[FIX]`, read the files listed in `Files Changed` section of work.md. Do NOT review based on Ralph's description alone. |
 | Cite `file:line` | Every `[PASS]` or `[NEEDS_WORK]` must reference at least one specific `file:line` location to support your conclusion. |
 | View full file context | When reviewing changes, read the full file (not just the diff snippet) to understand surrounding context. |

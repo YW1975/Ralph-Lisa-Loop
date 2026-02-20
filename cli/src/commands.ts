@@ -320,10 +320,24 @@ export function cmdSubmitRalph(args: string[]): void {
     }
   }
 
+  // Auto-inject context.md so Lisa sees runtime directives (Proposal §3.5)
+  let contextSection = "";
+  const contextPath = path.join(dir, "context.md");
+  if (fs.existsSync(contextPath)) {
+    const ctxContent = readFile(contextPath);
+    if (ctxContent && !ctxContent.includes("(visible to Lisa).\n\n\n")) {
+      // Only inject if context has actual entries (not just the header)
+      const ctxLines = ctxContent.split("\n").filter((l) => l.startsWith("- ["));
+      if (ctxLines.length > 0) {
+        contextSection = `**Context**: ${ctxLines.join("; ")}\n`;
+      }
+    }
+  }
+
   const taskLine = taskContext ? `**Task**: ${taskContext}\n` : "";
   writeFile(
     path.join(dir, "work.md"),
-    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n${taskLine}**Updated**: ${ts}\n**Summary**: ${summary}\n${filesChangedSection ? "\n" + filesChangedSection : "\n"}${content}\n`
+    `# Ralph Work\n\n## [${tag}] Round ${round} | Step: ${step}\n${taskLine}${contextSection}**Updated**: ${ts}\n**Summary**: ${summary}\n${filesChangedSection ? "\n" + filesChangedSection : "\n"}${content}\n`
   );
 
   // External sources (--file/--stdin) get compact history to reduce context bloat
@@ -687,23 +701,34 @@ function extractLastTag(fileContent: string): string {
 export function cmdStep(args: string[]): void {
   checkSession();
 
-  // Parse --force flag
+  // Parse flags
   const forceIdx = args.indexOf("--force");
   const force = forceIdx !== -1;
-  const filteredArgs = force
-    ? args.filter((_, i) => i !== forceIdx)
-    : args;
+  const taskIdx = args.indexOf("--task");
+  let taskDesc = "";
+  const skipIndices = new Set<number>();
+  if (forceIdx !== -1) skipIndices.add(forceIdx);
+  if (taskIdx !== -1) {
+    skipIndices.add(taskIdx);
+    if (taskIdx + 1 < args.length) {
+      taskDesc = args[taskIdx + 1];
+      skipIndices.add(taskIdx + 1);
+    }
+  }
+  const filteredArgs = args.filter((_, i) => !skipIndices.has(i));
 
   const stepName = filteredArgs.join(" ");
   if (!stepName) {
     console.error('Usage: ralph-lisa step "step name"');
+    console.error('       ralph-lisa step "step name" --task "first task"');
     console.error("       ralph-lisa step --force \"step name\"  (skip consensus check)");
     process.exit(1);
   }
 
+  const dir = stateDir();
+
   // Check consensus before allowing step transition
   if (!force) {
-    const dir = stateDir();
     const workContent = readFile(path.join(dir, "work.md"));
     const reviewContent = readFile(path.join(dir, "review.md"));
 
@@ -724,17 +749,150 @@ export function cmdStep(args: string[]): void {
       console.error('Use --force to skip this check: ralph-lisa step --force "step name"');
       process.exit(1);
     }
+
+    // Check subtask completion before step transition (Proposal §3.4)
+    const taskContent = readFile(path.join(dir, "task.md"));
+    const incomplete = parseSubtasks(taskContent).filter((s) => !s.done);
+    if (incomplete.length > 0) {
+      console.error("Error: Incomplete subtasks remain. Cannot proceed to next step.");
+      for (const s of incomplete) {
+        console.error(`  - [ ] #${s.index} ${s.text}`);
+      }
+      console.error("");
+      console.error("Complete all subtasks first, or use --force to skip this check.");
+      process.exit(1);
+    }
   }
 
   setStep(stepName);
   setRound(1);
 
-  const dir = stateDir();
   const ts = timestamp();
+
+  // Initialize task.md for new step (Proposal §3.3 + §3.4)
+  let taskContent = `# ${stepName}\n\n## Subtasks\n`;
+  if (taskDesc) {
+    taskContent += `- [ ] #1 ${taskDesc}\n`;
+  }
+  taskContent += `\n---\nCreated: ${ts}\n`;
+  writeFile(path.join(dir, "task.md"), taskContent);
+
   const entry = `\n---\n\n# Step: ${stepName}\n\nStarted: ${ts}\n\n`;
   fs.appendFileSync(path.join(dir, "history.md"), entry, "utf-8");
 
   console.log(`Entered step: ${stepName} (round reset to 1)`);
+  if (taskDesc) {
+    console.log(`  Subtask #1: ${taskDesc}`);
+  }
+}
+
+// ─── subtask helpers ─────────────────────────────
+
+interface Subtask {
+  index: number;
+  text: string;
+  done: boolean;
+  line: string;  // original line text
+}
+
+export function parseSubtasks(taskContent: string): Subtask[] {
+  const subtasks: Subtask[] = [];
+  const lines = taskContent.split("\n");
+  for (const line of lines) {
+    const doneMatch = line.match(/^- \[x\] #(\d+)\s+(.*)/i);
+    if (doneMatch) {
+      subtasks.push({ index: parseInt(doneMatch[1], 10), text: doneMatch[2], done: true, line });
+      continue;
+    }
+    const todoMatch = line.match(/^- \[ \] #(\d+)\s+(.*)/);
+    if (todoMatch) {
+      subtasks.push({ index: parseInt(todoMatch[1], 10), text: todoMatch[2], done: false, line });
+    }
+  }
+  return subtasks;
+}
+
+// ─── subtask ─────────────────────────────────────
+
+export function cmdSubtask(args: string[]): void {
+  checkSession();
+  const subcmd = args[0] || "";
+  const rest = args.slice(1);
+
+  switch (subcmd) {
+    case "add": {
+      const desc = rest.join(" ");
+      if (!desc) {
+        console.error('Usage: ralph-lisa subtask add "task description"');
+        process.exit(1);
+      }
+      const dir = stateDir();
+      const taskPath = path.join(dir, "task.md");
+      const content = readFile(taskPath);
+      const existing = parseSubtasks(content);
+      const nextIndex = existing.length > 0 ? Math.max(...existing.map((s) => s.index)) + 1 : 1;
+      const newLine = `- [ ] #${nextIndex} ${desc}`;
+
+      // Insert before the --- separator if present, otherwise append
+      const lines = content.split("\n");
+      const sepIdx = lines.findIndex((l) => l.startsWith("---"));
+      if (sepIdx !== -1) {
+        lines.splice(sepIdx, 0, newLine);
+      } else {
+        lines.push(newLine);
+      }
+      writeFile(taskPath, lines.join("\n"));
+      console.log(`Added subtask #${nextIndex}: ${desc}`);
+      break;
+    }
+    case "done": {
+      const num = parseInt(rest[0], 10);
+      if (isNaN(num)) {
+        console.error("Usage: ralph-lisa subtask done <number>");
+        process.exit(1);
+      }
+      const dir = stateDir();
+      const taskPath = path.join(dir, "task.md");
+      const content = readFile(taskPath);
+      const subtasks = parseSubtasks(content);
+      const target = subtasks.find((s) => s.index === num);
+      if (!target) {
+        console.error(`Error: Subtask #${num} not found.`);
+        process.exit(1);
+      }
+      if (target.done) {
+        console.log(`Subtask #${num} already completed.`);
+        break;
+      }
+      const updated = content.replace(target.line, target.line.replace("- [ ]", "- [x]"));
+      writeFile(taskPath, updated);
+      appendHistory("System", `[SUBTASK] Completed #${num}: ${target.text}`);
+      console.log(`Completed subtask #${num}: ${target.text}`);
+      break;
+    }
+    case "list": {
+      const dir = stateDir();
+      const content = readFile(path.join(dir, "task.md"));
+      const subtasks = parseSubtasks(content);
+      if (subtasks.length === 0) {
+        console.log("No subtasks defined.");
+        break;
+      }
+      for (const s of subtasks) {
+        const mark = s.done ? "x" : " ";
+        console.log(`  [${mark}] #${s.index} ${s.text}`);
+      }
+      const done = subtasks.filter((s) => s.done).length;
+      console.log(`\n${done}/${subtasks.length} completed`);
+      break;
+    }
+    default:
+      console.error("Usage: ralph-lisa subtask <add|done|list> [args]");
+      console.error('  subtask add "description"   Add a new subtask');
+      console.error("  subtask done <number>       Mark subtask as complete");
+      console.error("  subtask list                List all subtasks");
+      process.exit(1);
+  }
 }
 
 // ─── history ─────────────────────────────────────
@@ -1796,6 +1954,56 @@ check_and_trigger() {
   truncate_log_if_needed "0.0" "\$PANE0_LOG"
   truncate_log_if_needed "0.1" "\$PANE1_LOG"
 
+  # Control file polling (Proposal §3.11): process commands from control.txt
+  if [[ -f "\$STATE_DIR/control.txt" ]]; then
+    local ctrl_cmd
+    ctrl_cmd=\$(cat "\$STATE_DIR/control.txt" 2>/dev/null)
+    rm -f "\$STATE_DIR/control.txt"
+    if [[ -n "\$ctrl_cmd" ]]; then
+      echo "[Watcher] Control command: \$ctrl_cmd"
+      case "\$ctrl_cmd" in
+        pause)
+          echo "[Watcher] PAUSED by control file. Write 'resume' to control.txt to continue."
+          while true; do
+            sleep 2
+            if [[ -f "\$STATE_DIR/control.txt" ]]; then
+              local resume_cmd
+              resume_cmd=\$(cat "\$STATE_DIR/control.txt" 2>/dev/null)
+              rm -f "\$STATE_DIR/control.txt"
+              if [[ "\$resume_cmd" == "resume" ]]; then
+                echo "[Watcher] RESUMED by control file."
+                break
+              else
+                echo "[Watcher] Ignoring '\$resume_cmd' while paused (only 'resume' accepted)"
+              fi
+            fi
+          done
+          ;;
+        resume)
+          echo "[Watcher] Already running — resume ignored."
+          ;;
+        msg\ ralph\ *)
+          local ralph_msg="\${ctrl_cmd#msg ralph }"
+          echo "[Watcher] Sending message to Ralph: \$ralph_msg"
+          send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG" "\$ralph_msg"
+          ;;
+        msg\ lisa\ *)
+          local lisa_msg="\${ctrl_cmd#msg lisa }"
+          echo "[Watcher] Sending message to Lisa: \$lisa_msg"
+          send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG" "\$lisa_msg"
+          ;;
+        scope-update\ *)
+          local new_scope="\${ctrl_cmd#scope-update }"
+          echo "[Watcher] Updating scope: \$new_scope"
+          ralph-lisa scope-update "\$new_scope" 2>&1 || true
+          ;;
+        *)
+          echo "[Watcher] Unknown control command: \$ctrl_cmd"
+          ;;
+      esac
+    fi
+  fi
+
   # Deadlock detection (Proposal §3.2): pause if deadlock.txt exists
   if [[ -f "\$STATE_DIR/deadlock.txt" ]]; then
     local now_epoch
@@ -2509,6 +2717,29 @@ export function cmdStateDir(args: string[]): void {
   console.log(`shell env:   ${envDir || "(not set)"}`);
   console.log(`auto-detect: ${autoDir}`);
   console.log(`→ using:     ${resolved.dir}   [${resolved.source}]`);
+}
+
+// ─── add-context ─────────────────────────────────
+
+export function cmdAddContext(args: string[]): void {
+  checkSession();
+  const text = args.join(" ");
+  if (!text) {
+    console.error('Usage: ralph-lisa add-context "user directive or context note"');
+    process.exit(1);
+  }
+
+  const dir = stateDir();
+  const contextPath = path.join(dir, "context.md");
+  const ts = timestamp();
+
+  if (!fs.existsSync(contextPath)) {
+    writeFile(contextPath, `# Context Notes\n\nRuntime directives from Ralph (visible to Lisa).\n\n`);
+  }
+  fs.appendFileSync(contextPath, `- [${ts}] ${text}\n`, "utf-8");
+
+  console.log(`Context added: ${text}`);
+  console.log(`(Written to ${contextPath})`);
 }
 
 // ─── doctor ──────────────────────────────────────

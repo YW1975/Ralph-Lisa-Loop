@@ -726,3 +726,132 @@ describe("Watcher: pane log threshold (RLL-006)", () => {
     assert.strictEqual(rNeg.truncate, false); // 500KB < 1MB
   });
 });
+
+// ─── Watcher: control file state machine (Proposal §3.11) ──
+
+/**
+ * Simulate the watcher's control.txt polling logic.
+ * Returns the action taken and updated watcher state.
+ */
+interface ControlState {
+  paused: boolean;
+  messages: Array<{ target: string; text: string }>;
+  scopeUpdates: string[];
+  unknownCommands: string[];
+}
+
+function processControlCommand(cmd: string, state: ControlState): string {
+  if (!cmd) return "empty";
+
+  switch (true) {
+    case cmd === "pause":
+      state.paused = true;
+      return "paused";
+    case cmd === "resume":
+      if (state.paused) {
+        state.paused = false;
+        return "resumed";
+      }
+      return "already-running";
+    case cmd.startsWith("msg ralph "):
+      state.messages.push({ target: "ralph", text: cmd.slice("msg ralph ".length) });
+      return "msg-ralph";
+    case cmd.startsWith("msg lisa "):
+      state.messages.push({ target: "lisa", text: cmd.slice("msg lisa ".length) });
+      return "msg-lisa";
+    case cmd.startsWith("scope-update "):
+      state.scopeUpdates.push(cmd.slice("scope-update ".length));
+      return "scope-update";
+    default:
+      state.unknownCommands.push(cmd);
+      return "unknown";
+  }
+}
+
+function newControlState(): ControlState {
+  return { paused: false, messages: [], scopeUpdates: [], unknownCommands: [] };
+}
+
+describe("Watcher: control file commands (Proposal §3.11)", () => {
+  it("pause command sets paused state", () => {
+    const s = newControlState();
+    const r = processControlCommand("pause", s);
+    assert.strictEqual(r, "paused");
+    assert.strictEqual(s.paused, true);
+  });
+
+  it("resume command clears paused state", () => {
+    const s = newControlState();
+    s.paused = true;
+    const r = processControlCommand("resume", s);
+    assert.strictEqual(r, "resumed");
+    assert.strictEqual(s.paused, false);
+  });
+
+  it("resume when not paused returns already-running", () => {
+    const s = newControlState();
+    const r = processControlCommand("resume", s);
+    assert.strictEqual(r, "already-running");
+    assert.strictEqual(s.paused, false);
+  });
+
+  it("msg ralph sends message to ralph", () => {
+    const s = newControlState();
+    const r = processControlCommand("msg ralph Check the test results", s);
+    assert.strictEqual(r, "msg-ralph");
+    assert.strictEqual(s.messages.length, 1);
+    assert.strictEqual(s.messages[0].target, "ralph");
+    assert.strictEqual(s.messages[0].text, "Check the test results");
+  });
+
+  it("msg lisa sends message to lisa", () => {
+    const s = newControlState();
+    const r = processControlCommand("msg lisa Review the plan again", s);
+    assert.strictEqual(r, "msg-lisa");
+    assert.strictEqual(s.messages.length, 1);
+    assert.strictEqual(s.messages[0].target, "lisa");
+    assert.strictEqual(s.messages[0].text, "Review the plan again");
+  });
+
+  it("scope-update extracts new scope description", () => {
+    const s = newControlState();
+    const r = processControlCommand("scope-update Verify Tasks #8-#15", s);
+    assert.strictEqual(r, "scope-update");
+    assert.strictEqual(s.scopeUpdates.length, 1);
+    assert.strictEqual(s.scopeUpdates[0], "Verify Tasks #8-#15");
+  });
+
+  it("unknown command is recorded", () => {
+    const s = newControlState();
+    const r = processControlCommand("restart", s);
+    assert.strictEqual(r, "unknown");
+    assert.strictEqual(s.unknownCommands.length, 1);
+    assert.strictEqual(s.unknownCommands[0], "restart");
+  });
+
+  it("empty command returns empty", () => {
+    const s = newControlState();
+    const r = processControlCommand("", s);
+    assert.strictEqual(r, "empty");
+  });
+
+  it("pause then resume cycle works correctly", () => {
+    const s = newControlState();
+    processControlCommand("pause", s);
+    assert.strictEqual(s.paused, true);
+    // Other commands ignored while paused (watcher only accepts resume)
+    processControlCommand("resume", s);
+    assert.strictEqual(s.paused, false);
+  });
+
+  it("multiple msg commands accumulate", () => {
+    const s = newControlState();
+    processControlCommand("msg ralph First message", s);
+    processControlCommand("msg lisa Second message", s);
+    processControlCommand("msg ralph Third message", s);
+    assert.strictEqual(s.messages.length, 3);
+    assert.strictEqual(s.messages[0].target, "ralph");
+    assert.strictEqual(s.messages[1].target, "lisa");
+    assert.strictEqual(s.messages[2].target, "ralph");
+  });
+});
