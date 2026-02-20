@@ -86,6 +86,18 @@ export function checkRalph(
           "[RESEARCH] submission needs at least 2 fields (reference/key types/data structure/verification) or equivalent summary with evidence.",
       });
     }
+
+    // RESEARCH verification markers (Proposal §3.9)
+    // Each factual claim should have "Verified:" or "Evidence:" support
+    const hasVerifiedMarker = /\bverified\s*:/i.test(content);
+    const hasEvidenceMarker = /\bevidence\s*:/i.test(content);
+    if (!hasVerifiedMarker && !hasEvidenceMarker) {
+      violations.push({
+        rule: "research-verification",
+        message:
+          '[RESEARCH] submission should include at least one "Verified:" or "Evidence:" marker to support factual claims.',
+      });
+    }
   }
 
   return violations;

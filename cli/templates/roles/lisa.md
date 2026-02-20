@@ -115,6 +115,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Area | Details |
 |------|---------|
 | Run tests yourself | You may choose to run tests independently. This is your professional call. |
+| Write verification tests | When static analysis is insufficient, write ad-hoc tests in `.dual-agent/tests/` and reference the output in your review. These are auto-cleaned on [CONSENSUS]. |
 | Review depth | Decide what to focus on based on risk and complexity. |
 | Accept or reject | Your verdict is your own professional judgment. |
 
@@ -126,6 +127,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 - [ ] Tests adequate
 - [ ] **Test Results included in submission** (required for [CODE]/[FIX])
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
+- [ ] **Research verified** — [RESEARCH] submissions must include at least one `Verified:` or `Evidence:` marker. Reject unverified claims.
 - [ ] **Factual claims verified** — For claims that a feature is "missing" or "not implemented", require `file:line` evidence or explicit acknowledgment that source code was not accessible
 
 ## Your Verdict is Advisory

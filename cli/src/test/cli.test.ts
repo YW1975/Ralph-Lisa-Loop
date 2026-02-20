@@ -1562,3 +1562,93 @@ describe("CLI: add-context (Proposal §3.5)", () => {
     assert.ok(!work.includes("**Context**:"));
   });
 });
+
+// ─── Phase 3: CONSENSUS subtask reminder ─────────
+
+describe("CLI: CONSENSUS subtask reminder (Proposal §3.7)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("prints subtask hint when CONSENSUS with incomplete subtasks", () => {
+    // Create task.md with incomplete subtask
+    const taskPath = path.join(TMP, ".dual-agent", "task.md");
+    fs.writeFileSync(taskPath, "# Test Step\n\n## Subtasks\n- [ ] #1 First task\n- [x] #2 Done task\n");
+    const r = run("submit-ralph", "[CONSENSUS] Agreed");
+    assert.ok(r.stdout.includes("Hint: If a subtask was completed, run: ralph-lisa subtask done <N>"));
+    assert.ok(r.stdout.includes("#1 First task"));
+  });
+
+  it("no hint when CONSENSUS with all subtasks done", () => {
+    const taskPath = path.join(TMP, ".dual-agent", "task.md");
+    fs.writeFileSync(taskPath, "# Test Step\n\n## Subtasks\n- [x] #1 Done task\n");
+    const r = run("submit-ralph", "[CONSENSUS] Agreed");
+    assert.ok(!r.stdout.includes("Hint:"));
+  });
+
+  it("no hint when non-CONSENSUS tag", () => {
+    const taskPath = path.join(TMP, ".dual-agent", "task.md");
+    fs.writeFileSync(taskPath, "# Test Step\n\n## Subtasks\n- [ ] #1 Pending\n");
+    const r = run("submit-ralph", "[PLAN] My plan");
+    assert.ok(!r.stdout.includes("Hint:"));
+  });
+});
+
+// ─── Phase 3: Lisa tests directory cleanup ───────
+
+describe("CLI: Lisa tests dir cleanup on CONSENSUS (Proposal §3.6)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("cleans .dual-agent/tests/ when Lisa submits CONSENSUS", () => {
+    // Set turn to lisa
+    run("submit-ralph", "[PLAN] Plan");
+    // Create tests directory with a file
+    const testsDir = path.join(TMP, ".dual-agent", "tests");
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    // Lisa submits CONSENSUS
+    const r = run("submit-lisa", "[CONSENSUS] Agreed\n\n- All good at commands.ts:1");
+    assert.ok(r.stdout.includes("Cleaned .dual-agent/tests/"));
+    assert.ok(!fs.existsSync(testsDir));
+  });
+
+  it("does NOT clean tests dir on Lisa PASS", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    const testsDir = path.join(TMP, ".dual-agent", "tests");
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    run("submit-lisa", "[PASS] Approved\n\n- Clean code at commands.ts:42");
+    // Tests dir should still exist
+    assert.ok(fs.existsSync(testsDir));
+  });
+
+  it("does NOT clean tests dir on Lisa NEEDS_WORK", () => {
+    run("submit-ralph", "[CODE] Done\n\ncommands.ts:42\n\nTest Results\n- pass\n- New tests: 1");
+    const testsDir = path.join(TMP, ".dual-agent", "tests");
+    fs.mkdirSync(testsDir, { recursive: true });
+    fs.writeFileSync(path.join(testsDir, "verify.test.ts"), "test content");
+    run("submit-lisa", "[NEEDS_WORK] Fix it\n\n- Bug at policy.ts:30");
+    assert.ok(fs.existsSync(testsDir));
+  });
+
+  it("no error when CONSENSUS but tests dir does not exist", () => {
+    run("submit-ralph", "[PLAN] Plan");
+    const r = run("submit-lisa", "[CONSENSUS] Agreed\n\n- All good at commands.ts:1");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(!r.stdout.includes("Cleaned .dual-agent/tests/"));
+  });
+});

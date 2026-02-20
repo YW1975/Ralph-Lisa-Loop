@@ -348,6 +348,19 @@ export function cmdSubmitRalph(args: string[]): void {
   updateLastAction("Ralph", content);
   setTurn("lisa");
 
+  // Subtask reminder on CONSENSUS (Proposal §3.7 — explicit, not auto-mark)
+  if (tag === "CONSENSUS") {
+    const taskContent = readFile(path.join(dir, "task.md"));
+    const incomplete = parseSubtasks(taskContent).filter((s) => !s.done);
+    if (incomplete.length > 0) {
+      console.log("");
+      console.log("Hint: If a subtask was completed, run: ralph-lisa subtask done <N>");
+      for (const s of incomplete) {
+        console.log(`  - [ ] #${s.index} ${s.text}`);
+      }
+    }
+  }
+
   console.log(line());
   if (violations.length > 0) {
     console.log(`Submitted OK (with warnings): [${tag}] ${summary}`);
@@ -471,6 +484,15 @@ export function cmdSubmitLisa(args: string[]): void {
     writeFile(nwCountPath, "0");
     const deadlockPath = path.join(dir, "deadlock.txt");
     try { fs.unlinkSync(deadlockPath); } catch {}
+  }
+
+  // Clean .dual-agent/tests/ on CONSENSUS (Proposal §3.6 — evidence preserved until closure)
+  if (tag === "CONSENSUS") {
+    const testsDir = path.join(dir, "tests");
+    if (fs.existsSync(testsDir)) {
+      fs.rmSync(testsDir, { recursive: true, force: true });
+      console.log("Cleaned .dual-agent/tests/ (topic closed)");
+    }
   }
 
   // Increment round

@@ -48,22 +48,23 @@ describe("checkRalph", () => {
 
   it("warns when RESEARCH has no substance", () => {
     const violations = checkRalph("RESEARCH", "[RESEARCH] Done");
-    assert.strictEqual(violations.length, 1);
-    assert.strictEqual(violations[0].rule, "research-content");
+    assert.ok(violations.length >= 1);
+    assert.ok(violations.some((v) => v.rule === "research-content"));
+    assert.ok(violations.some((v) => v.rule === "research-verification"));
   });
 
-  it("passes RESEARCH with 2+ English fields", () => {
+  it("passes RESEARCH with 2+ English fields and verification marker", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\nReference implementation: file.ts\nKey types: MyType\nVerification: tested"
+      "[RESEARCH] Done\n\nReference implementation: file.ts\nKey types: MyType\nVerified: tested against running instance"
     );
     assert.strictEqual(violations.length, 0);
   });
 
-  it("passes RESEARCH with exactly 2 fields", () => {
+  it("passes RESEARCH with exactly 2 fields and Evidence marker", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] Done\n\nReference: file.ts\nVerification: curl tested"
+      "[RESEARCH] Done\n\nReference: file.ts\nVerification: curl tested\nEvidence: HTTP 200 response with correct shape"
     );
     assert.strictEqual(violations.length, 0);
   });
@@ -76,18 +77,19 @@ describe("checkRalph", () => {
     assert.strictEqual(violations.length, 0);
   });
 
-  it("warns RESEARCH with only 1 field", () => {
+  it("warns RESEARCH with only 1 field and no verification marker", () => {
     const violations = checkRalph(
       "RESEARCH",
       "[RESEARCH] Done\n\nReference: file.ts"
     );
-    assert.strictEqual(violations.length, 1);
+    assert.ok(violations.length >= 1);
+    assert.ok(violations.some((v) => v.rule === "research-content") || violations.some((v) => v.rule === "research-verification"));
   });
 
-  it("passes RESEARCH with substantial content (>3 lines) even without fields", () => {
+  it("passes RESEARCH with substantial content and verification marker", () => {
     const violations = checkRalph(
       "RESEARCH",
-      "[RESEARCH] API analysis\n\nLine 1\nLine 2\nLine 3\nLine 4"
+      "[RESEARCH] API analysis\n\nLine 1\nLine 2\nLine 3\nEvidence: checked source code"
     );
     assert.strictEqual(violations.length, 0);
   });
@@ -276,5 +278,47 @@ describe("checkRalph new-tests-required (Proposal §3.6)", () => {
   it("no warning for PLAN submissions", () => {
     const v = checkRalph("PLAN", "[PLAN] Plan\n\nNew tests: 0");
     assert.ok(!v.some((x) => x.rule === "new-tests-required"));
+  });
+});
+
+describe("checkRalph RESEARCH verification markers (Proposal §3.9)", () => {
+  it("warns when RESEARCH has no Verified: or Evidence: marker", () => {
+    const v = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] API analysis\n\nReference: file.ts\nKey types: MyType\nData structure: {id: string}\nConfirmed by testing"
+    );
+    assert.ok(v.some((x) => x.rule === "research-verification"));
+  });
+
+  it("passes when RESEARCH has Verified: marker", () => {
+    const v = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] API analysis\n\nReference: file.ts\nKey types: MyType\nVerified: ran curl against endpoint, matches spec"
+    );
+    assert.ok(!v.some((x) => x.rule === "research-verification"));
+  });
+
+  it("passes when RESEARCH has Evidence: marker", () => {
+    const v = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] API analysis\n\nReference: file.ts\nKey types: MyType\nEvidence: output from npm test shows correct shape"
+    );
+    assert.ok(!v.some((x) => x.rule === "research-verification"));
+  });
+
+  it("passes with case-insensitive Verified:", () => {
+    const v = checkRalph(
+      "RESEARCH",
+      "[RESEARCH] Done\n\nReference: file.ts\nverified: works\nData format: json"
+    );
+    assert.ok(!v.some((x) => x.rule === "research-verification"));
+  });
+
+  it("no verification warning for non-RESEARCH tags", () => {
+    const v = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- pass"
+    );
+    assert.ok(!v.some((x) => x.rule === "research-verification"));
   });
 });

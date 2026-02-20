@@ -65,7 +65,8 @@ Research content should include:
 - Reference implementation: file_path:line_number
 - Key types: type_name (file:line_number)
 - Data format: actual verified structure
-- Verification: how assumptions were confirmed
+- Verified: how each claim was confirmed (required — at least one `Verified:` or `Evidence:` marker per submission)
+- Evidence: source of truth (file path, command output, API response)
 
 This is required when the task involves reference implementations, protocols, or external APIs. Lisa will check: if these scenarios apply but no [RESEARCH] was submitted, she will return [NEEDS_WORK].
 
