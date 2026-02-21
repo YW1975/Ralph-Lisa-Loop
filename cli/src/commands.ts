@@ -1683,7 +1683,11 @@ PANE1_LOG="\${STATE_DIR}/pane1.log"
 PID_FILE="\${STATE_DIR}/watcher.pid"
 
 # Interactive prompt patterns (do NOT send "go" if matched)
-INTERACTIVE_RE='[Pp]assword[: ]|[Pp]assphrase|[Uu]sername[: ]|[Tt]oken[: ]|[Ll]ogin[: ]|\\(y/[Nn]\\)|\\(Y/[Nn]\\)|\\[y/[Nn]\\]|\\[Y/[Nn]\\]|Are you sure|Continue\\?|[Pp]ress [Ee]nter|MFA|2FA|one-time|OTP'
+# Covers: passwords, confirmations, Claude Code permission prompts, Codex approval prompts
+# NOTE: patterns must be specific enough to avoid false positives in normal agent output
+#   BAD:  [Aa]pprove  — matches "I approve this approach" in agent output
+#   GOOD: Allow once  — only matches literal permission button text
+INTERACTIVE_RE='[Pp]assword[: ]|[Pp]assphrase|[Uu]sername[: ]|[Tt]oken[: ]|[Ll]ogin[: ]|\\(y/[Nn]\\)|\\(Y/[Nn]\\)|\\[y/[Nn]\\]|\\[Y/[Nn]\\]|Are you sure|Continue\\?|[Pp]ress [Ee]nter|MFA|2FA|one-time|OTP|Do you want to proceed|[Gg]rant .* access|[Aa]llow .* to run|[Aa]llow .* to edit|Allow once|Allow always|Deny once|Deny always|allow_once|allow_always|reject_once|reject_always|[Yy]es.*[Nn]o.*[Aa]lways'
 
 # Pause state per pane: 0=active, consecutive hit count
 PANE0_PROMPT_HITS=0
@@ -1855,9 +1859,28 @@ send_go_to_pane() {
     return 1
   fi
 
-  # 3. Send trigger message + Enter with retry
-  # tmux send-keys is synchronous — no need to verify delivery via log growth
-  # Use first 20 chars as detection marker (long messages wrap in narrow panes)
+  # 3. Wait for agent to be idle (output stable for 5s)
+  #    Prevents injecting text while agent is mid-response
+  local stable_wait=0
+  while (( stable_wait < 30 )); do
+    if check_output_stable "\$log_file" 5; then
+      break
+    fi
+    echo "[Watcher] Waiting for \$agent_name to finish output..."
+    sleep 3
+    stable_wait=\$((stable_wait + 3))
+  done
+  if (( stable_wait >= 30 )); then
+    echo "[Watcher] \$agent_name still producing output after 30s, sending anyway"
+  fi
+
+  # 4. Re-check interactive prompt (may have appeared while waiting)
+  if check_for_interactive_prompt "\$pane"; then
+    echo "[Watcher] Skipping \$agent_name - interactive prompt appeared during wait"
+    return 1
+  fi
+
+  # 5. Send trigger message + Enter with retry
   local detect_marker="\${go_msg:0:20}"
   while (( attempt < max_retries )); do
     tmux send-keys -t "\${SESSION}:\${pane}" -l "\$go_msg" 2>/dev/null || true
@@ -1884,8 +1907,29 @@ send_go_to_pane() {
     return 1
   fi
 
-  echo "[Watcher] OK: Message sent to \$agent_name (fire-and-forget)"
-  return 0
+  # 6. Post-send verification: wait up to 20s for agent to start responding
+  #    Record size AFTER send+retry completes (not before), so we only measure
+  #    the agent's actual response, not the injected text appearing in the pane.
+  local post_send_baseline=0
+  if [[ -f "\$log_file" ]]; then
+    post_send_baseline=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
+  fi
+  local verify_wait=0
+  while (( verify_wait < 20 )); do
+    sleep 4
+    verify_wait=\$((verify_wait + 4))
+    if [[ -f "\$log_file" ]]; then
+      local cur_size
+      cur_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
+      if (( cur_size > post_send_baseline + 100 )); then
+        echo "[Watcher] OK: \$agent_name responded (output grew +\$((cur_size - post_send_baseline)) bytes)"
+        return 0
+      fi
+    fi
+  done
+
+  echo "[Watcher] WARN: \$agent_name did not produce output after send — may not have received message"
+  return 1
 }
 
 # ─── trigger_agent ───────────────────────────────
