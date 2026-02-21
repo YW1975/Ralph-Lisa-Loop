@@ -158,6 +158,7 @@ Lisa reads task.md before every review and checks for direction drift. Catching 
 - **Auto-restart**: Watcher automatically restarts on crash (session-guarded)
 - **Configurable log threshold**: `RL_LOG_MAX_MB` (default 5, min 1) with proportional tail retention
 - **Heartbeat file**: `.dual-agent/.watcher_heartbeat` for external liveness checks
+- **Bugfix**: Fixed case pattern escaping in generated `watcher.sh` that caused crash-loop in auto mode (JS template literals silently stripped backslash escapes from `case` patterns)
 
 ### Deadlock Escape
 After 5 rounds without consensus: `[OVERRIDE]` (proceed anyway) or `[HANDOFF]` (escalate to human).

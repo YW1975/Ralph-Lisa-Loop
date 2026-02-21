@@ -2013,17 +2013,17 @@ check_and_trigger() {
         resume)
           echo "[Watcher] Already running — resume ignored."
           ;;
-        msg\ ralph\ *)
+        "msg ralph "*)
           local ralph_msg="\${ctrl_cmd#msg ralph }"
           echo "[Watcher] Sending message to Ralph: \$ralph_msg"
           send_go_to_pane "0.0" "Ralph" "\$PANE0_LOG" "\$ralph_msg"
           ;;
-        msg\ lisa\ *)
+        "msg lisa "*)
           local lisa_msg="\${ctrl_cmd#msg lisa }"
           echo "[Watcher] Sending message to Lisa: \$lisa_msg"
           send_go_to_pane "0.1" "Lisa" "\$PANE1_LOG" "\$lisa_msg"
           ;;
-        scope-update\ *)
+        "scope-update "*)
           local new_scope="\${ctrl_cmd#scope-update }"
           echo "[Watcher] Updating scope: \$new_scope"
           ralph-lisa scope-update "\$new_scope" 2>&1 || true

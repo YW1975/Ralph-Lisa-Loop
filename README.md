@@ -266,6 +266,7 @@ For auto mode:
 - **Goal Guardian**: Lisa now reads task.md before every review and checks for direction drift. Catching misalignment early is prioritized over code-level review.
 - **Factual verification**: Lisa must provide `file:line` evidence when claiming something is "missing" or "not implemented".
 - **Watcher v3**: Fire-and-forget triggering (removed output stability wait + delivery verification), 30s cooldown between triggers, checkpoint system (`RL_CHECKPOINT_ROUNDS`), auto-restart on crash, configurable log threshold (`RL_LOG_MAX_MB`), heartbeat file for liveness detection.
+- **Watcher v3 bugfix**: Fixed case pattern escaping in generated `watcher.sh` — JS template literals silently stripped backslashes from `msg\ ralph\ *)`, producing invalid bash that caused the watcher to crash-loop on every startup in auto mode.
 
 ## What Didn't Work
 
