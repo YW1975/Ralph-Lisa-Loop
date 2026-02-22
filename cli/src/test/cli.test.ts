@@ -87,8 +87,31 @@ describe("CLI: policy check-next-step", () => {
     run("submit-lisa", "[PASS] OK");
     const r = run("policy", "check-next-step");
     assert.strictEqual(r.exitCode, 1);
-    // Should report: no consensus + missing test results + missing reason
-    assert.ok(r.stdout.includes("not [CONSENSUS]"));
+    assert.ok(r.stdout.includes("Consensus not reached"));
+  });
+
+  it("passes when CONSENSUS + PASS (parity with step command)", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed on approach");
+    run("submit-lisa", "[PASS] Approved\n\n- Looks good at commands.ts:42");
+    const r = run("policy", "check-next-step");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Ready to proceed"));
+  });
+
+  it("fails when Ralph CODE + Lisa CONSENSUS (no consensus from Ralph)", () => {
+    run("submit-ralph", "[CODE] Done\n\nTest Results: all pass\n- state.ts:10");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- All good");
+    const r = run("policy", "check-next-step");
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("Consensus not reached"));
+  });
+
+  it("fails when Ralph PLAN + Lisa PASS (neither has CONSENSUS)", () => {
+    run("submit-ralph", "[PLAN] Next steps");
+    run("submit-lisa", "[PASS] Looks fine\n\n- Agreed at commands.ts:1");
+    const r = run("policy", "check-next-step");
+    assert.strictEqual(r.exitCode, 1);
+    assert.ok(r.stdout.includes("Consensus not reached"));
   });
 });
 

@@ -2409,7 +2409,7 @@ function cmdPolicyCheckConsensus(): void {
 
 /**
  * Comprehensive check for proceeding to the next step:
- * 1. Both agents have submitted [CONSENSUS]
+ * 1. Consensus reached: [CONSENSUS]+[CONSENSUS], [CONSENSUS]+[PASS], or [PASS]+[CONSENSUS]
  * 2. Ralph's submission passes policy checks
  * 3. Lisa's submission passes policy checks
  */
@@ -2428,15 +2428,16 @@ function cmdPolicyCheckNextStep(): void {
 
   const allIssues: string[] = [];
 
-  // 1. Consensus check
-  if (workTag !== "CONSENSUS") {
+  // 1. Consensus check — mirrors cmdStep() logic: accept CONSENSUS+CONSENSUS,
+  // CONSENSUS+PASS, or PASS+CONSENSUS combinations
+  const consensusReached =
+    (workTag === "CONSENSUS" && reviewTag === "CONSENSUS") ||
+    (workTag === "CONSENSUS" && reviewTag === "PASS") ||
+    (workTag === "PASS" && reviewTag === "CONSENSUS");
+
+  if (!consensusReached) {
     allIssues.push(
-      `Ralph's latest is [${workTag || "none"}], not [CONSENSUS].`
-    );
-  }
-  if (reviewTag !== "CONSENSUS") {
-    allIssues.push(
-      `Lisa's latest is [${reviewTag || "none"}], not [CONSENSUS].`
+      `Consensus not reached: Ralph=[${workTag || "none"}], Lisa=[${reviewTag || "none"}]. Need [CONSENSUS]+[CONSENSUS] or [PASS]+[CONSENSUS] combination.`
     );
   }
 
@@ -2451,7 +2452,7 @@ function cmdPolicyCheckNextStep(): void {
   }
 
   if (allIssues.length === 0) {
-    console.log("Ready to proceed: consensus reached and all checks pass.");
+    console.log("Ready to proceed: consensus reached ([CONSENSUS]/[PASS] combination) and all checks pass.");
     return;
   }
 
