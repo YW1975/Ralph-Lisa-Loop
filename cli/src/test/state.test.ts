@@ -2,7 +2,7 @@ import { describe, it, beforeEach, afterEach } from "node:test";
 import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { extractTag, extractSummary, VALID_TAGS, findProjectRoot, resetProjectRootCache, stateDir, resolveStateDir, STATE_DIR } from "../state.js";
+import { extractTag, extractSummary, VALID_TAGS, findProjectRoot, resetProjectRootCache, stateDir, resolveStateDir, STATE_DIR, _setTmuxStateDirOverride } from "../state.js";
 
 describe("extractTag", () => {
   it("extracts known tags", () => {
@@ -171,11 +171,13 @@ describe("stateDir", () => {
 
   beforeEach(() => {
     resetProjectRootCache();
+    _setTmuxStateDirOverride(null); // Neutralize tmux priority in tests
     fs.rmSync(TMP, { recursive: true, force: true });
     fs.mkdirSync(TMP, { recursive: true });
   });
 
   afterEach(() => {
+    _setTmuxStateDirOverride(undefined); // Restore real behavior
     resetProjectRootCache();
     fs.rmSync(TMP, { recursive: true, force: true });
   });
@@ -208,6 +210,7 @@ describe("resolveStateDir (Proposal §3.10)", () => {
 
   beforeEach(() => {
     resetProjectRootCache();
+    _setTmuxStateDirOverride(null); // Neutralize tmux priority in tests
     origEnv = process.env.RL_STATE_DIR;
     delete process.env.RL_STATE_DIR;
     fs.rmSync(TMP, { recursive: true, force: true });
@@ -215,6 +218,7 @@ describe("resolveStateDir (Proposal §3.10)", () => {
   });
 
   afterEach(() => {
+    _setTmuxStateDirOverride(undefined); // Restore real behavior
     resetProjectRootCache();
     if (origEnv !== undefined) {
       process.env.RL_STATE_DIR = origEnv;

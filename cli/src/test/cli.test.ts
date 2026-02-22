@@ -4,17 +4,22 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import { generateSessionName, executeForceTurn, parseSubtasks } from "../commands.js";
-import { resetProjectRootCache } from "../state.js";
+import { resetProjectRootCache, _setTmuxStateDirOverride } from "../state.js";
 
 const CLI = path.join(__dirname, "..", "cli.js");
 const TMP = path.join(__dirname, "..", "..", ".test-tmp");
+
+// Strip TMUX from subprocess env to prevent resolveStateDir() from finding the
+// real project's state dir via getTmuxStateDir(). Without this, all subprocess
+// commands resolve to the real .dual-agent/ instead of the test's TMP dir.
+const { TMUX: _stripTmux, ...TEST_ENV } = process.env;
 
 function run(...args: string[]): { stdout: string; exitCode: number } {
   try {
     const stdout = execFileSync(process.execPath, [CLI, ...args], {
       cwd: TMP,
       encoding: "utf-8",
-      env: { ...process.env, RL_POLICY_MODE: "off" },
+      env: { ...TEST_ENV, RL_POLICY_MODE: "off" },
     });
     return { stdout, exitCode: 0 };
   } catch (e: any) {
@@ -366,7 +371,7 @@ describe("CLI: submit --stdin", () => {
         cwd: TMP,
         encoding: "utf-8",
         input,
-        env: { ...process.env, RL_POLICY_MODE: "off" },
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off" },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {
@@ -730,7 +735,7 @@ describe("CLI: upward .dual-agent/ search (BUG-2)", () => {
       const stdout = execFileSync(process.execPath, [CLI, ...args], {
         cwd,
         encoding: "utf-8",
-        env: { ...process.env, RL_POLICY_MODE: "off" },
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off" },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {
@@ -973,7 +978,7 @@ describe("CLI: policy warning/error separation (IMP-4)", () => {
       const stdout = execFileSync(process.execPath, [CLI, ...args], {
         cwd: TMP,
         encoding: "utf-8",
-        env: { ...process.env, RL_POLICY_MODE: mode },
+        env: { ...TEST_ENV, RL_POLICY_MODE: mode },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {
@@ -1036,7 +1041,7 @@ function runEnv(env: Record<string, string>, ...args: string[]): { stdout: strin
     const stdout = execFileSync(process.execPath, [CLI, ...args], {
       cwd: TMP,
       encoding: "utf-8",
-      env: { ...process.env, RL_POLICY_MODE: "off", ...env },
+      env: { ...TEST_ENV, RL_POLICY_MODE: "off", ...env },
     });
     return { stdout, exitCode: 0 };
   } catch (e: any) {
@@ -1046,12 +1051,16 @@ function runEnv(env: Record<string, string>, ...args: string[]): { stdout: strin
 
 describe("CLI: force-turn (V4-02)", () => {
   beforeEach(() => {
+    _setTmuxStateDirOverride(null); // Prevent in-process calls from finding real state dir
+    resetProjectRootCache();
     fs.rmSync(TMP, { recursive: true, force: true });
     fs.mkdirSync(TMP, { recursive: true });
     run("init", "--minimal");
   });
 
   afterEach(() => {
+    _setTmuxStateDirOverride(undefined);
+    resetProjectRootCache();
     fs.rmSync(TMP, { recursive: true, force: true });
   });
 
@@ -1256,7 +1265,7 @@ describe("CLI: NEEDS_WORK enforcement (Proposal §3.2)", () => {
       const stdout = execFileSync(process.execPath, [CLI, ...args], {
         cwd: TMP,
         encoding: "utf-8",
-        env: { ...process.env, RL_POLICY_MODE: mode },
+        env: { ...TEST_ENV, RL_POLICY_MODE: mode },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {

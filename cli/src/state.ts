@@ -67,10 +67,23 @@ export function resetProjectRootCache(): void {
 }
 
 /**
+ * Test-only override for getTmuxStateDir(). When set to a string, that value
+ * is returned instead of querying tmux. Set to undefined to restore real behavior.
+ */
+let _tmuxStateDirOverride: string | null | undefined;
+
+export function _setTmuxStateDirOverride(value: string | null | undefined): void {
+  _tmuxStateDirOverride = value;
+}
+
+/**
  * Try to read RL_STATE_DIR from tmux session environment.
  * Returns null if not in tmux or env var not set.
  */
 export function getTmuxStateDir(): string | null {
+  // Test override takes precedence
+  if (_tmuxStateDirOverride !== undefined) return _tmuxStateDirOverride;
+
   try {
     const tmuxEnv = process.env.TMUX;
     if (!tmuxEnv) return null;
