@@ -1,3 +1,5 @@
+[English](#) | [日本語](docs/ja/guide.md) | [中文](docs/zh-CN/guide.md)
+
 # Ralph-Lisa Loop: The Concept
 
 ## Why Dual-Agent?
