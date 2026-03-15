@@ -32,6 +32,7 @@ import {
   cmdStateDir,
   cmdSubtask,
   cmdAddContext,
+  cmdStop,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -140,6 +141,10 @@ switch (cmd) {
     cmdAddContext(rest);
     break;
 
+  case "stop":
+    cmdStop(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -169,6 +174,9 @@ function showHelp(): void {
   console.log('  ralph-lisa start --full-auto "task" Launch without permission prompts');
   console.log('  ralph-lisa auto "task"              Auto mode (tmux)');
   console.log('  ralph-lisa auto --full-auto "task"  Auto mode without permission prompts');
+  console.log("  ralph-lisa stop                    Graceful stop (archive + cleanup)");
+  console.log("  ralph-lisa stop --force            Force stop (SIGKILL)");
+  console.log("  ralph-lisa stop --no-archive       Stop without archiving");
   console.log("");
   console.log("Turn Control:");
   console.log("  ralph-lisa check-turn                Check whose turn (alias: whose-turn)");

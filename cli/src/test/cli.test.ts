@@ -1717,3 +1717,121 @@ describe("CLI: Lisa tests dir cleanup on CONSENSUS (Proposal §3.6)", () => {
     assert.ok(!fs.existsSync(testsDir));
   });
 });
+
+// ─── Step 37: stop command ───────────────────────
+
+describe("CLI: stop command dispatch", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("stop is registered in CLI and runs without error when no session active", () => {
+    const r = run("stop", "--no-archive");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Stopped"));
+  });
+
+  it("stop appears in help output", () => {
+    const r = run("help");
+    assert.ok(r.stdout.includes("ralph-lisa stop"));
+    assert.ok(r.stdout.includes("--force"));
+    assert.ok(r.stdout.includes("--no-archive"));
+  });
+
+  it("stop --force runs without error when no session active", () => {
+    const r = run("stop", "--force", "--no-archive");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Stopped"));
+  });
+
+  it("stop cleans state files", () => {
+    const dualAgent = path.join(TMP, ".dual-agent");
+    // Create state files that stop should clean
+    fs.writeFileSync(path.join(dualAgent, "deadlock.txt"), "deadlocked");
+    fs.writeFileSync(path.join(dualAgent, ".checkpoint_ack"), "ack");
+    fs.writeFileSync(path.join(dualAgent, "control.txt"), "pause");
+    fs.writeFileSync(path.join(dualAgent, ".turn_changed"), "1");
+    // Use fake dead PIDs
+    fs.writeFileSync(path.join(dualAgent, "watcher.pid"), "99999");
+    fs.writeFileSync(path.join(dualAgent, "watcher_wrapper.pid"), "99998");
+
+    const r = run("stop", "--no-archive");
+    assert.strictEqual(r.exitCode, 0);
+
+    // All state files should be cleaned
+    assert.ok(!fs.existsSync(path.join(dualAgent, "deadlock.txt")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, ".checkpoint_ack")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, "control.txt")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, ".turn_changed")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, "watcher.pid")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, "watcher_wrapper.pid")));
+  });
+
+  it("stop skips signal when PID does not match our process (PID reuse safety)", () => {
+    const dualAgent = path.join(TMP, ".dual-agent");
+    // PID 1 is always alive (init/launchd) but is definitely not our watcher
+    fs.writeFileSync(path.join(dualAgent, "watcher.pid"), "1");
+
+    const r = run("stop", "--no-archive");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("not ours"));
+    // PID file should still be cleaned
+    assert.ok(!fs.existsSync(path.join(dualAgent, "watcher.pid")));
+  });
+
+  it("stop --force skips signal AND children when PID is not ours (regression)", () => {
+    const dualAgent = path.join(TMP, ".dual-agent");
+    // PID 1 is always alive (init/launchd) but is not our watcher.
+    // If --force tried pgrep -P on PID 1, it would find real system children.
+    // This test verifies those children are NOT killed.
+    fs.writeFileSync(path.join(dualAgent, "watcher.pid"), "1");
+    fs.writeFileSync(path.join(dualAgent, "watcher_wrapper.pid"), "1");
+
+    const r = run("stop", "--force", "--no-archive");
+    assert.strictEqual(r.exitCode, 0);
+    // Should report "not ours" for both
+    assert.ok(r.stdout.includes("not ours"), "should skip non-owned PID");
+    // Should NOT contain "Accelerator child" (children must not be killed)
+    assert.ok(
+      !r.stdout.includes("Accelerator child"),
+      "must not kill children of non-owned PID"
+    );
+    // PID files should be cleaned
+    assert.ok(!fs.existsSync(path.join(dualAgent, "watcher.pid")));
+    assert.ok(!fs.existsSync(path.join(dualAgent, "watcher_wrapper.pid")));
+  });
+});
+
+describe("CLI: stale detection in auto mode", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("cleans stale PID file when process is dead", () => {
+    const dualAgent = path.join(TMP, ".dual-agent");
+    const pidFile = path.join(dualAgent, "watcher.pid");
+    fs.writeFileSync(pidFile, "99999");
+
+    // auto will fail later (no tmux/claude/codex) but stale detection runs first
+    const r = run("auto", "test");
+    // Stale PID file must be cleaned
+    assert.ok(!fs.existsSync(pidFile), "stale watcher.pid should be removed");
+    // Warning should be printed
+    assert.ok(
+      r.stdout.includes("Stale") || r.stdout.includes("stale"),
+      "should warn about stale PID"
+    );
+  });
+});

@@ -960,6 +960,214 @@ export function cmdClean(): void {
   }
 }
 
+// ─── stop ─────────────────────────────────────────
+
+/**
+ * Check if a PID belongs to our watcher/wrapper process by matching
+ * the exact watcher script path in the process args.
+ */
+function isOurProcess(pid: string, dir: string): boolean {
+  const watcherScriptPath = path.join(dir, "watcher.sh");
+  try {
+    const args = execSync(`ps -p ${pid} -o args= 2>/dev/null || true`)
+      .toString()
+      .trim();
+    return args !== "" && args.includes(watcherScriptPath);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Send a signal to a PID after verifying it belongs to our project.
+ * Returns true if signal was sent, false if skipped.
+ */
+function signalOurProcess(
+  pid: string,
+  dir: string,
+  signal: "SIGTERM" | "SIGKILL",
+  label: string
+): boolean {
+  if (!isOurProcess(pid, dir)) {
+    console.log(`  ${label}: PID ${pid} is not ours (stale PID file), skipping signal`);
+    return false;
+  }
+  try {
+    process.kill(Number(pid), signal);
+    console.log(`  ${label}: sent ${signal} to PID ${pid}`);
+    return true;
+  } catch {
+    console.log(`  ${label}: PID ${pid} already dead`);
+    return false;
+  }
+}
+
+/**
+ * Clean stale PID files and orphaned state files.
+ */
+function cleanStaleFiles(dir: string): void {
+  const staleFiles = [
+    "watcher.pid",
+    "watcher_wrapper.pid",
+    "deadlock.txt",
+    ".checkpoint_ack",
+    "control.txt",
+    ".turn_changed",
+  ];
+  for (const f of staleFiles) {
+    const fp = path.join(dir, f);
+    try {
+      fs.unlinkSync(fp);
+    } catch {
+      // file didn't exist
+    }
+  }
+}
+
+export function cmdStop(args: string[]): void {
+  const force = args.includes("--force");
+  const noArchive = args.includes("--no-archive");
+  const projectDir = process.cwd();
+  const dir = stateDir(projectDir);
+  const sessionName = generateSessionName(projectDir);
+
+  console.log(line());
+  console.log(force ? "Stopping (force)..." : "Stopping gracefully...");
+  console.log(line());
+
+  // Read PIDs before any action
+  const wrapperPidFile = path.join(dir, "watcher_wrapper.pid");
+  const watcherPidFile = path.join(dir, "watcher.pid");
+  const wrapperPid = fs.existsSync(wrapperPidFile)
+    ? readFile(wrapperPidFile).trim()
+    : "";
+  const watcherPid = fs.existsSync(watcherPidFile)
+    ? readFile(watcherPidFile).trim()
+    : "";
+
+  if (force) {
+    // -- Force stop: SIGKILL everything --
+
+    if (wrapperPid) {
+      signalOurProcess(wrapperPid, dir, "SIGKILL", "Wrapper");
+    }
+    if (watcherPid && isOurProcess(watcherPid, dir)) {
+      // Only collect children after confirming ownership to avoid
+      // killing children of an unrelated process (PID reuse safety)
+      let childPids: string[] = [];
+      try {
+        childPids = execSync(`pgrep -P ${watcherPid} 2>/dev/null || true`)
+          .toString()
+          .trim()
+          .split("\n")
+          .filter(Boolean);
+      } catch {
+        // no children
+      }
+      signalOurProcess(watcherPid, dir, "SIGKILL", "Watcher");
+      for (const cpid of childPids) {
+        try {
+          process.kill(Number(cpid), "SIGKILL");
+          console.log(`  Accelerator child: killed PID ${cpid}`);
+        } catch {
+          // already dead
+        }
+      }
+    } else if (watcherPid) {
+      console.log(`  Watcher: PID ${watcherPid} is not ours (stale PID file), skipping signal`);
+    }
+  } else {
+    // -- Graceful stop: SIGTERM + wait --
+
+    // 1. Stop wrapper first (prevent watcher restart)
+    if (wrapperPid) {
+      signalOurProcess(wrapperPid, dir, "SIGTERM", "Wrapper");
+    }
+
+    // 2. Stop watcher (triggers cleanup trap)
+    if (watcherPid) {
+      signalOurProcess(watcherPid, dir, "SIGTERM", "Watcher");
+
+      // Wait for watcher to clean up (up to 5s)
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline && fs.existsSync(watcherPidFile)) {
+        execSync("sleep 0.5");
+      }
+      if (fs.existsSync(watcherPidFile)) {
+        console.log("  Watcher did not exit cleanly, forcing...");
+        signalOurProcess(watcherPid, dir, "SIGKILL", "Watcher (force)");
+      }
+    }
+
+    // 3. Send /exit to agent panes
+    try {
+      execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`);
+      for (const pane of ["0.0", "0.1"]) {
+        try {
+          execSync(
+            `tmux send-keys -t "${sessionName}:${pane}" "/exit" Enter 2>/dev/null`
+          );
+          console.log(`  Sent /exit to pane ${pane}`);
+        } catch {
+          // pane doesn't exist
+        }
+      }
+      // Wait for agents to exit (up to 10s)
+      // Check pane process count rather than session existence,
+      // since session stays alive until we explicitly kill it.
+      const agentDeadline = Date.now() + 10000;
+      while (Date.now() < agentDeadline) {
+        try {
+          // List pane PIDs — if only shells remain (no claude/codex), agents exited
+          const paneProcs = execSync(
+            `tmux list-panes -t "${sessionName}" -F "#{pane_pid}" 2>/dev/null || true`
+          ).toString().trim();
+          if (!paneProcs) break;
+          // Check if any pane still has agent child processes
+          const pids = paneProcs.split("\n").filter(Boolean);
+          let agentRunning = false;
+          for (const pp of pids) {
+            const children = execSync(`pgrep -P ${pp} 2>/dev/null || true`).toString().trim();
+            if (children) { agentRunning = true; break; }
+          }
+          if (!agentRunning) break;
+          execSync("sleep 1");
+        } catch {
+          break;
+        }
+      }
+    } catch {
+      // session doesn't exist
+    }
+  }
+
+  // Kill tmux session if still alive
+  try {
+    execSync(`tmux kill-session -t "${sessionName}" 2>/dev/null`);
+    console.log(`  Killed tmux session: ${sessionName}`);
+  } catch {
+    console.log(`  No tmux session: ${sessionName}`);
+  }
+
+  // Clean state files
+  cleanStaleFiles(dir);
+  console.log("  Cleaned state files");
+
+  // Archive
+  if (!noArchive) {
+    try {
+      const archiveName = `stop-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}`;
+      cmdArchive([archiveName]);
+    } catch {
+      console.log("  Archive skipped (no session data)");
+    }
+  }
+
+  console.log(line());
+  console.log("Stopped.");
+  console.log(line());
+}
+
 // ─── scope-update / update-task ──────────────────
 
 export function cmdUpdateTask(args: string[]): void {
@@ -1574,6 +1782,53 @@ export function cmdAuto(args: string[]): void {
 
   const { execSync } = require("node:child_process");
 
+  // Check if initialized (full init has CLAUDE.md marker, minimal has .dual-agent/)
+  const claudeMd = path.join(projectDir, "CLAUDE.md");
+  const hasFullInit = fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER);
+  const hasSession = fs.existsSync(path.join(projectDir, STATE_DIR));
+  if (!hasFullInit && !hasSession) {
+    console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
+    process.exit(1);
+  }
+
+  const sessionName = generateSessionName(projectDir);
+  const dir = stateDir(projectDir);
+  fs.mkdirSync(dir, { recursive: true });
+
+  // Stale detection: check for leftover PID files from a previous run.
+  // Runs before prerequisite checks so stale state is always cleaned,
+  // even in environments without tmux/claude/codex.
+  for (const pidFileName of ["watcher.pid", "watcher_wrapper.pid"]) {
+    const pidFile = path.join(dir, pidFileName);
+    if (fs.existsSync(pidFile)) {
+      const pid = readFile(pidFile).trim();
+      if (pid) {
+        if (isOurProcess(pid, dir)) {
+          console.error(
+            `Error: ${pidFileName.replace(".pid", "")} is still running (PID ${pid}).`
+          );
+          console.error("Run 'ralph-lisa stop' first.");
+          process.exit(1);
+        } else {
+          // PID is dead or belongs to another process — stale file
+          console.log(
+            `Warning: Stale ${pidFileName} found (PID ${pid} is not ours). Cleaning up.`
+          );
+          try { fs.unlinkSync(pidFile); } catch {}
+        }
+      }
+    }
+  }
+
+  // Clean orphaned state files from stale runs
+  for (const staleFile of ["deadlock.txt", ".checkpoint_ack", "control.txt"]) {
+    const fp = path.join(dir, staleFile);
+    if (fs.existsSync(fp)) {
+      console.log(`Warning: Cleaning stale ${staleFile}`);
+      try { fs.unlinkSync(fp); } catch {}
+    }
+  }
+
   // Check prerequisites
   try {
     execSync("which tmux", { stdio: "pipe" });
@@ -1623,15 +1878,6 @@ export function cmdAuto(args: string[]): void {
     }
   }
 
-  // Check if initialized (full init has CLAUDE.md marker, minimal has .dual-agent/)
-  const claudeMd = path.join(projectDir, "CLAUDE.md");
-  const hasFullInit = fs.existsSync(claudeMd) && readFile(claudeMd).includes(MARKER);
-  const hasSession = fs.existsSync(path.join(projectDir, STATE_DIR));
-  if (!hasFullInit && !hasSession) {
-    console.error("Error: Not initialized. Run 'ralph-lisa init' first.");
-    process.exit(1);
-  }
-
   // Initialize task
   if (task) {
     console.log(`Task: ${task}`);
@@ -1639,9 +1885,15 @@ export function cmdAuto(args: string[]): void {
     console.log("");
   }
 
-  const sessionName = generateSessionName(projectDir);
-  const dir = stateDir(projectDir);
-  fs.mkdirSync(dir, { recursive: true });
+  // Check if tmux session already exists
+  try {
+    execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`);
+    console.error(`Error: tmux session "${sessionName}" already exists.`);
+    console.error("Run 'ralph-lisa stop' first.");
+    process.exit(1);
+  } catch {
+    // session doesn't exist — good
+  }
 
   // Archive pane logs from previous runs (for transcript preservation)
   const logsDir = path.join(dir, "logs");
