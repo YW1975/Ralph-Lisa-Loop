@@ -12,7 +12,7 @@ const TMP = path.join(__dirname, "..", "..", ".test-tmp");
 // Strip TMUX from subprocess env to prevent resolveStateDir() from finding the
 // real project's state dir via getTmuxStateDir(). Without this, all subprocess
 // commands resolve to the real .dual-agent/ instead of the test's TMP dir.
-const { TMUX: _stripTmux, ...TEST_ENV } = process.env;
+const { TMUX: _stripTmux, RL_STATE_DIR: _stripRlStateDir, ...TEST_ENV } = process.env;
 
 function run(...args: string[]): { stdout: string; exitCode: number } {
   try {
@@ -1344,24 +1344,30 @@ describe("CLI: deadlock counter (Proposal §3.2)", () => {
     fs.rmSync(TMP, { recursive: true, force: true });
   });
 
-  it("triggers deadlock after 3 consecutive NEEDS_WORK rounds with FIX attempts", () => {
+  it("triggers deadlock after 5 consecutive NEEDS_WORK rounds with FIX attempts", () => {
     // Round 1: Ralph submits, Lisa returns NEEDS_WORK
     run("submit-ralph", "[PLAN] Plan");
     run("submit-lisa", "[NEEDS_WORK] Issue 1\n\n- commands.ts:1");
-    // Round 2: Ralph tries FIX, Lisa returns NEEDS_WORK again
+    // Round 2
     run("submit-ralph", "[FIX] Fixed issue 1\n\nTest Results\n- pass\ncommands.ts:2");
     run("submit-lisa", "[NEEDS_WORK] Issue 2\n\n- commands.ts:3");
-    // Round 3: Ralph tries FIX again, Lisa returns NEEDS_WORK third time
+    // Round 3
     run("submit-ralph", "[FIX] Fixed issue 2\n\nTest Results\n- pass\ncommands.ts:4");
-    const r = run("submit-lisa", "[NEEDS_WORK] Issue 3\n\n- commands.ts:5");
+    run("submit-lisa", "[NEEDS_WORK] Issue 3\n\n- commands.ts:5");
+    // Round 4
+    run("submit-ralph", "[FIX] Fixed issue 3\n\nTest Results\n- pass\ncommands.ts:6");
+    run("submit-lisa", "[NEEDS_WORK] Issue 4\n\n- commands.ts:7");
+    // Round 5: triggers deadlock
+    run("submit-ralph", "[FIX] Fixed issue 4\n\nTest Results\n- pass\ncommands.ts:8");
+    const r = run("submit-lisa", "[NEEDS_WORK] Issue 5\n\n- commands.ts:9");
     // Check deadlock triggered
-    assert.ok(r.stdout.includes("DEADLOCK"), "Should trigger DEADLOCK after 3 consecutive NEEDS_WORK");
+    assert.ok(r.stdout.includes("DEADLOCK"), "Should trigger DEADLOCK after 5 consecutive NEEDS_WORK");
     // Verify deadlock.txt exists
     const deadlockPath = path.join(TMP, ".dual-agent", "deadlock.txt");
     assert.ok(fs.existsSync(deadlockPath), "deadlock.txt should exist");
-    // Verify counter is 3
+    // Verify counter is 5
     const count = fs.readFileSync(path.join(TMP, ".dual-agent", "needs_work_count.txt"), "utf-8").trim();
-    assert.strictEqual(count, "3");
+    assert.strictEqual(count, "5");
   });
 
   it("resets counter when Lisa submits non-NEEDS_WORK", () => {
@@ -1381,13 +1387,17 @@ describe("CLI: deadlock counter (Proposal §3.2)", () => {
   });
 
   it("scope-update clears deadlock", () => {
-    // Build up to deadlock
+    // Build up to deadlock (threshold = 5 consecutive NEEDS_WORK)
     run("submit-ralph", "[PLAN] Plan");
     run("submit-lisa", "[NEEDS_WORK] Issue\n\n- commands.ts:1");
     run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass\ncommands.ts:2");
     run("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- commands.ts:3");
     run("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass\ncommands.ts:4");
     run("submit-lisa", "[NEEDS_WORK] Third time\n\n- commands.ts:5");
+    run("submit-ralph", "[FIX] Another fix\n\nTest Results\n- pass\ncommands.ts:6");
+    run("submit-lisa", "[NEEDS_WORK] Fourth time\n\n- commands.ts:7");
+    run("submit-ralph", "[FIX] Yet another fix\n\nTest Results\n- pass\ncommands.ts:8");
+    run("submit-lisa", "[NEEDS_WORK] Fifth time\n\n- commands.ts:9");
     // Verify deadlock
     assert.ok(fs.existsSync(path.join(TMP, ".dual-agent", "deadlock.txt")));
     // scope-update should clear it
@@ -1833,5 +1843,67 @@ describe("CLI: stale detection in auto mode", () => {
       r.stdout.includes("Stale") || r.stdout.includes("stale"),
       "should warn about stale PID"
     );
+  });
+});
+
+// ─── Step38: step transition resets turn/work/review ─────────
+
+describe("CLI: step resets turn and work/review (step38)", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("step resets turn to ralph", () => {
+    // Reach consensus (turn is currently lisa after Ralph's submit)
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    // Enter new step
+    run("step", "step38-test");
+    // Turn should be reset to ralph
+    const turnFile = path.join(TMP, ".dual-agent", "turn.txt");
+    const turn = fs.readFileSync(turnFile, "utf-8").trim();
+    assert.strictEqual(turn, "ralph", "turn should be reset to ralph after step transition");
+  });
+
+  it("step clears work.md tags", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    run("step", "step38-test");
+    const workFile = path.join(TMP, ".dual-agent", "work.md");
+    const content = fs.readFileSync(workFile, "utf-8");
+    // Should not contain old CONSENSUS tag
+    assert.ok(!content.includes("[CONSENSUS]"), "work.md should not contain old CONSENSUS tag");
+    assert.ok(content.includes("Waiting for Ralph"), "work.md should be reset to waiting state");
+  });
+
+  it("step clears review.md tags", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    run("step", "step38-test");
+    const reviewFile = path.join(TMP, ".dual-agent", "review.md");
+    const content = fs.readFileSync(reviewFile, "utf-8");
+    assert.ok(!content.includes("[CONSENSUS]"), "review.md should not contain old CONSENSUS tag");
+    assert.ok(content.includes("Waiting for Lisa"), "review.md should be reset to waiting state");
+  });
+
+  it("stale consensus tags do not carry over to new step", () => {
+    // Reach consensus
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\n\n- Done");
+    // Enter new step
+    run("step", "step38-test");
+    // Submit new work in new step — should work normally
+    const r = run("submit-ralph", "[PLAN] New plan for step38");
+    assert.strictEqual(r.exitCode, 0);
+    // work.md should now have PLAN tag, not CONSENSUS
+    const workFile = path.join(TMP, ".dual-agent", "work.md");
+    const content = fs.readFileSync(workFile, "utf-8");
+    assert.ok(content.includes("[PLAN]"), "work.md should have new PLAN tag");
   });
 });

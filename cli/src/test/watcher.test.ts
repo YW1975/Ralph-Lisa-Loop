@@ -855,3 +855,239 @@ describe("Watcher: control file commands (Proposal §3.11)", () => {
     assert.strictEqual(s.messages[2].target, "ralph");
   });
 });
+
+// ─── Step38: Consensus detection simulation ──────
+
+/**
+ * Simulates the watcher's check_consensus_reached() function.
+ * Extracts last tag from canonical header format: ## [TAG] Round N | Step: ...
+ */
+function extractLastTagFromContent(content: string): string {
+  const re = /^## \[(\w+)\] Round \d+ \| Step: /gm;
+  let lastTag = "";
+  let match;
+  while ((match = re.exec(content)) !== null) {
+    lastTag = match[1];
+  }
+  return lastTag;
+}
+
+function checkConsensusReached(workContent: string, reviewContent: string): boolean {
+  const workTag = extractLastTagFromContent(workContent);
+  const reviewTag = extractLastTagFromContent(reviewContent);
+  return (
+    (workTag === "CONSENSUS" && reviewTag === "CONSENSUS") ||
+    (workTag === "CONSENSUS" && reviewTag === "PASS") ||
+    (workTag === "PASS" && reviewTag === "CONSENSUS")
+  );
+}
+
+describe("Watcher: consensus suppression (step38)", () => {
+  it("detects CONSENSUS + CONSENSUS", () => {
+    const work = "# Ralph Work\n\n## [CONSENSUS] Round 5 | Step: step37\nAgreed\n";
+    const review = "# Lisa Review\n\n## [CONSENSUS] Round 5 | Step: step37\nConfirmed\n";
+    assert.ok(checkConsensusReached(work, review));
+  });
+
+  it("detects CONSENSUS + PASS", () => {
+    const work = "# Ralph Work\n\n## [CONSENSUS] Round 5 | Step: step37\nAgreed\n";
+    const review = "# Lisa Review\n\n## [PASS] Round 4 | Step: step37\nApproved\n";
+    assert.ok(checkConsensusReached(work, review));
+  });
+
+  it("detects PASS + CONSENSUS", () => {
+    const work = "# Ralph Work\n\n## [PASS] Round 4 | Step: step37\nApproved\n";
+    const review = "# Lisa Review\n\n## [CONSENSUS] Round 5 | Step: step37\nConfirmed\n";
+    assert.ok(checkConsensusReached(work, review));
+  });
+
+  it("does not suppress on CODE + PASS", () => {
+    const work = "# Ralph Work\n\n## [CODE] Round 3 | Step: step37\nSome code\n";
+    const review = "# Lisa Review\n\n## [PASS] Round 4 | Step: step37\nApproved\n";
+    assert.ok(!checkConsensusReached(work, review));
+  });
+
+  it("does not suppress on PLAN + NEEDS_WORK", () => {
+    const work = "# Ralph Work\n\n## [PLAN] Round 1 | Step: step37\nPlan\n";
+    const review = "# Lisa Review\n\n## [NEEDS_WORK] Round 2 | Step: step37\nFix it\n";
+    assert.ok(!checkConsensusReached(work, review));
+  });
+
+  it("uses last tag when multiple rounds exist", () => {
+    const work = "# Ralph Work\n\n## [CODE] Round 1 | Step: s1\nCode\n\n## [CONSENSUS] Round 3 | Step: s1\nAgreed\n";
+    const review = "# Lisa Review\n\n## [NEEDS_WORK] Round 2 | Step: s1\nFix\n\n## [PASS] Round 3 | Step: s1\nOK\n";
+    assert.ok(checkConsensusReached(work, review));
+  });
+
+  it("does not suppress on empty/reset files", () => {
+    const work = "# Ralph Work\n\n(Waiting for Ralph to submit)\n";
+    const review = "# Lisa Review\n\n(Waiting for Lisa to respond)\n";
+    assert.ok(!checkConsensusReached(work, review));
+  });
+});
+
+// ─── Step38: Escalation state machine simulation ──────
+
+interface EscalationState {
+  notifySentAt: number;
+  reminderLevel: number;
+  seenTurn: string;
+  ackedTurn: string;
+}
+
+function newEscalationState(): EscalationState {
+  return { notifySentAt: 0, reminderLevel: 0, seenTurn: "", ackedTurn: "" };
+}
+
+/**
+ * Simulates the escalation decision logic from watcher.sh.
+ * Returns the action taken: "none" | "remind" | "slash" | "stuck" | "context_limit"
+ *
+ * deliverySuccess: whether send_go_to_pane would succeed (default true).
+ * When false, L1/L2 attempt delivery but don't advance reminderLevel.
+ * L3 never depends on delivery (it's a log-only action), so it always advances.
+ *
+ * The elif chain checks L3 first (highest elapsed), then L2, then L1.
+ * This ensures L3 is always reachable even if L1/L2 delivery keeps failing.
+ */
+function checkEscalation(
+  s: EscalationState,
+  nowEpoch: number,
+  contextLimitDetected: boolean,
+  interactivePrompt: boolean,
+  deliverySuccess: boolean = true
+): string {
+  if (s.seenTurn !== s.ackedTurn || s.notifySentAt <= 0) return "none";
+  const elapsed = nowEpoch - s.notifySentAt;
+
+  if (contextLimitDetected && s.reminderLevel < 3) {
+    s.reminderLevel = 3;
+    return "context_limit";
+  }
+  // L3 checked first — always reachable by time alone, no delivery dependency
+  if (elapsed >= 600 && s.reminderLevel < 3) {
+    s.reminderLevel = 3;
+    return "stuck";
+  }
+  if (elapsed >= 300 && s.reminderLevel < 2) {
+    if (!interactivePrompt) {
+      if (deliverySuccess) s.reminderLevel = 2;
+      return "slash";
+    }
+    return "none"; // skipped due to prompt
+  }
+  if (elapsed >= 120 && s.reminderLevel < 1) {
+    if (deliverySuccess) s.reminderLevel = 1;
+    return "remind";
+  }
+  return "none";
+}
+
+describe("Watcher: escalation state machine (step38)", () => {
+  it("no escalation before 2 minutes", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    assert.strictEqual(checkEscalation(s, 1060, false, false), "none");
+  });
+
+  it("L1 REMINDER after 2 minutes", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    assert.strictEqual(checkEscalation(s, 1120, false, false), "remind");
+    assert.strictEqual(s.reminderLevel, 1);
+  });
+
+  it("L2 slash after 5 minutes", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    s.reminderLevel = 1; // L1 already sent
+    assert.strictEqual(checkEscalation(s, 1300, false, false), "slash");
+    assert.strictEqual(s.reminderLevel, 2);
+  });
+
+  it("L2 skipped when interactive prompt detected", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    s.reminderLevel = 1;
+    assert.strictEqual(checkEscalation(s, 1300, false, true), "none");
+    assert.strictEqual(s.reminderLevel, 1); // not advanced
+  });
+
+  it("L3 stuck after 10 minutes", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    s.reminderLevel = 2;
+    assert.strictEqual(checkEscalation(s, 1600, false, false), "stuck");
+    assert.strictEqual(s.reminderLevel, 3);
+  });
+
+  it("context limit jumps directly to L3", () => {
+    const s = newEscalationState();
+    s.seenTurn = "lisa"; s.ackedTurn = "lisa"; s.notifySentAt = 1000;
+    assert.strictEqual(checkEscalation(s, 1010, true, false), "context_limit");
+    assert.strictEqual(s.reminderLevel, 3);
+  });
+
+  it("each level fires only once", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    checkEscalation(s, 1120, false, false); // L1
+    assert.strictEqual(checkEscalation(s, 1130, false, false), "none"); // L1 already sent
+    checkEscalation(s, 1300, false, false); // L2
+    assert.strictEqual(checkEscalation(s, 1310, false, false), "none"); // L2 already sent
+    checkEscalation(s, 1600, false, false); // L3
+    assert.strictEqual(checkEscalation(s, 1700, false, false), "none"); // L3 already sent
+  });
+
+  it("resets on turn change", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    s.reminderLevel = 3; // fully escalated
+    // Simulate turn change
+    s.seenTurn = "lisa"; s.ackedTurn = ""; s.notifySentAt = 0; s.reminderLevel = 0;
+    assert.strictEqual(checkEscalation(s, 2000, false, false), "none"); // not acked yet
+    s.ackedTurn = "lisa"; s.notifySentAt = 2000;
+    assert.strictEqual(checkEscalation(s, 2120, false, false), "remind"); // fresh L1
+  });
+
+  it("L1 delivery failure does not advance level", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    // L1 attempted but delivery fails
+    assert.strictEqual(checkEscalation(s, 1120, false, false, false), "remind");
+    assert.strictEqual(s.reminderLevel, 0, "level should not advance on failed delivery");
+  });
+
+  it("L2 delivery failure does not advance level", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    s.reminderLevel = 1; // L1 succeeded previously
+    assert.strictEqual(checkEscalation(s, 1300, false, false, false), "slash");
+    assert.strictEqual(s.reminderLevel, 1, "level should not advance on failed delivery");
+  });
+
+  it("L3 is reachable even when L1 delivery keeps failing", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    // L1 fails repeatedly — level stays at 0
+    checkEscalation(s, 1120, false, false, false);
+    assert.strictEqual(s.reminderLevel, 0);
+    checkEscalation(s, 1200, false, false, false);
+    assert.strictEqual(s.reminderLevel, 0);
+    // But at 10 minutes, L3 fires because it's checked first (elapsed >= 600)
+    assert.strictEqual(checkEscalation(s, 1600, false, false, false), "stuck");
+    assert.strictEqual(s.reminderLevel, 3, "L3 must be reachable despite L1 failures");
+  });
+
+  it("L3 is reachable even when L2 delivery keeps failing", () => {
+    const s = newEscalationState();
+    s.seenTurn = "lisa"; s.ackedTurn = "lisa"; s.notifySentAt = 1000;
+    s.reminderLevel = 1; // L1 succeeded
+    // L2 fails
+    checkEscalation(s, 1300, false, false, false);
+    assert.strictEqual(s.reminderLevel, 1);
+    // L3 fires at 10 minutes
+    assert.strictEqual(checkEscalation(s, 1600, false, false, false), "stuck");
+    assert.strictEqual(s.reminderLevel, 3);
+  });
+});

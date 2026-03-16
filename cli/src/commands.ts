@@ -477,7 +477,7 @@ export function cmdSubmitLisa(args: string[]): void {
     const currentCount = parseInt(readFile(nwCountPath) || "0", 10);
     const newCount = currentCount + 1;
     writeFile(nwCountPath, String(newCount));
-    if (newCount >= 3) {
+    if (newCount >= 5) {
       // Trigger deadlock — write flag for watcher to detect
       const deadlockPath = path.join(dir, "deadlock.txt");
       writeFile(deadlockPath, `DEADLOCK at round ${round}: ${newCount} consecutive NEEDS_WORK rounds\nTimestamp: ${ts}\nAction: Watcher will pause. User intervention required.`);
@@ -797,6 +797,17 @@ export function cmdStep(args: string[]): void {
 
   setStep(stepName);
   setRound(1);
+  setTurn("ralph");
+
+  // Reset work/review to prevent stale consensus tags from carrying over
+  writeFile(
+    path.join(dir, "work.md"),
+    "# Ralph Work\n\n(Waiting for Ralph to submit)\n"
+  );
+  writeFile(
+    path.join(dir, "review.md"),
+    "# Lisa Review\n\n(Waiting for Lisa to respond)\n"
+  );
 
   const ts = timestamp();
 
@@ -1930,6 +1941,11 @@ CHECKPOINT_REMIND_TIME=0
 DEADLOCK_REMIND_TIME=0
 CLEANUP_DONE=0
 
+# Per-turn escalation state (step38: anti-flooding + stuck-agent detection)
+NOTIFY_SENT_AT=0        # epoch when first notification was sent this turn
+REMINDER_LEVEL=0        # 0=initial, 1=REMINDER sent, 2=slash sent, 3=user notified
+CURRENT_TURN_HASH=""    # hash of turn.txt content for change detection
+
 PANE0_LOG="\${STATE_DIR}/pane0.log"
 PANE1_LOG="\${STATE_DIR}/pane1.log"
 PID_FILE="\${STATE_DIR}/watcher.pid"
@@ -2269,6 +2285,32 @@ trigger_agent() {
   return 1
 }
 
+# ─── consensus detection (step38: suppress notifications after consensus) ────
+
+# Returns 0 if consensus reached (suppress notifications), 1 otherwise
+check_consensus_reached() {
+  local work_file="\${STATE_DIR}/work.md"
+  local review_file="\${STATE_DIR}/review.md"
+
+  if [[ ! -f "\$work_file" ]] || [[ ! -f "\$review_file" ]]; then
+    return 1
+  fi
+
+  # Extract last tag from canonical header: ## [TAG] Round N | Step: ...
+  # Use sed (POSIX-compatible) instead of grep -oP (Perl, not available on macOS)
+  local work_tag review_tag
+  work_tag=\$(grep '^## \\[' "\$work_file" | grep '] Round [0-9]' | sed 's/^## \\[\\([A-Z_]*\\)\\].*/\\1/' | tail -1)
+  review_tag=\$(grep '^## \\[' "\$review_file" | grep '] Round [0-9]' | sed 's/^## \\[\\([A-Z_]*\\)\\].*/\\1/' | tail -1)
+
+  # Consensus combos: CONSENSUS+CONSENSUS, CONSENSUS+PASS, PASS+CONSENSUS
+  if [[ "\$work_tag" == "CONSENSUS" && "\$review_tag" == "CONSENSUS" ]] ||
+     [[ "\$work_tag" == "CONSENSUS" && "\$review_tag" == "PASS" ]] ||
+     [[ "\$work_tag" == "PASS" && "\$review_tag" == "CONSENSUS" ]]; then
+    return 0
+  fi
+  return 1
+}
+
 # ─── check_and_trigger (state machine) ───────────
 
 check_and_trigger() {
@@ -2299,6 +2341,9 @@ check_and_trigger() {
               rm -f "\$STATE_DIR/control.txt"
               if [[ "\$resume_cmd" == "resume" ]]; then
                 echo "[Watcher] RESUMED by control file."
+                # Reset escalation state so we restart from L0 (step38)
+                NOTIFY_SENT_AT=0
+                REMINDER_LEVEL=0
                 break
               else
                 echo "[Watcher] Ignoring '\$resume_cmd' while paused (only 'resume' accepted)"
@@ -2347,12 +2392,15 @@ check_and_trigger() {
   if [[ -f "\$STATE_DIR/turn.txt" ]]; then
     CURRENT_TURN=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
 
-    # Detect new turn change (reset fail count + cooldown)
+    # Detect new turn change (reset fail count + cooldown + escalation state)
     if [[ -n "\$CURRENT_TURN" && "\$CURRENT_TURN" != "\$SEEN_TURN" ]]; then
       echo "[Watcher] Turn changed: \$SEEN_TURN -> \$CURRENT_TURN"
       SEEN_TURN="\$CURRENT_TURN"
       FAIL_COUNT=0
       LAST_ACK_TIME=0
+      # Reset per-turn escalation state (step38)
+      NOTIFY_SENT_AT=0
+      REMINDER_LEVEL=0
 
       # Write round separator to pane logs for transcript tracking
       local round_ts
@@ -2371,6 +2419,13 @@ check_and_trigger() {
       if (( elapsed < 30 )); then
         return
       fi
+    fi
+
+    # Consensus suppression (step38): suppress notifications when consensus reached
+    # Watcher keeps polling but does not send "Your turn" messages.
+    # When next-step resets work.md/review.md, tags clear and notifications resume.
+    if check_consensus_reached; then
+      return
     fi
 
     # Checkpoint: pause for user review at configured round intervals
@@ -2414,10 +2469,63 @@ check_and_trigger() {
         ACKED_TURN="\$SEEN_TURN"
         FAIL_COUNT=0
         LAST_ACK_TIME=\$(date +%s)
+        NOTIFY_SENT_AT=\$(date +%s)
+        REMINDER_LEVEL=0
         echo "[Watcher] Turn acknowledged: \$SEEN_TURN (cooldown 30s)"
       else
         FAIL_COUNT=\$((FAIL_COUNT + 1))
         echo "[Watcher] Trigger failed (fail_count=\$FAIL_COUNT), will retry next cycle"
+      fi
+
+    # Escalation (step38): agent was notified but turn hasn't changed
+    elif [[ -n "\$SEEN_TURN" && "\$SEEN_TURN" == "\$ACKED_TURN" && "\$NOTIFY_SENT_AT" -gt 0 ]]; then
+      local now_epoch elapsed
+      now_epoch=\$(date +%s)
+      elapsed=\$(( now_epoch - NOTIFY_SENT_AT ))
+
+      # Determine target pane for escalation
+      local target_pane target_name target_log
+      if [[ "\$SEEN_TURN" == "ralph" ]]; then
+        target_pane="0.0"; target_name="Ralph"; target_log="\$PANE0_LOG"
+      else
+        target_pane="0.1"; target_name="Lisa"; target_log="\$PANE1_LOG"
+      fi
+
+      # Check for context limit in pane output (unrecoverable — notify user immediately)
+      local pane_tail
+      pane_tail=\$(tmux capture-pane -t "\${SESSION}:\${target_pane}" -p 2>/dev/null | tail -10)
+      if echo "\$pane_tail" | grep -qiE "context limit|conversation too long|token limit|context window"; then
+        if (( REMINDER_LEVEL < 3 )); then
+          echo "[Watcher] CONTEXT LIMIT detected for \$target_name. Manual intervention required."
+          echo "[Watcher] Restart the agent session to continue."
+          REMINDER_LEVEL=3
+        fi
+
+      # Time-based escalation: each level checked independently by elapsed time.
+      # If L1/L2 delivery fails, time still advances, so L3 is always reachable.
+
+      # Level 3: notify user after 10 minutes — always reachable regardless of L1/L2 success
+      elif (( elapsed >= 600 && REMINDER_LEVEL < 3 )); then
+        echo "[Watcher] STUCK: \$target_name has not responded for \${elapsed}s. Manual intervention needed."
+        REMINDER_LEVEL=3
+
+      # Level 2: slash command after 5 minutes, with prompt guard
+      elif (( elapsed >= 300 && REMINDER_LEVEL < 2 )); then
+        if ! check_for_interactive_prompt "\$target_pane"; then
+          echo "[Watcher] Escalation L2: Sending /check-turn to \$target_name (no response for \${elapsed}s)"
+          if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "/check-turn"; then
+            REMINDER_LEVEL=2
+          fi
+        else
+          echo "[Watcher] Escalation L2: Skipped — interactive prompt detected for \$target_name"
+        fi
+
+      # Level 1: REMINDER after 2 minutes
+      elif (( elapsed >= 120 && REMINDER_LEVEL < 1 )); then
+        echo "[Watcher] Escalation L1: Sending REMINDER to \$target_name (no response for \${elapsed}s)"
+        if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "REMINDER: It is your turn. Please check turn and continue working."; then
+          REMINDER_LEVEL=1
+        fi
       fi
     fi
   fi
