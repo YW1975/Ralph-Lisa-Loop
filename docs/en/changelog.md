@@ -4,6 +4,15 @@
 
 ## v0.3.x
 
+### What's New in v0.3.11
+
+- **`ralph-lisa stop` command**: Graceful shutdown of auto mode — stops watcher, sends `/exit` to agent panes, tears down tmux session. Supports `--force` for immediate kill and `--no-archive` to skip log archival.
+- **Watcher v4**: Round-based change detection fixes mutual deadlock where both agents stop saying they're waiting for each other. Uses monotonically increasing round number instead of turn value, so double-flip (A→B→A during long delivery) is always detected.
+- **Cooldown bypass on new rounds**: Cooldown timer no longer suppresses notifications for genuinely new rounds — only same-round re-delivery is throttled.
+- **Consensus suppression with round boundary**: Consensus detection now tracks which round it was detected at, preventing stale consensus from blocking notifications after `next-step`.
+- **Crash recovery**: Watcher state (SEEN_ROUND, ACKED_ROUND, DELIVERY_PENDING) persisted to `.watcher_state` file. On unexpected exit, state is preserved for wrapper restart replay. Graceful `stop` clears the file.
+- **Escalation state machine**: Multi-level stuck-agent detection (L1 REMINDER at 2min, L2 slash command at 5min, L3 user notification at 10min). Context limit detection jumps directly to L3. Delivery failure does not advance escalation level.
+
 ### What's New in v0.3
 
 - **`update-task` command**: Change task direction mid-session without restarting. Appends to task.md so history is preserved. Task context is auto-injected into submissions and watcher trigger messages.
@@ -15,6 +24,13 @@
 - **Deadlock escape**: After 5 rounds without consensus, agents can use `[OVERRIDE]` or `[HANDOFF]`.
 - **Minimal init**: `ralph-lisa init --minimal` creates only session state (zero project files).
 - **`doctor` command**: Verify all dependencies with `ralph-lisa doctor`.
+
+### Bug Fixes (v0.3.11)
+
+- Fixed watcher deadlock: both agents simultaneously waiting for each other due to turn value comparison missing double-flip during long delivery.
+- Fixed consensus suppression blocking notifications after round change.
+- Fixed cooldown timer suppressing legitimate new-turn notifications within 30s window.
+- Fixed crash recovery: watcher state no longer deleted on unexpected exit (only on graceful stop).
 
 ### Bug Fixes (v0.3)
 

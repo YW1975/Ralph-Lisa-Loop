@@ -14,6 +14,9 @@
 | `ralph-lisa start --full-auto "task"` | 許可プロンプトなしで起動 |
 | `ralph-lisa auto "task"` | tmux を使った auto モード |
 | `ralph-lisa auto --full-auto "task"` | 許可プロンプトなしの auto モード |
+| `ralph-lisa stop` | グレースフルシャットダウン（watcher 停止、agent 終了、tmux 解体） |
+| `ralph-lisa stop --force` | 全プロセスを即時強制終了 |
+| `ralph-lisa stop --no-archive` | ログアーカイブなしで停止 |
 
 ## ターン制御
 

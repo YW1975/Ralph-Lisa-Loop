@@ -13,6 +13,9 @@
 | `ralph-lisa start --full-auto "task"` | Launch without permission prompts |
 | `ralph-lisa auto "task"` | Auto mode with tmux |
 | `ralph-lisa auto --full-auto "task"` | Auto mode without permission prompts |
+| `ralph-lisa stop` | Graceful shutdown (stop watcher, exit agents, teardown tmux) |
+| `ralph-lisa stop --force` | Force kill all processes immediately |
+| `ralph-lisa stop --no-archive` | Stop without archiving pane logs |
 
 ## Turn Control
 

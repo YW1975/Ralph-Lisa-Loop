@@ -14,6 +14,9 @@
 | `ralph-lisa start --full-auto "task"` | 启动时无需权限确认 |
 | `ralph-lisa auto "task"` | 使用 tmux 的自动模式 |
 | `ralph-lisa auto --full-auto "task"` | 无需权限确认的自动模式 |
+| `ralph-lisa stop` | 优雅关闭（停止 watcher、退出 agent、拆除 tmux） |
+| `ralph-lisa stop --force` | 立即强制终止所有进程 |
+| `ralph-lisa stop --no-archive` | 停止但不归档日志 |
 
 ## 回合控制
 
