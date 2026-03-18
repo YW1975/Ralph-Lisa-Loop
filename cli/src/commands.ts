@@ -1096,6 +1096,8 @@ export function cmdStop(args: string[]): void {
     }
 
     // 2. Stop watcher (triggers cleanup trap)
+    // Signal graceful stop so watcher clears .watcher_state (step39)
+    writeFile(path.join(dir, ".graceful_stop"), "1");
     if (watcherPid) {
       signalOurProcess(watcherPid, dir, "SIGTERM", "Watcher");
 
@@ -1924,18 +1926,24 @@ export function cmdAuto(args: string[]): void {
   // Create watcher script
   const watcherScript = path.join(dir, "watcher.sh");
   let watcherContent = `#!/bin/bash
-# Turn watcher v3 - fire-and-forget agent triggering
+# Turn watcher v4 - round-based change detection + persistent state
 # Architecture: polling main loop + optional event acceleration
-# v3: Removed output stability wait + delivery verification (RLL-001)
+# v4: Round-based detection fixes double-flip deadlock (step39)
 
 STATE_DIR=".dual-agent"
 SESSION="${sessionName}"
 SCRIPT_PATH="\$(cd "\$(dirname "\$0")" && pwd)/watcher.sh"
 SEEN_TURN=""
 ACKED_TURN=""
+SEEN_ROUND=""
+ACKED_ROUND=""
 FAIL_COUNT=0
 ACCEL_PID=""
 LAST_ACK_TIME=0
+DELIVERY_PENDING=0
+PENDING_TARGET=""
+CONSENSUS_AT_ROUND=""
+WATCHER_STATE_FILE="\${STATE_DIR}/.watcher_state"
 CHECKPOINT_ROUNDS=\${RL_CHECKPOINT_ROUNDS:-0}
 CHECKPOINT_REMIND_TIME=0
 DEADLOCK_REMIND_TIME=0
@@ -1981,6 +1989,42 @@ fi
 
 echo \$\$ > "\$PID_FILE"
 
+# ─── State persistence (step39) ─────────────────
+
+save_watcher_state() {
+  cat > "\$WATCHER_STATE_FILE" <<WSTATE
+SEEN_TURN=\$SEEN_TURN
+ACKED_TURN=\$ACKED_TURN
+SEEN_ROUND=\$SEEN_ROUND
+ACKED_ROUND=\$ACKED_ROUND
+DELIVERY_PENDING=\$DELIVERY_PENDING
+PENDING_TARGET=\$PENDING_TARGET
+WSTATE
+}
+
+restore_watcher_state() {
+  if [[ -f "\$WATCHER_STATE_FILE" ]]; then
+    echo "[Watcher] Restoring state from \$WATCHER_STATE_FILE"
+    source "\$WATCHER_STATE_FILE"
+    echo "[Watcher] Restored: SEEN_ROUND=\$SEEN_ROUND ACKED_ROUND=\$ACKED_ROUND DELIVERY_PENDING=\$DELIVERY_PENDING"
+    if (( DELIVERY_PENDING )) && [[ -n "\$PENDING_TARGET" ]]; then
+      echo "[Watcher] Replaying pending delivery for \$PENDING_TARGET"
+      if trigger_agent "\$PENDING_TARGET"; then
+        DELIVERY_PENDING=0
+        PENDING_TARGET=""
+        LAST_ACK_TIME=\$(date +%s)
+        save_watcher_state
+        echo "[Watcher] Pending delivery replayed successfully"
+      else
+        echo "[Watcher] Pending delivery replay failed, will retry"
+      fi
+    fi
+  fi
+}
+
+# Clean only transient files on startup (NOT .watcher_state — that's for crash recovery)
+rm -f "\${STATE_DIR}/.checkpoint_ack" "\${STATE_DIR}/deadlock.txt" "\${STATE_DIR}/control.txt" "\${STATE_DIR}/.graceful_stop"
+
 # ─── Cleanup trap ────────────────────────────────
 
 cleanup() {
@@ -1996,6 +2040,15 @@ cleanup() {
   fi
   # Clean up PID and flag files
   rm -f "\$PID_FILE" "\${STATE_DIR}/.turn_changed"
+  # Only remove .watcher_state on graceful stop (step39)
+  # .graceful_stop is written by 'ralph-lisa stop' before SIGTERM
+  # Crash/unexpected exits preserve .watcher_state so wrapper restart can replay pending deliveries
+  if [[ -f "\${STATE_DIR}/.graceful_stop" ]]; then
+    rm -f "\$WATCHER_STATE_FILE" "\${STATE_DIR}/.graceful_stop"
+    echo "[Watcher] Graceful stop — watcher state cleared"
+  else
+    echo "[Watcher] Unexpected exit — watcher state preserved for crash recovery"
+  fi
   # Archive pane logs (not delete) so transcripts are preserved
   local logs_dir="\${STATE_DIR}/logs"
   mkdir -p "\$logs_dir"
@@ -2391,28 +2444,50 @@ check_and_trigger() {
 
   if [[ -f "\$STATE_DIR/turn.txt" ]]; then
     CURRENT_TURN=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
+    CURRENT_ROUND=\$(cat "\$STATE_DIR/round.txt" 2>/dev/null || echo "0")
 
-    # Detect new turn change (reset fail count + cooldown + escalation state)
-    if [[ -n "\$CURRENT_TURN" && "\$CURRENT_TURN" != "\$SEEN_TURN" ]]; then
-      echo "[Watcher] Turn changed: \$SEEN_TURN -> \$CURRENT_TURN"
+    # Detect new round (step39: round-based detection fixes double-flip deadlock)
+    # Round is monotonically increasing, so A→B→A during delivery is always detected.
+    local round_changed=0
+    if [[ -n "\$CURRENT_ROUND" && "\$CURRENT_ROUND" != "\$SEEN_ROUND" ]]; then
+      round_changed=1
+      echo "[Watcher] Round changed: \$SEEN_ROUND -> \$CURRENT_ROUND (turn: \$SEEN_TURN -> \$CURRENT_TURN)"
       SEEN_TURN="\$CURRENT_TURN"
+      SEEN_ROUND="\$CURRENT_ROUND"
       FAIL_COUNT=0
       LAST_ACK_TIME=0
       # Reset per-turn escalation state (step38)
       NOTIFY_SENT_AT=0
       REMINDER_LEVEL=0
 
+      # Mark delivery pending (step39: decouple ack from delivery)
+      DELIVERY_PENDING=1
+      PENDING_TARGET="\$CURRENT_TURN"
+      save_watcher_state
+
       # Write round separator to pane logs for transcript tracking
       local round_ts
       round_ts=\$(date "+%Y-%m-%d %H:%M:%S")
-      local round_marker="\\n\\n===== [Turn -> \$CURRENT_TURN] \$round_ts =====\\n\\n"
+      local round_marker="\\n\\n===== [Round \$CURRENT_ROUND -> \$CURRENT_TURN] \$round_ts =====\\n\\n"
       echo -e "\$round_marker" >> "\$PANE0_LOG" 2>/dev/null || true
       echo -e "\$round_marker" >> "\$PANE1_LOG" 2>/dev/null || true
+    elif [[ -n "\$CURRENT_TURN" && "\$CURRENT_TURN" != "\$SEEN_TURN" ]]; then
+      # Fallback: turn changed without round change (e.g., force-turn)
+      echo "[Watcher] Turn changed (no round change): \$SEEN_TURN -> \$CURRENT_TURN"
+      SEEN_TURN="\$CURRENT_TURN"
+      FAIL_COUNT=0
+      LAST_ACK_TIME=0
+      NOTIFY_SENT_AT=0
+      REMINDER_LEVEL=0
+      DELIVERY_PENDING=1
+      PENDING_TARGET="\$CURRENT_TURN"
+      save_watcher_state
+      round_changed=1
     fi
 
     # Cooldown: skip delivery if last ack was < 30s ago (prevents re-triggering during normal work)
-    # Placed AFTER turn-change detection so new turns are never suppressed
-    if (( LAST_ACK_TIME > 0 )); then
+    # ONLY applies when round has NOT changed — new rounds always deliver immediately (step39)
+    if (( !round_changed && LAST_ACK_TIME > 0 )); then
       local now_epoch
       now_epoch=\$(date +%s)
       local elapsed=\$(( now_epoch - LAST_ACK_TIME ))
@@ -2422,10 +2497,18 @@ check_and_trigger() {
     fi
 
     # Consensus suppression (step38): suppress notifications when consensus reached
-    # Watcher keeps polling but does not send "Your turn" messages.
-    # When next-step resets work.md/review.md, tags clear and notifications resume.
+    # step39: only suppress if round hasn't changed since consensus was detected
     if check_consensus_reached; then
-      return
+      if [[ "\$CONSENSUS_AT_ROUND" == "" ]]; then
+        CONSENSUS_AT_ROUND="\$CURRENT_ROUND"
+      fi
+      if [[ "\$CURRENT_ROUND" == "\$CONSENSUS_AT_ROUND" ]]; then
+        return
+      fi
+      # Round changed since consensus — clear suppression, deliver normally
+      CONSENSUS_AT_ROUND=""
+    else
+      CONSENSUS_AT_ROUND=""
     fi
 
     # Checkpoint: pause for user review at configured round intervals
@@ -2454,8 +2537,8 @@ check_and_trigger() {
       fi
     fi
 
-    # Need to deliver? (seen but not yet acked)
-    if [[ -n "\$SEEN_TURN" && "\$SEEN_TURN" != "\$ACKED_TURN" ]]; then
+    # Need to deliver? (step39: round-based + DELIVERY_PENDING)
+    if (( DELIVERY_PENDING )) || [[ -n "\$SEEN_ROUND" && "\$SEEN_ROUND" != "\$ACKED_ROUND" ]]; then
       # Backoff on repeated failures
       if (( FAIL_COUNT >= 30 )); then
         echo "[Watcher] ALERT: \$FAIL_COUNT consecutive failures. Manual intervention needed."
@@ -2465,20 +2548,25 @@ check_and_trigger() {
         sleep 30
       fi
 
-      if trigger_agent "\$SEEN_TURN"; then
+      local deliver_target="\${PENDING_TARGET:-\$SEEN_TURN}"
+      if trigger_agent "\$deliver_target"; then
         ACKED_TURN="\$SEEN_TURN"
+        ACKED_ROUND="\$SEEN_ROUND"
+        DELIVERY_PENDING=0
+        PENDING_TARGET=""
         FAIL_COUNT=0
         LAST_ACK_TIME=\$(date +%s)
         NOTIFY_SENT_AT=\$(date +%s)
         REMINDER_LEVEL=0
-        echo "[Watcher] Turn acknowledged: \$SEEN_TURN (cooldown 30s)"
+        save_watcher_state
+        echo "[Watcher] Round \$SEEN_ROUND acknowledged: \$SEEN_TURN (cooldown 30s)"
       else
         FAIL_COUNT=\$((FAIL_COUNT + 1))
         echo "[Watcher] Trigger failed (fail_count=\$FAIL_COUNT), will retry next cycle"
       fi
 
     # Escalation (step38): agent was notified but turn hasn't changed
-    elif [[ -n "\$SEEN_TURN" && "\$SEEN_TURN" == "\$ACKED_TURN" && "\$NOTIFY_SENT_AT" -gt 0 ]]; then
+    elif [[ -n "\$SEEN_TURN" && "\$SEEN_ROUND" == "\$ACKED_ROUND" && "\$NOTIFY_SENT_AT" -gt 0 ]]; then
       local now_epoch elapsed
       now_epoch=\$(date +%s)
       elapsed=\$(( now_epoch - NOTIFY_SENT_AT ))
@@ -2533,13 +2621,16 @@ check_and_trigger() {
 
 # ─── Main ────────────────────────────────────────
 
-echo "[Watcher] Starting v3... (Ctrl+C to stop)"
-echo "[Watcher] Monitoring \$STATE_DIR/turn.txt"
+echo "[Watcher] Starting v4... (Ctrl+C to stop)"
+echo "[Watcher] Monitoring \$STATE_DIR/turn.txt + round.txt"
 echo "[Watcher] Pane logs: \$PANE0_LOG, \$PANE1_LOG"
 if (( CHECKPOINT_ROUNDS > 0 )); then
   echo "[Watcher] Checkpoint every \$CHECKPOINT_ROUNDS rounds (RL_CHECKPOINT_ROUNDS)"
 fi
 echo "[Watcher] PID: \$\$"
+
+# Restore state from crash (step39)
+restore_watcher_state
 
 sleep 5
 check_and_trigger

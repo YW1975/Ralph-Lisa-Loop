@@ -18,8 +18,13 @@ import * as assert from "node:assert";
 interface WatcherState {
   seenTurn: string;
   ackedTurn: string;
+  seenRound: string;
+  ackedRound: string;
   failCount: number;
   lastAckTime: number;
+  deliveryPending: boolean;
+  pendingTarget: string;
+  consensusAtRound: string;
   panePromptHits: number;
   panePaused: boolean;
   panePauseSize: number;
@@ -29,8 +34,13 @@ function newState(): WatcherState {
   return {
     seenTurn: "",
     ackedTurn: "",
+    seenRound: "",
+    ackedRound: "",
     failCount: 0,
     lastAckTime: 0,
+    deliveryPending: false,
+    pendingTarget: "",
+    consensusAtRound: "",
     panePromptHits: 0,
     panePaused: false,
     panePauseSize: 0,
@@ -38,35 +48,65 @@ function newState(): WatcherState {
 }
 
 /**
- * Simulate check_and_trigger logic (matches bash watcher v3).
- * Two-variable approach: seenTurn (observed) vs ackedTurn (delivered).
+ * Simulate check_and_trigger logic (matches bash watcher v4).
+ * Round-based change detection: uses round number (monotonically increasing)
+ * to detect turn changes, fixing double-flip deadlock (step39).
  * triggerResult: true = trigger succeeded, false = failed.
  * nowTime: simulated current epoch time for cooldown testing.
+ * consensusReached: simulated consensus detection result.
  * Returns the action taken.
  */
 function checkAndTrigger(
   state: WatcherState,
   currentTurn: string,
   triggerResult: boolean,
-  nowTime: number = 0
-): "ack" | "retry" | "degraded" | "alert" | "noop" | "cooldown" {
-  // 1. Detect new turn change (BEFORE cooldown — new turns are never suppressed)
-  if (currentTurn && currentTurn !== state.seenTurn) {
+  nowTime: number = 0,
+  currentRound: string = "",
+  consensusReached: boolean = false
+): "ack" | "retry" | "degraded" | "alert" | "noop" | "cooldown" | "consensus" {
+  // 1. Detect new round (step39: round-based detection)
+  let roundChanged = false;
+  if (currentRound && currentRound !== state.seenRound) {
+    roundChanged = true;
+    state.seenTurn = currentTurn;
+    state.seenRound = currentRound;
+    state.failCount = 0;
+    state.lastAckTime = 0;
+    state.deliveryPending = true;
+    state.pendingTarget = currentTurn;
+  } else if (currentTurn && currentTurn !== state.seenTurn) {
+    // Fallback: turn changed without round change (e.g., force-turn)
+    roundChanged = true;
     state.seenTurn = currentTurn;
     state.failCount = 0;
-    state.lastAckTime = 0; // Reset cooldown on new turn
+    state.lastAckTime = 0;
+    state.deliveryPending = true;
+    state.pendingTarget = currentTurn;
   }
 
-  // 2. Cooldown: skip delivery if last ack was < 30s ago
-  if (state.lastAckTime > 0 && nowTime > 0) {
+  // 2. Cooldown: only applies when round has NOT changed (step39)
+  if (!roundChanged && state.lastAckTime > 0 && nowTime > 0) {
     const elapsed = nowTime - state.lastAckTime;
     if (elapsed < 30) {
       return "cooldown";
     }
   }
 
-  // 3. Need to deliver? (seen but not acked)
-  if (state.seenTurn && state.seenTurn !== state.ackedTurn) {
+  // 3. Consensus suppression with round boundary tracking (step39)
+  if (consensusReached) {
+    if (!state.consensusAtRound) {
+      state.consensusAtRound = currentRound;
+    }
+    if (currentRound === state.consensusAtRound) {
+      return "consensus";
+    }
+    state.consensusAtRound = "";
+  } else {
+    state.consensusAtRound = "";
+  }
+
+  // 4. Need to deliver? (step39: round-based + DELIVERY_PENDING)
+  if (state.deliveryPending || (state.seenRound && state.seenRound !== state.ackedRound)) {
     let mode: "retry" | "degraded" | "alert" = "retry";
     if (state.failCount >= 30) {
       mode = "alert";
@@ -74,6 +114,23 @@ function checkAndTrigger(
       mode = "degraded";
     }
 
+    const deliverTarget = state.pendingTarget || state.seenTurn;
+    if (triggerResult) {
+      state.ackedTurn = state.seenTurn;
+      state.ackedRound = state.seenRound;
+      state.deliveryPending = false;
+      state.pendingTarget = "";
+      state.failCount = 0;
+      state.lastAckTime = nowTime;
+      return "ack";
+    } else {
+      state.failCount++;
+      return mode;
+    }
+  }
+
+  // Legacy fallback: seenTurn != ackedTurn (for force-turn without round change)
+  if (state.seenTurn && state.seenTurn !== state.ackedTurn) {
     if (triggerResult) {
       state.ackedTurn = state.seenTurn;
       state.failCount = 0;
@@ -81,7 +138,7 @@ function checkAndTrigger(
       return "ack";
     } else {
       state.failCount++;
-      return mode;
+      return "retry";
     }
   }
 
@@ -152,7 +209,7 @@ function handleInteractivePrompt(
 describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
   it("updates ackedTurn only on successful trigger", () => {
     const s = newState();
-    const action = checkAndTrigger(s, "ralph", true);
+    const action = checkAndTrigger(s, "ralph", true, 0, "1");
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.ackedTurn, "ralph");
     assert.strictEqual(s.seenTurn, "ralph");
@@ -160,7 +217,7 @@ describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
 
   it("does NOT update ackedTurn on failed trigger", () => {
     const s = newState();
-    const action = checkAndTrigger(s, "ralph", false);
+    const action = checkAndTrigger(s, "ralph", false, 0, "1");
     assert.strictEqual(action, "retry");
     assert.strictEqual(s.seenTurn, "ralph"); // seen
     assert.strictEqual(s.ackedTurn, ""); // NOT acked
@@ -169,12 +226,12 @@ describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
 
   it("retries on next cycle after failure (same turn)", () => {
     const s = newState();
-    checkAndTrigger(s, "ralph", false); // fail
+    checkAndTrigger(s, "ralph", false, 0, "1"); // fail
     assert.strictEqual(s.ackedTurn, "");
     assert.strictEqual(s.failCount, 1);
 
-    // Same turn, seen != acked, so it retries
-    const action = checkAndTrigger(s, "ralph", true);
+    // Same turn+round, seen != acked, so it retries
+    const action = checkAndTrigger(s, "ralph", true, 0, "1");
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.ackedTurn, "ralph");
     assert.strictEqual(s.failCount, 0);
@@ -184,8 +241,10 @@ describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
     const s = newState();
     s.seenTurn = "ralph";
     s.ackedTurn = "ralph";
+    s.seenRound = "1";
+    s.ackedRound = "1";
     s.failCount = 5;
-    const action = checkAndTrigger(s, "lisa", true);
+    const action = checkAndTrigger(s, "lisa", true, 0, "2");
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.failCount, 0);
     assert.strictEqual(s.ackedTurn, "lisa");
@@ -195,7 +254,9 @@ describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
     const s = newState();
     s.seenTurn = "ralph";
     s.ackedTurn = "ralph";
-    const action = checkAndTrigger(s, "ralph", true);
+    s.seenRound = "1";
+    s.ackedRound = "1";
+    const action = checkAndTrigger(s, "ralph", true, 0, "1");
     assert.strictEqual(action, "noop");
   });
 });
@@ -205,11 +266,11 @@ describe("Watcher: failure backoff", () => {
     const s = newState();
     // 10 consecutive failures
     for (let i = 0; i < 10; i++) {
-      checkAndTrigger(s, "ralph", false);
+      checkAndTrigger(s, "ralph", false, 0, "1");
     }
     assert.strictEqual(s.failCount, 10);
     // Next failure should be degraded
-    const action = checkAndTrigger(s, "ralph", false);
+    const action = checkAndTrigger(s, "ralph", false, 0, "1");
     assert.strictEqual(action, "degraded");
     assert.strictEqual(s.failCount, 11);
   });
@@ -217,10 +278,10 @@ describe("Watcher: failure backoff", () => {
   it("enters alert mode after 30 failures", () => {
     const s = newState();
     for (let i = 0; i < 30; i++) {
-      checkAndTrigger(s, "ralph", false);
+      checkAndTrigger(s, "ralph", false, 0, "1");
     }
     assert.strictEqual(s.failCount, 30);
-    const action = checkAndTrigger(s, "ralph", false);
+    const action = checkAndTrigger(s, "ralph", false, 0, "1");
     assert.strictEqual(action, "alert");
     assert.strictEqual(s.failCount, 31);
   });
@@ -228,10 +289,10 @@ describe("Watcher: failure backoff", () => {
   it("recovers from degraded on success", () => {
     const s = newState();
     for (let i = 0; i < 15; i++) {
-      checkAndTrigger(s, "ralph", false);
+      checkAndTrigger(s, "ralph", false, 0, "1");
     }
     assert.ok(s.failCount >= 10);
-    const action = checkAndTrigger(s, "ralph", true);
+    const action = checkAndTrigger(s, "ralph", true, 0, "1");
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.failCount, 0);
     assert.strictEqual(s.ackedTurn, "ralph");
@@ -325,25 +386,25 @@ describe("Watcher: send_go_to_pane retry exhaustion (RLL-001)", () => {
 describe("Watcher: cooldown does not block new turns (RLL-001)", () => {
   it("cooldown suppresses re-delivery for same turn", () => {
     const s = newState();
-    // Ack ralph at t=100
-    const action1 = checkAndTrigger(s, "ralph", true, 100);
+    // Ack ralph at t=100, round 1
+    const action1 = checkAndTrigger(s, "ralph", true, 100, "1");
     assert.strictEqual(action1, "ack");
     assert.strictEqual(s.lastAckTime, 100);
 
-    // Same turn at t=110 (within 30s) → cooldown kicks in before reaching noop
-    const action2 = checkAndTrigger(s, "ralph", true, 110);
+    // Same turn+round at t=110 (within 30s) → cooldown
+    const action2 = checkAndTrigger(s, "ralph", true, 110, "1");
     assert.strictEqual(action2, "cooldown");
   });
 
   it("new turn within 30s is NOT suppressed by cooldown", () => {
     const s = newState();
-    // Ack ralph at t=100
-    checkAndTrigger(s, "ralph", true, 100);
+    // Ack ralph at t=100, round 1
+    checkAndTrigger(s, "ralph", true, 100, "1");
     assert.strictEqual(s.lastAckTime, 100);
 
-    // New turn (lisa) at t=110 — within 30s of last ack
-    // Turn-change detection resets lastAckTime to 0, so cooldown does not apply
-    const action = checkAndTrigger(s, "lisa", true, 110);
+    // New turn (lisa) at t=110, round 2 — within 30s of last ack
+    // Round change resets lastAckTime to 0, so cooldown does not apply
+    const action = checkAndTrigger(s, "lisa", true, 110, "2");
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.ackedTurn, "lisa");
     assert.strictEqual(s.lastAckTime, 110);
@@ -351,18 +412,18 @@ describe("Watcher: cooldown does not block new turns (RLL-001)", () => {
 
   it("cooldown expires after 30s for failed re-delivery", () => {
     const s = newState();
-    // Ack ralph at t=100
-    checkAndTrigger(s, "ralph", true, 100);
+    // Ack ralph at t=100, round 1
+    checkAndTrigger(s, "ralph", true, 100, "1");
 
     // Force unacked state (simulate edge case: ack succeeded but need re-trigger)
-    s.ackedTurn = "";
+    s.ackedRound = "";
 
-    // At t=110 (within 30s) → cooldown
-    const action1 = checkAndTrigger(s, "ralph", true, 110);
+    // At t=110 (within 30s, same round) → cooldown
+    const action1 = checkAndTrigger(s, "ralph", true, 110, "1");
     assert.strictEqual(action1, "cooldown");
 
     // At t=135 (past 30s) → delivers
-    const action2 = checkAndTrigger(s, "ralph", true, 135);
+    const action2 = checkAndTrigger(s, "ralph", true, 135, "1");
     assert.strictEqual(action2, "ack");
   });
 });
@@ -1089,5 +1150,161 @@ describe("Watcher: escalation state machine (step38)", () => {
     // L3 fires at 10 minutes
     assert.strictEqual(checkEscalation(s, 1600, false, false, false), "stuck");
     assert.strictEqual(s.reminderLevel, 3);
+  });
+});
+
+// ─── Step39: Round-based detection + double-flip + consensus boundary ──────
+
+describe("Watcher: round-based change detection (step39)", () => {
+  it("detects turn change via round number", () => {
+    const s = newState();
+    const action = checkAndTrigger(s, "ralph", true, 100, "1");
+    assert.strictEqual(action, "ack");
+    assert.strictEqual(s.seenRound, "1");
+    assert.strictEqual(s.ackedRound, "1");
+  });
+
+  it("double-flip A→B→A is detected when round changes", () => {
+    const s = newState();
+    // Round 1: ralph acked
+    checkAndTrigger(s, "ralph", true, 100, "1");
+    assert.strictEqual(s.ackedTurn, "ralph");
+    assert.strictEqual(s.ackedRound, "1");
+
+    // Simulate double-flip: ralph submits (round 2, turn=lisa),
+    // then lisa submits quickly (round 3, turn=ralph).
+    // Watcher was busy and missed round 2, now sees round 3 with turn=ralph.
+    // Same turn value as before, but round changed → must deliver!
+    const action = checkAndTrigger(s, "ralph", true, 105, "3");
+    assert.strictEqual(action, "ack", "double-flip must be detected via round change");
+    assert.strictEqual(s.ackedRound, "3");
+    assert.strictEqual(s.ackedTurn, "ralph");
+  });
+
+  it("double-flip within cooldown window is NOT suppressed", () => {
+    const s = newState();
+    // Round 1: ralph acked at t=100
+    checkAndTrigger(s, "ralph", true, 100, "1");
+
+    // Double-flip at t=105 (within 30s cooldown) but new round
+    const action = checkAndTrigger(s, "ralph", true, 105, "3");
+    assert.strictEqual(action, "ack", "new round must bypass cooldown");
+  });
+
+  it("DELIVERY_PENDING is set on round change", () => {
+    const s = newState();
+    checkAndTrigger(s, "ralph", true, 100, "1");
+    assert.strictEqual(s.deliveryPending, false);
+
+    // Trigger round change but delivery fails
+    const action = checkAndTrigger(s, "lisa", false, 105, "2");
+    assert.strictEqual(action, "retry");
+    assert.strictEqual(s.deliveryPending, true);
+    assert.strictEqual(s.pendingTarget, "lisa");
+  });
+
+  it("DELIVERY_PENDING cleared on successful delivery", () => {
+    const s = newState();
+    checkAndTrigger(s, "ralph", false, 100, "1"); // fail
+    assert.strictEqual(s.deliveryPending, true);
+
+    checkAndTrigger(s, "ralph", true, 105, "1"); // success
+    assert.strictEqual(s.deliveryPending, false);
+    assert.strictEqual(s.pendingTarget, "");
+  });
+
+  it("force-turn without round change still detected via turn value", () => {
+    const s = newState();
+    s.seenTurn = "ralph";
+    s.ackedTurn = "ralph";
+    s.seenRound = "5";
+    s.ackedRound = "5";
+
+    // force-turn changes turn to lisa but round stays at 5
+    const action = checkAndTrigger(s, "lisa", true, 200, "5");
+    assert.strictEqual(action, "ack");
+    assert.strictEqual(s.ackedTurn, "lisa");
+  });
+});
+
+describe("Watcher: consensus suppression with round boundary (step39)", () => {
+  it("consensus suppresses within same round (past cooldown)", () => {
+    const s = newState();
+    checkAndTrigger(s, "ralph", true, 100, "5");
+    // Same round, consensus reached, past cooldown (t=135, >30s after ack)
+    const action = checkAndTrigger(s, "ralph", true, 135, "5", true);
+    assert.strictEqual(action, "consensus");
+  });
+
+  it("consensus does NOT suppress after round change", () => {
+    const s = newState();
+    // Round 5: ack ralph, then consensus detected past cooldown
+    checkAndTrigger(s, "ralph", true, 100, "5");
+    checkAndTrigger(s, "ralph", true, 135, "5", true); // sets consensusAtRound="5"
+    assert.strictEqual(s.consensusAtRound, "5");
+
+    // Round 6: new round, consensus tags may still exist in files
+    // but round boundary means we should deliver
+    const action = checkAndTrigger(s, "lisa", true, 140, "6", true);
+    assert.strictEqual(action, "ack", "consensus must not suppress after round change");
+    assert.strictEqual(s.ackedTurn, "lisa");
+  });
+
+  it("consensus state clears when consensus no longer detected", () => {
+    const s = newState();
+    // Set up consensus at round 5
+    checkAndTrigger(s, "ralph", true, 100, "5");
+    checkAndTrigger(s, "ralph", true, 135, "5", true);
+    assert.strictEqual(s.consensusAtRound, "5");
+
+    // Next check past cooldown: consensus no longer detected (files were reset by next-step)
+    s.ackedRound = ""; // force re-delivery
+    s.lastAckTime = 0; // clear cooldown
+    const action = checkAndTrigger(s, "ralph", true, 170, "5", false);
+    assert.strictEqual(s.consensusAtRound, "");
+  });
+});
+
+describe("Watcher: state persistence (step39)", () => {
+  it("state fields are correctly initialized", () => {
+    const s = newState();
+    assert.strictEqual(s.seenRound, "");
+    assert.strictEqual(s.ackedRound, "");
+    assert.strictEqual(s.deliveryPending, false);
+    assert.strictEqual(s.pendingTarget, "");
+    assert.strictEqual(s.consensusAtRound, "");
+  });
+
+  it("simulated crash recovery replays pending delivery", () => {
+    const s = newState();
+    // Simulate state after crash: round changed, delivery pending
+    s.seenTurn = "lisa";
+    s.seenRound = "3";
+    s.ackedTurn = "ralph";
+    s.ackedRound = "2";
+    s.deliveryPending = true;
+    s.pendingTarget = "lisa";
+
+    // On restore, trigger succeeds
+    const action = checkAndTrigger(s, "lisa", true, 200, "3");
+    assert.strictEqual(action, "ack");
+    assert.strictEqual(s.deliveryPending, false);
+    assert.strictEqual(s.ackedRound, "3");
+  });
+
+  it("simulated crash recovery retries on failure", () => {
+    const s = newState();
+    s.seenTurn = "lisa";
+    s.seenRound = "3";
+    s.ackedTurn = "ralph";
+    s.ackedRound = "2";
+    s.deliveryPending = true;
+    s.pendingTarget = "lisa";
+
+    // On restore, trigger fails
+    const action = checkAndTrigger(s, "lisa", false, 200, "3");
+    assert.strictEqual(action, "retry");
+    assert.strictEqual(s.deliveryPending, true);
+    assert.strictEqual(s.failCount, 1);
   });
 });
