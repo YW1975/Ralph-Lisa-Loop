@@ -513,7 +513,8 @@ export function cmdSubmitLisa(args: string[]): void {
     const currentCount = parseInt(readFile(nwCountPath) || "0", 10);
     const newCount = currentCount + 1;
     writeFile(nwCountPath, String(newCount));
-    if (newCount >= 5) {
+    const deadlockThreshold = parseInt(process.env.RL_DEADLOCK_THRESHOLD || "8", 10);
+    if (newCount >= deadlockThreshold) {
       // Trigger deadlock — write flag for watcher to detect
       const deadlockPath = path.join(dir, "deadlock.txt");
       writeFile(deadlockPath, `DEADLOCK at round ${round}: ${newCount} consecutive NEEDS_WORK rounds\nTimestamp: ${ts}\nAction: Watcher will pause. User intervention required.`);

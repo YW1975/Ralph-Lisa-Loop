@@ -143,7 +143,7 @@ After context compaction, run `ralph-lisa recap` to recover current state:
   - If you disagree: use [CHALLENGE] to provide counter-argument
   - **Never submit a bare [FIX] without explanation. No silent acceptance.**
   - **You CANNOT submit [CODE]/[RESEARCH]/[PLAN] after NEEDS_WORK** — the CLI will reject it. Address the feedback first, or run `ralph-lisa scope-update` if the task scope changed.
-- After 5 consecutive NEEDS_WORK rounds → DEADLOCK auto-detected, watcher pauses for user intervention
+- After 8 consecutive NEEDS_WORK rounds → DEADLOCK auto-detected, watcher pauses for user intervention
 
 ## Submission Test Requirements
 

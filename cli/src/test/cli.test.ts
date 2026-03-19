@@ -1335,6 +1335,20 @@ describe("CLI: NEEDS_WORK enforcement (Proposal §3.2)", () => {
 });
 
 describe("CLI: deadlock counter (Proposal §3.2)", () => {
+  // Use threshold=5 in tests for speed (default is 8)
+  function runDL(...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd: TMP,
+        encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_DEADLOCK_THRESHOLD: "5" },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
   beforeEach(() => {
     fs.rmSync(TMP, { recursive: true, force: true });
     fs.mkdirSync(TMP, { recursive: true });
@@ -1344,22 +1358,22 @@ describe("CLI: deadlock counter (Proposal §3.2)", () => {
     fs.rmSync(TMP, { recursive: true, force: true });
   });
 
-  it("triggers deadlock after 5 consecutive NEEDS_WORK rounds with FIX attempts", () => {
+  it("triggers deadlock after 5 consecutive NEEDS_WORK rounds with FIX attempts (threshold=5)", () => {
     // Round 1: Ralph submits, Lisa returns NEEDS_WORK
-    run("submit-ralph", "[PLAN] Plan");
-    run("submit-lisa", "[NEEDS_WORK] Issue 1\n\n- commands.ts:1");
+    runDL("submit-ralph", "[PLAN] Plan");
+    runDL("submit-lisa", "[NEEDS_WORK] Issue 1\n\n- commands.ts:1");
     // Round 2
-    run("submit-ralph", "[FIX] Fixed issue 1\n\nTest Results\n- pass\ncommands.ts:2");
-    run("submit-lisa", "[NEEDS_WORK] Issue 2\n\n- commands.ts:3");
+    runDL("submit-ralph", "[FIX] Fixed issue 1\n\nTest Results\n- pass\ncommands.ts:2");
+    runDL("submit-lisa", "[NEEDS_WORK] Issue 2\n\n- commands.ts:3");
     // Round 3
-    run("submit-ralph", "[FIX] Fixed issue 2\n\nTest Results\n- pass\ncommands.ts:4");
-    run("submit-lisa", "[NEEDS_WORK] Issue 3\n\n- commands.ts:5");
+    runDL("submit-ralph", "[FIX] Fixed issue 2\n\nTest Results\n- pass\ncommands.ts:4");
+    runDL("submit-lisa", "[NEEDS_WORK] Issue 3\n\n- commands.ts:5");
     // Round 4
-    run("submit-ralph", "[FIX] Fixed issue 3\n\nTest Results\n- pass\ncommands.ts:6");
-    run("submit-lisa", "[NEEDS_WORK] Issue 4\n\n- commands.ts:7");
+    runDL("submit-ralph", "[FIX] Fixed issue 3\n\nTest Results\n- pass\ncommands.ts:6");
+    runDL("submit-lisa", "[NEEDS_WORK] Issue 4\n\n- commands.ts:7");
     // Round 5: triggers deadlock
-    run("submit-ralph", "[FIX] Fixed issue 4\n\nTest Results\n- pass\ncommands.ts:8");
-    const r = run("submit-lisa", "[NEEDS_WORK] Issue 5\n\n- commands.ts:9");
+    runDL("submit-ralph", "[FIX] Fixed issue 4\n\nTest Results\n- pass\ncommands.ts:8");
+    const r = runDL("submit-lisa", "[NEEDS_WORK] Issue 5\n\n- commands.ts:9");
     // Check deadlock triggered
     assert.ok(r.stdout.includes("DEADLOCK"), "Should trigger DEADLOCK after 5 consecutive NEEDS_WORK");
     // Verify deadlock.txt exists
@@ -1387,17 +1401,17 @@ describe("CLI: deadlock counter (Proposal §3.2)", () => {
   });
 
   it("scope-update clears deadlock", () => {
-    // Build up to deadlock (threshold = 5 consecutive NEEDS_WORK)
-    run("submit-ralph", "[PLAN] Plan");
-    run("submit-lisa", "[NEEDS_WORK] Issue\n\n- commands.ts:1");
-    run("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass\ncommands.ts:2");
-    run("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- commands.ts:3");
-    run("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass\ncommands.ts:4");
-    run("submit-lisa", "[NEEDS_WORK] Third time\n\n- commands.ts:5");
-    run("submit-ralph", "[FIX] Another fix\n\nTest Results\n- pass\ncommands.ts:6");
-    run("submit-lisa", "[NEEDS_WORK] Fourth time\n\n- commands.ts:7");
-    run("submit-ralph", "[FIX] Yet another fix\n\nTest Results\n- pass\ncommands.ts:8");
-    run("submit-lisa", "[NEEDS_WORK] Fifth time\n\n- commands.ts:9");
+    // Build up to deadlock (threshold = 5 via RL_DEADLOCK_THRESHOLD)
+    runDL("submit-ralph", "[PLAN] Plan");
+    runDL("submit-lisa", "[NEEDS_WORK] Issue\n\n- commands.ts:1");
+    runDL("submit-ralph", "[FIX] Fixed\n\nTest Results\n- pass\ncommands.ts:2");
+    runDL("submit-lisa", "[NEEDS_WORK] Still wrong\n\n- commands.ts:3");
+    runDL("submit-ralph", "[FIX] Fixed again\n\nTest Results\n- pass\ncommands.ts:4");
+    runDL("submit-lisa", "[NEEDS_WORK] Third time\n\n- commands.ts:5");
+    runDL("submit-ralph", "[FIX] Another fix\n\nTest Results\n- pass\ncommands.ts:6");
+    runDL("submit-lisa", "[NEEDS_WORK] Fourth time\n\n- commands.ts:7");
+    runDL("submit-ralph", "[FIX] Yet another fix\n\nTest Results\n- pass\ncommands.ts:8");
+    runDL("submit-lisa", "[NEEDS_WORK] Fifth time\n\n- commands.ts:9");
     // Verify deadlock
     assert.ok(fs.existsSync(path.join(TMP, ".dual-agent", "deadlock.txt")));
     // scope-update should clear it
@@ -1998,7 +2012,7 @@ describe("CLI: notify hooks (step47)", () => {
       const stdout = execFileSync(process.execPath, [CLI, ...args], {
         cwd: TMP,
         encoding: "utf-8",
-        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_NOTIFY_CMD: `cat >> "${witnessFile}"` },
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_NOTIFY_CMD: `cat >> "${witnessFile}"`, RL_DEADLOCK_THRESHOLD: "5" },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {

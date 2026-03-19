@@ -37,7 +37,7 @@
 - **事实验证**：Lisa 在声称某些内容"缺失"或"未实现"时，必须提供 `file:line` 证据。
 - **Policy 层**：可配置的提交质量检查，支持 `warn`/`block` 模式。
 - **Watcher v3**：即发即忘触发、30 秒冷却时间、checkpoint 系统（`RL_CHECKPOINT_ROUNDS`）、崩溃自动重启、可配置日志阈值（`RL_LOG_MAX_MB`）、心跳文件。
-- **Deadlock 检测**：连续 5 轮 `[NEEDS_WORK]` 后，watcher 自动暂停，用户通过 `scope-update` 或 `force-turn` 介入。
+- **Deadlock 检测**：连续 8 轮 `[NEEDS_WORK]` 后，watcher 自动暂停，用户通过 `scope-update` 或 `force-turn` 介入。
 - **最小化初始化**：`ralph-lisa init --minimal` 仅创建会话状态（零项目文件）。
 - **`doctor` 命令**：使用 `ralph-lisa doctor` 验证所有依赖项。
 

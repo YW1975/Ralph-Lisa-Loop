@@ -37,7 +37,7 @@
 - **事実の検証**: Lisa が「未実装」や「不足している」と主張する場合、`file:line` のエビデンスを提示する必要があります。
 - **Policy レイヤー**: `warn`/`block` モードで設定可能な提出品質チェック。
 - **Watcher v3**: Fire-and-forget トリガー、30秒クールダウン、checkpoint システム（`RL_CHECKPOINT_ROUNDS`）、クラッシュ時の自動再起動、設定可能なログ閾値（`RL_LOG_MAX_MB`）、heartbeat ファイル。
-- **Deadlock 検出**: 5 ラウンド連続 `[NEEDS_WORK]` の後、watcher が自動的に一時停止。ユーザーが `scope-update` または `force-turn` で介入。
+- **Deadlock 検出**: 8 ラウンド連続 `[NEEDS_WORK]` の後、watcher が自動的に一時停止。ユーザーが `scope-update` または `force-turn` で介入。
 - **ミニマルセットアップ**: `ralph-lisa init --minimal` でセッション状態のみを作成（プロジェクトファイルなし）。
 - **`doctor` コマンド**: `ralph-lisa doctor` ですべての依存関係を確認。
 

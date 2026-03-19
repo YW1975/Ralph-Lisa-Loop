@@ -22,6 +22,6 @@
   "rules": {
     "consensus": "Both parties must agree before proceeding",
     "verdict": "PASS/NEEDS_WORK is advisory, not a command",
-    "deadlock": "After 5 consecutive NEEDS_WORK rounds, watcher pauses for user intervention"
+    "deadlock": "After 8 consecutive NEEDS_WORK rounds, watcher pauses for user intervention"
   }
 }

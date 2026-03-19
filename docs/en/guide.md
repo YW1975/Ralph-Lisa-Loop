@@ -285,7 +285,7 @@ Typical flow:
 
 ### Deadlock Escape
 
-After 5 consecutive `[NEEDS_WORK]` rounds (Lisa keeps requesting changes), the watcher automatically pauses and flags a deadlock. Options:
+After 8 consecutive `[NEEDS_WORK]` rounds (Lisa keeps requesting changes), the watcher automatically pauses and flags a deadlock. Options:
 - **`ralph-lisa scope-update`**: Redefine the task scope to break the cycle
 - **`ralph-lisa force-turn`**: Manually override the turn
 - **Manual intervention**: The user decides how to proceed (accept, reject, or redirect)

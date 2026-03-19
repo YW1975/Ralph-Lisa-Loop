@@ -29,7 +29,7 @@
 - **Factual verification**: Lisa must provide `file:line` evidence when claiming something is "missing" or "not implemented".
 - **Policy layer**: Configurable submission quality checks with `warn`/`block` modes.
 - **Watcher v3**: Fire-and-forget triggering, 30s cooldown, checkpoint system (`RL_CHECKPOINT_ROUNDS`), auto-restart on crash, configurable log threshold (`RL_LOG_MAX_MB`), heartbeat file.
-- **Deadlock detection**: After 5 consecutive `[NEEDS_WORK]` rounds, watcher auto-pauses for user intervention via `scope-update` or `force-turn`.
+- **Deadlock detection**: After 8 consecutive `[NEEDS_WORK]` rounds, watcher auto-pauses for user intervention via `scope-update` or `force-turn`.
 - **Minimal init**: `ralph-lisa init --minimal` creates only session state (zero project files).
 - **`doctor` command**: Verify all dependencies with `ralph-lisa doctor`.
 

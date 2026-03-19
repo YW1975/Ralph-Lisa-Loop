@@ -225,7 +225,7 @@ Ralph-Lisa Loop applies the same solution software engineering discovered decade
 
 ### Can two agents get stuck in an infinite loop?
 
-No. After 5 consecutive `[NEEDS_WORK]` rounds, the watcher automatically pauses and flags a deadlock. You can resolve it with:
+No. After 8 consecutive `[NEEDS_WORK]` rounds, the watcher automatically pauses and flags a deadlock. You can resolve it with:
 
 - **`ralph-lisa scope-update`**: Redefine the task to break the cycle
 - **`ralph-lisa force-turn`**: Manually override the turn

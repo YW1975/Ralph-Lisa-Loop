@@ -134,7 +134,7 @@ After context compaction, run `ralph-lisa recap` to recover current state:
   - If you agree: explain WHY Lisa is right, then submit [FIX]
   - If you disagree: use [CHALLENGE] to provide counter-argument
   - **Never submit a bare [FIX] without explanation. No silent acceptance.**
-- After 5 consecutive NEEDS_WORK rounds → Deadlock auto-detected, watcher pauses for user intervention
+- After 8 consecutive NEEDS_WORK rounds → Deadlock auto-detected, watcher pauses for user intervention
 
 ## Your Responsibilities
 
