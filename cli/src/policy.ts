@@ -30,6 +30,16 @@ export function checkRalph(
 ): PolicyViolation[] {
   const violations: PolicyViolation[] = [];
 
+  // [PLAN] must include test plan (step42: mandatory test execution)
+  if (tag === "PLAN") {
+    if (!content.match(/测试计划|[Tt]est [Pp]lan|测试命令|[Tt]est [Cc]ommand/)) {
+      violations.push({
+        rule: "plan-test-plan",
+        message: `[PLAN] submission missing test plan (test command + coverage scope).`,
+      });
+    }
+  }
+
   // [CODE] or [FIX] must include Test Results and file:line references
   if (tag === "CODE" || tag === "FIX") {
     if (
@@ -41,6 +51,21 @@ export function checkRalph(
         rule: "test-results",
         message: `[${tag}] submission missing "Test Results" section.`,
       });
+    }
+    // step42: Test Results must include concrete execution evidence (exit code or pass/fail count)
+    // Exception: explicit "Skipped:" line inside the Test Results section only
+    // Section is bounded: from "Test Results" heading to next heading (## or blank-line-then-heading) or EOF
+    const testResultsMatch = content.match(/[Tt]est [Rr]esults[^\n]*\n([\s\S]*?)(?=\n##\s|\n\n[A-Z]|\n\n\*\*[A-Z]|$)/);
+    if (testResultsMatch) {
+      const testResultsBody = testResultsMatch[1];
+      const hasSkipLine = /^[\s\-*]*[Ss]kip(ped)?\s*:.*\S/m.test(testResultsBody);
+      const hasExecutionEvidence = /[Ee]xit code|退出码|\d+\/\d+\s*(pass|通过|passed)|(\d+)\s*tests?\s*pass/i.test(testResultsBody);
+      if (!hasSkipLine && !hasExecutionEvidence) {
+        violations.push({
+          rule: "test-results-detail",
+          message: `[${tag}] Test Results must include exit code or pass/fail count (e.g., "Exit code: 0" or "42/42 passed"), or explicit "Skipped:" with justification.`,
+        });
+      }
     }
     if (!/\w+\.\w+:\d+/.test(content)) {
       violations.push({

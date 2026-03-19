@@ -10,21 +10,21 @@ describe("checkRalph", () => {
     assert.ok(violations.some((v) => v.rule === "file-line-ref"));
   });
 
-  it("passes when CODE includes Test Results and file:line", () => {
+  it("passes when CODE includes Test Results with detail and file:line", () => {
     const violations = checkRalph(
       "CODE",
-      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Passed"
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Exit code: 0\n- 42/42 passed"
     );
     assert.strictEqual(violations.length, 0);
   });
 
-  it("warns when CODE has Test Results but no file:line", () => {
+  it("warns when CODE has Test Results but no file:line and no detail", () => {
     const violations = checkRalph(
       "CODE",
       "[CODE] Done\n\nTest Results\n- Passed"
     );
-    assert.strictEqual(violations.length, 1);
-    assert.strictEqual(violations[0].rule, "file-line-ref");
+    assert.ok(violations.some((v) => v.rule === "file-line-ref"));
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
   });
 
   it("warns when CODE has file:line but no Test Results", () => {
@@ -41,9 +41,83 @@ describe("checkRalph", () => {
     assert.ok(violations.some((v) => v.rule === "test-results"));
   });
 
-  it("no warnings for PLAN", () => {
-    const violations = checkRalph("PLAN", "[PLAN] Plan\n\nDetails");
+  it("no warnings for PLAN with test plan", () => {
+    const violations = checkRalph("PLAN", "[PLAN] Plan\n\nDetails\n\nTest Plan\n- npm test");
     assert.strictEqual(violations.length, 0);
+  });
+
+  it("warns when PLAN missing test plan", () => {
+    const violations = checkRalph("PLAN", "[PLAN] Plan\n\nDetails only");
+    assert.ok(violations.some((v) => v.rule === "plan-test-plan"));
+  });
+
+  it("passes PLAN with Chinese test plan", () => {
+    const violations = checkRalph("PLAN", "[PLAN] Plan\n\n测试计划\n- pytest -x");
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("warns CODE with Test Results title but no concrete data", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- All good"
+    );
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
+  });
+
+  it("passes CODE with Test Results and exit code", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Exit code: 0\n- 42/42 passed"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("passes CODE with Test Results and pass count only", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- 326/326 passed"
+    );
+    assert.strictEqual(violations.length, 0);
+  });
+
+  it("passes CODE with Test Results skipped with justification", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- Skipped: config-only change, no testable logic"
+    );
+    assert.ok(!violations.some((v) => v.rule === "test-results-detail"));
+  });
+
+  it("warns CODE when unrelated 'skip' text bypasses Test Results (regression)", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nImplementation notes: skip remote for now\nchanges in commands.ts:42\n\nTest Results\n- All good"
+    );
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
+  });
+
+  it("warns CODE when 'skip docs' in prose but Test Results has no evidence (regression)", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nNext steps: skip docs update\nchanges in commands.ts:42\n\nTest Results\n- Passed"
+    );
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
+  });
+
+  it("warns CODE when 'skip' text appears AFTER Test Results section (regression)", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- All good\n\nNext steps: skip docs update for now"
+    );
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
+  });
+
+  it("warns CODE when non-explicit 'skip' line inside Test Results (no colon)", () => {
+    const violations = checkRalph(
+      "CODE",
+      "[CODE] Done\n\nchanges in commands.ts:42\n\nTest Results\n- skip docs update for now"
+    );
+    assert.ok(violations.some((v) => v.rule === "test-results-detail"));
   });
 
   it("warns when RESEARCH has no substance", () => {
@@ -95,7 +169,7 @@ describe("checkRalph", () => {
   });
 
   it("file:line not required for PLAN or RESEARCH", () => {
-    const planV = checkRalph("PLAN", "[PLAN] Plan\n\nNo file refs here");
+    const planV = checkRalph("PLAN", "[PLAN] Plan\n\nNo file refs here\n\nTest Plan: npm test");
     assert.strictEqual(planV.length, 0);
   });
 });
@@ -169,7 +243,7 @@ describe("runPolicyCheck (IMP-4)", () => {
 
   it("returns proceed=true, violations=[] when no violations in warn mode", () => {
     process.env.RL_POLICY_MODE = "warn";
-    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan");
+    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan\n\nTest Plan: npm test");
     assert.strictEqual(result.proceed, true);
     assert.strictEqual(result.violations.length, 0);
   });
@@ -190,7 +264,7 @@ describe("runPolicyCheck (IMP-4)", () => {
 
   it("returns proceed=true, violations=[] when no violations in block mode", () => {
     process.env.RL_POLICY_MODE = "block";
-    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan details");
+    const result = runPolicyCheck("ralph", "PLAN", "[PLAN] Plan details\n\nTest Plan: pytest");
     assert.strictEqual(result.proceed, true);
     assert.strictEqual(result.violations.length, 0);
   });
@@ -276,7 +350,7 @@ describe("checkRalph new-tests-required (Proposal §3.6)", () => {
   });
 
   it("no warning for PLAN submissions", () => {
-    const v = checkRalph("PLAN", "[PLAN] Plan\n\nNew tests: 0");
+    const v = checkRalph("PLAN", "[PLAN] Plan\n\nNew tests: 0\n\nTest Plan: npm test");
     assert.ok(!v.some((x) => x.rule === "new-tests-required"));
   });
 });

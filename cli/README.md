@@ -40,7 +40,7 @@ Ralph writes → Lisa reviews → Consensus → Next step
 - **Round 1 Mandatory Plan** — Ralph must submit `[PLAN]` first for Lisa to verify understanding
 - **Goal Guardian** — Lisa checks for direction drift before every review
 - **Mid-Session Task Update** — Change direction without restarting
-- **Deadlock Escape** — After 5 rounds: `[OVERRIDE]` or `[HANDOFF]` to human
+- **Deadlock Detection** — After 5 consecutive `[NEEDS_WORK]` rounds, watcher auto-pauses for user intervention
 - **Minimal Init** — Zero-intrusion mode with plugin/global config architecture
 
 ## Essential Commands

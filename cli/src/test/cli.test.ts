@@ -1025,7 +1025,7 @@ describe("CLI: policy warning/error separation (IMP-4)", () => {
   });
 
   it("shows clean 'Submitted:' with no warnings when policy passes", () => {
-    const r = runWithPolicy("warn", "submit-ralph", "[PLAN] My plan");
+    const r = runWithPolicy("warn", "submit-ralph", "[PLAN] My plan\\n\\nTest Plan: npm test");
     assert.strictEqual(r.exitCode, 0);
     assert.ok(r.stdout.includes("Submitted: [PLAN] My plan"));
     assert.ok(!r.stdout.includes("warning"));

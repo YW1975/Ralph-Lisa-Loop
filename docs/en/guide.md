@@ -131,15 +131,23 @@ After consensus, move to the next phase:
 ralph-lisa step "phase-2-implementation"
 ```
 
-## Auto Mode
+## Launch Modes
 
-Auto mode uses tmux to manage terminals and a file watcher to trigger turn transitions automatically.
+### Manual Mode (`start`)
+
+```bash
+ralph-lisa start "implement login feature"
+```
+
+Opens two terminal windows — one for Ralph (Claude Code) and one for Lisa (Codex). You manually trigger each agent by typing in their terminal.
+
+### Auto Mode (`auto`)
 
 ```bash
 ralph-lisa auto "implement login feature"
 ```
 
-This creates a tmux session with two panes — one for Ralph (Claude Code) and one for Lisa (Codex). The watcher monitors `.dual-agent/turn.txt` and triggers the appropriate agent when the turn changes.
+Creates a tmux session with two panes and starts a background watcher (v5). The watcher monitors `.dual-agent/turn.txt` and automatically triggers the agent whose turn it is.
 
 ### Full-Auto Mode
 
@@ -147,7 +155,23 @@ This creates a tmux session with two panes — one for Ralph (Claude Code) and o
 ralph-lisa auto --full-auto "implement login feature"
 ```
 
-Runs without permission prompts. Use when you trust both agents to operate autonomously on the current task.
+| | `auto` | `auto --full-auto` |
+|--|--------|-------------------|
+| Ralph (Claude) | `claude` | `claude --dangerously-skip-permissions` |
+| Lisa (Codex) | `codex` | `codex --full-auto` |
+| Permission prompts | Every file/command needs approval | Skipped — agents act freely |
+
+Use `--full-auto` when you trust both agents on the current task. Without it, permission prompts may cause the watcher to misidentify paused agents as stuck.
+
+`start` also supports `--full-auto` with the same behavior (no watcher).
+
+### Resume Without Task (Breakpoint Continue)
+
+```bash
+ralph-lisa auto                    # No task argument
+```
+
+When launched without a task, the session resumes from the previous state — preserving turn, round, history, and all session files. This is useful for resuming after a crash or reconnecting to an interrupted session.
 
 ### Checkpoint System
 
@@ -158,13 +182,20 @@ export RL_CHECKPOINT_ROUNDS=5
 ralph-lisa auto "task"
 ```
 
-### Watcher Behavior
+### Watcher v5 Behavior
 
-- **Fire-and-forget triggering** for fast turn transitions
+- **Send cap**: Max 2 trigger messages per round (prevents message flooding)
+- **Capture-pane monitoring**: Detects agent activity via terminal content diff (not pipe-pane log)
+- **Pipe-pane self-heal**: Cross-references pane activity with log growth — rebuilds pipe automatically if dead
+- **Configurable escalation**: L1 reminder at 5min, L2 `/check-turn` at 15min, L3 user notification at 30min (customizable via `RL_ESCALATION_L1/L2/L3`)
 - **30-second cooldown** between triggers to prevent re-triggering during work
 - **Auto-restart** on crash (session-guarded)
 - **Heartbeat file** at `.dual-agent/.watcher_heartbeat` for liveness checks
 - **Configurable log threshold**: `RL_LOG_MAX_MB` (default 5, min 1)
+
+### Long-Running Tasks
+
+For time-consuming operations (large-scale code search, batch test runs, CI waits), agents are encouraged to use subagents or background tasks to work in parallel, summarizing results before submitting. This avoids blocking the collaboration loop.
 
 ## Tag System
 
@@ -179,7 +210,7 @@ Every submission requires a tag on the first line:
 
 ### Tag Details
 
-- **`[PLAN]`**: Required for Round 1. Outlines approach before coding.
+- **`[PLAN]`**: Required for Round 1. Outlines approach before coding. Must include a test plan (test command + coverage scope).
 - **`[RESEARCH]`**: Required before coding when involving reference implementations, protocols, or external APIs. Must include verified evidence (file:line, command output).
 - **`[CODE]`**: Code implementation. Must include Test Results section.
 - **`[FIX]`**: Bug fix or revision based on feedback. Must include Test Results section.
@@ -194,18 +225,31 @@ Every submission requires a tag on the first line:
 
 ### Round 1 Must Be [PLAN]
 
-Ralph's first submission must be `[PLAN]`. This gives Lisa a chance to verify task understanding before any code is written.
+Ralph's first submission must be `[PLAN]`. This gives Lisa a chance to verify task understanding before any code is written. The plan must include a **test plan** specifying:
+- Test command (e.g., `pytest -x`, `npm test`, `go test ./...`)
+- Expected test coverage scope
+- If no test framework exists, the verification approach
 
-### Test Results Required
+### Test Results Required (Mandatory Execution)
 
-`[CODE]` and `[FIX]` submissions must include a Test Results section:
+`[CODE]` and `[FIX]` submissions must include a Test Results section with **actual execution evidence** — not fabricated results:
 
 ```markdown
 ### Test Results
 - Test command: npm test
+- Exit code: 0
 - Result: 150/150 passed
 - New tests: 2 added (auth.test.ts, login.test.ts)
 ```
+
+The policy layer enforces that Test Results contain an exit code or pass/fail count. If tests are skipped, an explicit `Skipped:` line with justification is required:
+
+```markdown
+### Test Results
+- Skipped: config-only change, no testable logic
+```
+
+**Lisa is required to re-run the test command** and verify results during review. Suspicious or fabricated results will be rejected.
 
 ### Research Before Coding
 
@@ -230,16 +274,21 @@ When responding to `[NEEDS_WORK]`:
 
 Lisa's verdict is **advisory, not authoritative**. Ralph can accept, challenge, or request clarification.
 
-Both agents must explicitly submit `[CONSENSUS]` before moving to the next step. The flow:
+The step transition requires one of these closure combinations:
+- `[CONSENSUS]` + `[CONSENSUS]` — both agents agree
+- `[PASS]` + `[CONSENSUS]` — Lisa passes, Ralph confirms
+- `[CONSENSUS]` + `[PASS]` — Ralph confirms, Lisa passes
 
-1. Lisa submits `[PASS]` (closeable if Ralph agrees)
+Typical flow:
+1. Lisa submits `[PASS]`
 2. Ralph submits `[CONSENSUS]` — item is closed
 
 ### Deadlock Escape
 
-After 5 rounds without consensus:
-- **`[OVERRIDE]`**: Proceed with documented disagreement
-- **`[HANDOFF]`**: Escalate to human decision
+After 5 consecutive `[NEEDS_WORK]` rounds (Lisa keeps requesting changes), the watcher automatically pauses and flags a deadlock. Options:
+- **`ralph-lisa scope-update`**: Redefine the task scope to break the cycle
+- **`ralph-lisa force-turn`**: Manually override the turn
+- **Manual intervention**: The user decides how to proceed (accept, reject, or redirect)
 
 No infinite loops. No stuck states.
 
@@ -275,9 +324,11 @@ ralph-lisa policy check-next-step       # Comprehensive: consensus + all policy 
 
 ### Policy Rules
 
-- Ralph's `[CODE]`/`[FIX]` must include a "Test Results" section
-- Ralph's `[RESEARCH]` must have substantive content
-- Lisa's `[PASS]`/`[NEEDS_WORK]` must include at least 1 reason
+- Ralph's `[PLAN]` must include a test plan
+- Ralph's `[CODE]`/`[FIX]` must include a "Test Results" section with exit code or pass/fail count (or explicit `Skipped:`)
+- Ralph's `[RESEARCH]` must have substantive content with `Verified:` or `Evidence:` markers
+- Lisa's `[PASS]`/`[NEEDS_WORK]` must include at least 1 reason and file:line reference
+- After `[NEEDS_WORK]`, Ralph must respond with `[FIX]`/`[CHALLENGE]`/`[DISCUSS]`/`[QUESTION]` (not `[CODE]`/`[PLAN]`)
 
 ## Mid-Session Controls
 
@@ -323,6 +374,12 @@ ralph-lisa clean                       # Clean session state
 | `RL_POLICY_MODE` | `warn` | Policy check mode: `off`, `warn`, `block` |
 | `RL_CHECKPOINT_ROUNDS` | `0` (disabled) | Pause for human review every N rounds |
 | `RL_LOG_MAX_MB` | `5` | Pane log truncation threshold in MB (min 1) |
+| `RL_ESCALATION_L1` | `300` | Watcher L1 REMINDER delay in seconds (default 5 min) |
+| `RL_ESCALATION_L2` | `900` | Watcher L2 /check-turn delay in seconds (default 15 min) |
+| `RL_ESCALATION_L3` | `1800` | Watcher L3 STUCK notification delay in seconds (default 30 min) |
+| `RL_RALPH_GATE` | `false` | Enable pre-submission gate checks (lint, test) |
+| `RL_GATE_COMMANDS` | (empty) | Pipe-separated commands for gate (e.g., `npm run lint\|npm test`) |
+| `RL_GATE_MODE` | `warn` | Gate failure mode: `warn` or `block` |
 
 ## Tips and Best Practices
 

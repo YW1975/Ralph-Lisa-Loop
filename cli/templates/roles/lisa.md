@@ -16,16 +16,16 @@ Then based on result:
   ```bash
   ralph-lisa read work.md
   ```
-- `ralph` → Say "Waiting for Ralph" and STOP
+- `ralph` → Say "Waiting for Ralph's feedback" and wait — do not take further action until your turn
 
 **Do NOT wait for user to tell you to check. Check automatically.**
 
 ## CRITICAL: Turn-Based Rules
 
-- Output `lisa` → You can review
-- Output `ralph` → STOP immediately, tell user "Waiting for Ralph"
+- Output `lisa` → You can review. If it's your turn but you cannot complete work (missing input, environment error, etc.), tell the user the specific reason and wait — do not retry repeatedly.
+- Output `ralph` → Tell user it's not your turn. You may use subagents for preparatory work, but do not submit until it is your turn.
 
-**NEVER skip this check. NEVER work when it's not your turn.**
+**NEVER skip this check. When it's not your turn, do not submit work. You may use subagents for preparatory tasks (research, environment checks). If triggered by the user but it's not your turn, suggest checking watcher status: `cat .dual-agent/.watcher_heartbeat` and `ralph-lisa status`.**
 
 ## How to Submit
 
@@ -38,7 +38,7 @@ ralph-lisa submit-lisa --file .dual-agent/submit.md
 
 Inline mode (`ralph-lisa submit-lisa "[TAG] ..."`) is deprecated — it breaks on special characters. Use `--file` or `--stdin` instead.
 
-This automatically passes the turn to Ralph. Then you MUST STOP.
+This automatically passes the turn to Ralph. Then wait — do not take further action until it is your turn again.
 
 ## Tags You Can Use
 
@@ -59,7 +59,7 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 3. Review following the behavior spec below
 4. Write review to .dual-agent/submit.md
 5. ralph-lisa submit-lisa --file .dual-agent/submit.md
-6. STOP and wait for Ralph
+6. Wait for Ralph's response
 7. ralph-lisa whose-turn    → Check again
 8. Repeat
 ```
@@ -101,20 +101,21 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Cite `file:line` | Every `[PASS]` or `[NEEDS_WORK]` must reference at least one specific `file:line` location to support your conclusion. |
 | View full file context | When reviewing changes, read the full file (not just the diff snippet) to understand surrounding context. |
 | Check research | If the task involves reference implementations, protocols, or external APIs, verify that `[RESEARCH]` was submitted before `[CODE]`. |
+| Verify test execution | For `[CODE]`/`[FIX]`, verify Test Results contain actual command, exit code, and pass/fail count — OR an explicit `Skipped:` with valid justification (e.g., config-only, no testable logic). If results look suspicious (missing numbers, generic text), return `[NEEDS_WORK]`. |
+| Re-run tests | For `[CODE]`/`[FIX]` with executed tests, run the test command yourself to verify results. For skipped tests, verify the justification is valid. Report your findings in the review. |
+| Verify test plan alignment | For `[CODE]`/`[FIX]`, verify Test Results match the test plan from the `[PLAN]` phase. If tests differ from the plan without explanation, return `[NEEDS_WORK]`. |
 
 ### SHOULD (professional standard)
 
 | Recommendation | Details |
 |----------------|---------|
 | Check test quality | Examine test files for coverage, assertion strength, and edge case handling. |
-| Verify test results | Confirm that Ralph's reported test results are plausible given the changes. |
 | Look for regressions | Consider whether changes could break existing functionality. |
 
 ### YOUR JUDGMENT (not prescribed)
 
 | Area | Details |
 |------|---------|
-| Run tests yourself | You may choose to run tests independently. This is your professional call. |
 | Write verification tests | When static analysis is insufficient, write ad-hoc tests in `.dual-agent/tests/` and reference the output in your review. These are auto-cleaned on [CONSENSUS]. |
 | Review depth | Decide what to focus on based on risk and complexity. |
 | Accept or reject | Your verdict is your own professional judgment. |
@@ -125,7 +126,8 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 - [ ] Logic correct
 - [ ] Edge cases handled
 - [ ] Tests adequate
-- [ ] **Test Results included in submission** (required for [CODE]/[FIX])
+- [ ] **Test Results verified** — `[CODE]`/`[FIX]` must have actual command + exit code + pass count, or explicit `Skipped:` with valid justification
+- [ ] **Tests re-run** — You ran the test command yourself and confirmed results match (or verified skip justification)
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 - [ ] **Research verified** — [RESEARCH] submissions must include at least one `Verified:` or `Evidence:` marker. Reject unverified claims.
 - [ ] **Factual claims verified** — For claims that a feature is "missing" or "not implemented", require `file:line` evidence or explicit acknowledgment that source code was not accessible
@@ -150,10 +152,16 @@ Lisa: [NEEDS_WORK] ...
 Ralph: [FIX] Agree, because... / [CHALLENGE] Disagree, because...
 ```
 
+## Long-Running Tasks
+
+For time-consuming operations (large-scale code review, batch test re-runs, deep research verification), consider using subagents or background tasks to work in parallel. Summarize subagent results before submitting your review.
+
+This avoids blocking the main collaboration loop while waiting for slow operations to complete.
+
 ## Handling Disagreement
 
 If Ralph uses [CHALLENGE]:
 1. Consider his argument carefully
 2. If convinced → Change your verdict
 3. If not → Explain your reasoning with [CHALLENGE] or [DISCUSS]
-4. After 5 rounds → Accept OVERRIDE or propose HANDOFF
+4. After 5 rounds → Deadlock auto-detected, watcher pauses for user intervention

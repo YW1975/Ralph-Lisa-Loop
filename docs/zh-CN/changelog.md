@@ -5,6 +5,14 @@
 
 ## v0.3.x
 
+### v0.3.12 新增功能
+
+- **Watcher v5**：消息发送与响应验证解耦——修复了 watcher 向工作中的 agent 发送 14+ 条重复消息的洪水 bug。每轮发送上限（最多 2 次），基于 capture-pane 的空闲检测（不依赖 pipe-pane），pipe-pane 交叉验证自愈，被动 post-send 监控。
+- **强制测试执行**：`[PLAN]` 必须包含测试计划（测试命令 + 覆盖范围）。`[CODE]`/`[FIX]` 的 Test Results 必须包含退出码或通过/失败数量。接受显式 `Skipped:` + 理由。Lisa 必须在 review 时复测。
+- **Escalation 时间调整**：默认从 2m/5m/10m 延长为 5m/15m/30m。可通过 `RL_ESCALATION_L1`、`RL_ESCALATION_L2`、`RL_ESCALATION_L3` 环境变量自定义。
+- **UX 措辞优化**：所有角色模板和命令文件中的 "STOP immediately" / "MUST STOP" 替换为 "等待反馈"。
+- **Subagent 建议**：角色模板新增建议——对耗时任务使用 subagent 避免阻塞协作循环。
+
 ### v0.3.11 新增功能
 
 - **`ralph-lisa stop` 命令**：优雅关闭 auto 模式——停止 watcher，向 agent 面板发送 `/exit`，拆除 tmux 会话。支持 `--force` 立即强制终止，`--no-archive` 跳过日志归档。
@@ -29,7 +37,7 @@
 - **事实验证**：Lisa 在声称某些内容"缺失"或"未实现"时，必须提供 `file:line` 证据。
 - **Policy 层**：可配置的提交质量检查，支持 `warn`/`block` 模式。
 - **Watcher v3**：即发即忘触发、30 秒冷却时间、checkpoint 系统（`RL_CHECKPOINT_ROUNDS`）、崩溃自动重启、可配置日志阈值（`RL_LOG_MAX_MB`）、心跳文件。
-- **Deadlock 逃逸**：5 轮内未达成 consensus 时，agent 可以使用 `[OVERRIDE]` 或 `[HANDOFF]`。
+- **Deadlock 检测**：连续 5 轮 `[NEEDS_WORK]` 后，watcher 自动暂停，用户通过 `scope-update` 或 `force-turn` 介入。
 - **最小化初始化**：`ralph-lisa init --minimal` 仅创建会话状态（零项目文件）。
 - **`doctor` 命令**：使用 `ralph-lisa doctor` 验证所有依赖项。
 

@@ -80,3 +80,9 @@
 | `RL_POLICY_MODE` | `warn` | Policy 检查模式：`off`、`warn`、`block` |
 | `RL_CHECKPOINT_ROUNDS` | `0`（禁用） | 自动模式下每 N 轮暂停以进行人工审查 |
 | `RL_LOG_MAX_MB` | `5` | 面板日志截断阈值，单位 MB（最小 1） |
+| `RL_ESCALATION_L1` | `300` | Watcher L1 提醒延迟秒数（默认 5 分钟） |
+| `RL_ESCALATION_L2` | `900` | Watcher L2 /check-turn 延迟秒数（默认 15 分钟） |
+| `RL_ESCALATION_L3` | `1800` | Watcher L3 卡住通知延迟秒数（默认 30 分钟） |
+| `RL_RALPH_GATE` | `false` | 启用提交前 gate 检查 |
+| `RL_GATE_COMMANDS` | （空） | Gate 命令，pipe 分隔（如 `npm run lint\|npm test`） |
+| `RL_GATE_MODE` | `warn` | Gate 失败模式：`warn` 或 `block` |

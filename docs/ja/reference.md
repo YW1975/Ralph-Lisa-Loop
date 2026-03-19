@@ -80,3 +80,9 @@
 | `RL_POLICY_MODE` | `warn` | policy 検査モード: `off`、`warn`、`block` |
 | `RL_CHECKPOINT_ROUNDS` | `0`（無効） | auto モードで N ラウンドごとに人間のレビューのために一時停止 |
 | `RL_LOG_MAX_MB` | `5` | ペインログの切り詰め閾値（MB、最小 1） |
+| `RL_ESCALATION_L1` | `300` | Watcher L1 リマインダー遅延秒数（デフォルト 5 分） |
+| `RL_ESCALATION_L2` | `900` | Watcher L2 /check-turn 遅延秒数（デフォルト 15 分） |
+| `RL_ESCALATION_L3` | `1800` | Watcher L3 スタック通知遅延秒数（デフォルト 30 分） |
+| `RL_RALPH_GATE` | `false` | 提出前ゲートチェックを有効化 |
+| `RL_GATE_COMMANDS` | （空） | ゲートコマンド、パイプ区切り（例: `npm run lint\|npm test`） |
+| `RL_GATE_MODE` | `warn` | ゲート失敗モード: `warn` または `block` |

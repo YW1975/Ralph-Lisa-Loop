@@ -4,6 +4,14 @@
 
 ## v0.3.x
 
+### What's New in v0.3.12
+
+- **Watcher v5**: Decoupled message delivery from response verification — fixes message flooding bug where watcher sent 14+ duplicate messages to working agents. Per-round send cap (max 2), capture-pane based idle detection (no pipe-pane dependency), pipe-pane cross-reference self-heal, passive post-send monitoring.
+- **Mandatory test execution**: `[PLAN]` must include test plan (test command + coverage scope). `[CODE]`/`[FIX]` Test Results must include exit code or pass/fail count. Explicit `Skipped:` with justification accepted. Lisa is required to re-run tests during review.
+- **Escalation timing**: Extended defaults from 2m/5m/10m to 5m/15m/30m. Configurable via `RL_ESCALATION_L1`, `RL_ESCALATION_L2`, `RL_ESCALATION_L3` environment variables.
+- **UX wording**: Replaced "STOP immediately" / "MUST STOP" with "wait for feedback" across all role templates and command files.
+- **Subagent guidance**: Role templates now suggest using subagents for long-running tasks to avoid blocking the collaboration loop.
+
 ### What's New in v0.3.11
 
 - **`ralph-lisa stop` command**: Graceful shutdown of auto mode — stops watcher, sends `/exit` to agent panes, tears down tmux session. Supports `--force` for immediate kill and `--no-archive` to skip log archival.
@@ -21,7 +29,7 @@
 - **Factual verification**: Lisa must provide `file:line` evidence when claiming something is "missing" or "not implemented".
 - **Policy layer**: Configurable submission quality checks with `warn`/`block` modes.
 - **Watcher v3**: Fire-and-forget triggering, 30s cooldown, checkpoint system (`RL_CHECKPOINT_ROUNDS`), auto-restart on crash, configurable log threshold (`RL_LOG_MAX_MB`), heartbeat file.
-- **Deadlock escape**: After 5 rounds without consensus, agents can use `[OVERRIDE]` or `[HANDOFF]`.
+- **Deadlock detection**: After 5 consecutive `[NEEDS_WORK]` rounds, watcher auto-pauses for user intervention via `scope-update` or `force-turn`.
 - **Minimal init**: `ralph-lisa init --minimal` creates only session state (zero project files).
 - **`doctor` command**: Verify all dependencies with `ralph-lisa doctor`.
 

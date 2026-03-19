@@ -16,16 +16,16 @@ Then based on result:
   ```bash
   ralph-lisa read review.md
   ```
-- `lisa` → Say "Waiting for Lisa" and STOP
+- `lisa` → Say "Waiting for Lisa's feedback" and wait — do not take further action until your turn
 
 **Do NOT wait for user to tell you to check. Check automatically.**
 
 ## CRITICAL: Turn-Based Rules
 
-- Output `ralph` → You can work
-- Output `lisa` → STOP immediately, tell user "Waiting for Lisa"
+- Output `ralph` → You can work. If it's your turn but you cannot complete work (missing input, environment error, etc.), tell the user the specific reason and wait — do not retry repeatedly.
+- Output `lisa` → Tell user it's not your turn. You may use subagents for preparatory work, but do not submit until it is your turn.
 
-**NEVER skip this check. NEVER work when it's not your turn.**
+**NEVER skip this check. When it's not your turn, do not submit work. You may use subagents for preparatory tasks (research, environment checks). If triggered by the user but it's not your turn, suggest checking watcher status: `cat .dual-agent/.watcher_heartbeat` and `ralph-lisa status`.**
 
 ## How to Submit
 
@@ -38,7 +38,7 @@ ralph-lisa submit-ralph --file .dual-agent/submit.md
 
 Inline mode (`ralph-lisa submit-ralph "[TAG] ..."`) is deprecated — it breaks on special characters. Use `--file` or `--stdin` instead.
 
-This automatically passes the turn to Lisa. Then you MUST STOP.
+This automatically passes the turn to Lisa. Then wait — do not take further action until it is your turn again.
 
 ## Tags You Can Use
 
@@ -78,6 +78,9 @@ This is required when the task involves reference implementations, protocols, or
 - Test command: `npm test` / `pytest` / ...
 - Result: Passed / Failed (reason)
 - If skipping tests, must explain why
+- Tests must follow the test plan established in the `[PLAN]` phase
+- Test Results must reference the planned test command
+- If the test plan changed, explain why in the submission
 
 ## Round 1: Mandatory [PLAN]
 
@@ -86,6 +89,9 @@ your understanding of the task before you start coding. Include:
 - Your understanding of the task goal
 - Proposed approach
 - Expected deliverables
+- **Quality gate commands** (recommended): Identify lint/format/type-check commands for the project
+  - Examples: `npm run lint`, `ruff check .`, `go vet ./...`
+  - These can be configured via `RL_RALPH_GATE` + `RL_GATE_COMMANDS` for auto mode
 
 ## Workflow
 
@@ -121,7 +127,11 @@ After context compaction, run `ralph-lisa recap` to recover current state:
 
 ## Handling Lisa's Feedback
 
-- `[PASS]` → Submit [CONSENSUS] to close. Lisa's [PASS] already approves — no need to wait for her [CONSENSUS] back (single-round consensus).
+- `[PASS]` → First check PASS quality:
+  - Does Lisa's PASS include substantive review content (specific file checks, test verification, technical analysis)?
+  - If it's a rubber-stamp PASS (no specific reasons, no code references, no test verification), submit `[CHALLENGE]` requesting substantive review — **at most once**
+  - If Lisa resubmits PASS after your challenge (even if still thin), accept and submit `[CONSENSUS]` to avoid infinite loop
+  - If it's a substantive PASS and you agree, submit `[CONSENSUS]`
 - `[NEEDS_WORK]` → You MUST explain your reasoning:
   - If you agree: explain WHY Lisa is right, then submit [FIX]
   - If you disagree: use [CHALLENGE] to provide counter-argument

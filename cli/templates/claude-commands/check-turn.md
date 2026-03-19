@@ -13,6 +13,6 @@ ralph-lisa whose-turn
 ## Rules
 
 - If output is `ralph`: You can proceed with your work
-- If output is `lisa`: STOP immediately and wait for Lisa's response
+- If output is `lisa`: Wait for Lisa's feedback — do not take further action until your turn
 
 **NEVER skip this check before working.**

@@ -79,3 +79,9 @@ Standalone policy commands always exit non-zero on violations, regardless of `RL
 | `RL_POLICY_MODE` | `warn` | Policy check mode: `off`, `warn`, `block` |
 | `RL_CHECKPOINT_ROUNDS` | `0` (disabled) | Pause for human review every N rounds in auto mode |
 | `RL_LOG_MAX_MB` | `5` | Pane log truncation threshold in MB (min 1) |
+| `RL_ESCALATION_L1` | `300` | Watcher L1 REMINDER delay in seconds (default 5 min) |
+| `RL_ESCALATION_L2` | `900` | Watcher L2 /check-turn delay in seconds (default 15 min) |
+| `RL_ESCALATION_L3` | `1800` | Watcher L3 STUCK notification delay in seconds (default 30 min) |
+| `RL_RALPH_GATE` | `false` | Enable pre-submission gate checks |
+| `RL_GATE_COMMANDS` | (empty) | Pipe-separated gate commands (e.g., `npm run lint\|npm test`) |
+| `RL_GATE_MODE` | `warn` | Gate failure mode: `warn` or `block` |

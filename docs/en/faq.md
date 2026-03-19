@@ -148,9 +148,13 @@ If `RL_POLICY_MODE=block` and your submission is rejected:
 ralph-lisa policy check ralph    # or lisa
 
 # Common issues:
+# - [PLAN] missing test plan (test command + coverage scope)
 # - [CODE]/[FIX] missing "Test Results" section
-# - [RESEARCH] has no substantive content
-# - [PASS]/[NEEDS_WORK] missing reasons
+# - [CODE]/[FIX] Test Results missing exit code or pass/fail count
+#   (add "Exit code: 0" or "42/42 passed", or "Skipped: reason")
+# - [RESEARCH] has no substantive content or missing Verified:/Evidence: markers
+# - [PASS]/[NEEDS_WORK] missing reasons or file:line references
+# - Submitting [CODE]/[PLAN] after [NEEDS_WORK] (must use [FIX]/[CHALLENGE] first)
 ```
 
 ## Platform Support
@@ -221,9 +225,10 @@ Ralph-Lisa Loop applies the same solution software engineering discovered decade
 
 ### Can two agents get stuck in an infinite loop?
 
-No. The deadlock escape mechanism activates after 5 rounds without consensus:
+No. After 5 consecutive `[NEEDS_WORK]` rounds, the watcher automatically pauses and flags a deadlock. You can resolve it with:
 
-- **`[OVERRIDE]`**: Proceed with documented disagreement
-- **`[HANDOFF]`**: Escalate to human decision
+- **`ralph-lisa scope-update`**: Redefine the task to break the cycle
+- **`ralph-lisa force-turn`**: Manually override the turn
+- **Manual intervention**: Decide how to proceed as the human arbiter
 
 Additionally, `RL_CHECKPOINT_ROUNDS` lets you pause for human review at regular intervals.

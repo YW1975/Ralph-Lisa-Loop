@@ -60,9 +60,9 @@ Neither agent can unilaterally advance to the next phase. Both must explicitly a
 
 ### 5. Human Escalation
 
-After 5 rounds without resolution:
-- `[OVERRIDE]`: Proceed with documented disagreement
-- `[HANDOFF]`: Escalate to human decision
+After 5 consecutive `[NEEDS_WORK]` rounds, the watcher auto-pauses for user intervention:
+- `ralph-lisa scope-update`: Redefine the task to break the cycle
+- `ralph-lisa force-turn`: Manually override the turn
 
 No infinite loops. No stuck states.
 

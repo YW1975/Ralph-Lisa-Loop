@@ -36,4 +36,4 @@ Detailed content here...
 
 ## After Submission
 
-The turn automatically passes to Lisa. You must STOP and wait.
+The turn automatically passes to Lisa. Wait for her feedback — do not take further action until it is your turn again.

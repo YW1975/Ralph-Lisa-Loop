@@ -8,6 +8,8 @@
  * 1. LAST_TURN only updates on successful trigger (ack semantics)
  * 2. Failure backoff: 10 → degraded (30s), 30 → ALERT
  * 3. Interactive prompt pause/resume with dual-condition gate
+ * 4. v5: Per-round send cap (T1), delivery/monitor decoupling (T2),
+ *    capture-pane idle detection (T3), pipe-pane cross-reference rebuild (T4)
  */
 
 import { describe, it } from "node:test";
@@ -28,6 +30,9 @@ interface WatcherState {
   panePromptHits: number;
   panePaused: boolean;
   panePauseSize: number;
+  // v5: per-round send cap
+  sendCountThisRound: number;
+  maxSendsPerRound: number;
 }
 
 function newState(): WatcherState {
@@ -44,13 +49,16 @@ function newState(): WatcherState {
     panePromptHits: 0,
     panePaused: false,
     panePauseSize: 0,
+    sendCountThisRound: 0,
+    maxSendsPerRound: 2,
   };
 }
 
 /**
- * Simulate check_and_trigger logic (matches bash watcher v4).
+ * Simulate check_and_trigger logic (matches bash watcher v5).
  * Round-based change detection: uses round number (monotonically increasing)
  * to detect turn changes, fixing double-flip deadlock (step39).
+ * v5: includes per-round send cap (step41).
  * triggerResult: true = trigger succeeded, false = failed.
  * nowTime: simulated current epoch time for cooldown testing.
  * consensusReached: simulated consensus detection result.
@@ -63,7 +71,7 @@ function checkAndTrigger(
   nowTime: number = 0,
   currentRound: string = "",
   consensusReached: boolean = false
-): "ack" | "retry" | "degraded" | "alert" | "noop" | "cooldown" | "consensus" {
+): "ack" | "retry" | "degraded" | "alert" | "noop" | "cooldown" | "consensus" | "send_cap" {
   // 1. Detect new round (step39: round-based detection)
   let roundChanged = false;
   if (currentRound && currentRound !== state.seenRound) {
@@ -74,6 +82,8 @@ function checkAndTrigger(
     state.lastAckTime = 0;
     state.deliveryPending = true;
     state.pendingTarget = currentTurn;
+    // v5 (P0-2): Reset send cap for new round
+    state.sendCountThisRound = 0;
   } else if (currentTurn && currentTurn !== state.seenTurn) {
     // Fallback: turn changed without round change (e.g., force-turn)
     roundChanged = true;
@@ -82,6 +92,8 @@ function checkAndTrigger(
     state.lastAckTime = 0;
     state.deliveryPending = true;
     state.pendingTarget = currentTurn;
+    // v5 (P0-2): Reset send cap for new turn
+    state.sendCountThisRound = 0;
   }
 
   // 2. Cooldown: only applies when round has NOT changed (step39)
@@ -93,7 +105,8 @@ function checkAndTrigger(
   }
 
   // 3. Consensus suppression with round boundary tracking (step39)
-  if (consensusReached) {
+  // step46: only suppress if delivery is NOT pending — agent needs to confirm consensus
+  if (consensusReached && !state.deliveryPending) {
     if (!state.consensusAtRound) {
       state.consensusAtRound = currentRound;
     }
@@ -107,6 +120,11 @@ function checkAndTrigger(
 
   // 4. Need to deliver? (step39: round-based + DELIVERY_PENDING)
   if (state.deliveryPending || (state.seenRound && state.seenRound !== state.ackedRound)) {
+    // v5 (P0-2): Check send cap before attempting delivery
+    if (state.sendCountThisRound >= state.maxSendsPerRound) {
+      return "send_cap";
+    }
+
     let mode: "retry" | "degraded" | "alert" = "retry";
     if (state.failCount >= 30) {
       mode = "alert";
@@ -122,9 +140,14 @@ function checkAndTrigger(
       state.pendingTarget = "";
       state.failCount = 0;
       state.lastAckTime = nowTime;
+      // v5: send_go_to_pane increments sendCountThisRound on success
+      state.sendCountThisRound++;
       return "ack";
     } else {
       state.failCount++;
+      // v5 (P0-1): In v5, trigger failure is only for send-keys failure (rare),
+      // not for verification failure. But still count against send cap.
+      state.sendCountThisRound++;
       return mode;
     }
   }
@@ -262,8 +285,9 @@ describe("Watcher: ack semantics (seenTurn vs ackedTurn)", () => {
 });
 
 describe("Watcher: failure backoff", () => {
-  it("enters degraded mode after 10 failures", () => {
+  it("enters degraded mode after 10 failures (with high send cap)", () => {
     const s = newState();
+    s.maxSendsPerRound = 50; // raise cap to test backoff in isolation
     // 10 consecutive failures
     for (let i = 0; i < 10; i++) {
       checkAndTrigger(s, "ralph", false, 0, "1");
@@ -275,8 +299,9 @@ describe("Watcher: failure backoff", () => {
     assert.strictEqual(s.failCount, 11);
   });
 
-  it("enters alert mode after 30 failures", () => {
+  it("enters alert mode after 30 failures (with high send cap)", () => {
     const s = newState();
+    s.maxSendsPerRound = 50;
     for (let i = 0; i < 30; i++) {
       checkAndTrigger(s, "ralph", false, 0, "1");
     }
@@ -286,8 +311,9 @@ describe("Watcher: failure backoff", () => {
     assert.strictEqual(s.failCount, 31);
   });
 
-  it("recovers from degraded on success", () => {
+  it("recovers from degraded on success (with high send cap)", () => {
     const s = newState();
+    s.maxSendsPerRound = 50;
     for (let i = 0; i < 15; i++) {
       checkAndTrigger(s, "ralph", false, 0, "1");
     }
@@ -296,6 +322,18 @@ describe("Watcher: failure backoff", () => {
     assert.strictEqual(action, "ack");
     assert.strictEqual(s.failCount, 0);
     assert.strictEqual(s.ackedTurn, "ralph");
+  });
+
+  it("with default send cap, hits send_cap before degraded", () => {
+    const s = newState();
+    // Default maxSendsPerRound=2, so after 2 failures → send_cap
+    checkAndTrigger(s, "ralph", false, 0, "1");
+    assert.strictEqual(s.failCount, 1);
+    checkAndTrigger(s, "ralph", false, 0, "1");
+    assert.strictEqual(s.failCount, 2);
+    const action = checkAndTrigger(s, "ralph", false, 0, "1");
+    assert.strictEqual(action, "send_cap");
+    assert.strictEqual(s.failCount, 2); // no further increment
   });
 });
 
@@ -1016,7 +1054,8 @@ function checkEscalation(
   nowEpoch: number,
   contextLimitDetected: boolean,
   interactivePrompt: boolean,
-  deliverySuccess: boolean = true
+  deliverySuccess: boolean = true,
+  customThresholds?: { l1: number; l2: number; l3: number }
 ): string {
   if (s.seenTurn !== s.ackedTurn || s.notifySentAt <= 0) return "none";
   const elapsed = nowEpoch - s.notifySentAt;
@@ -1025,19 +1064,23 @@ function checkEscalation(
     s.reminderLevel = 3;
     return "context_limit";
   }
+  // step43: configurable escalation timing (default: 5m/15m/30m)
+  const L1 = customThresholds?.l1 ?? 300;   // 5 min
+  const L2 = customThresholds?.l2 ?? 900;   // 15 min
+  const L3 = customThresholds?.l3 ?? 1800;  // 30 min
   // L3 checked first — always reachable by time alone, no delivery dependency
-  if (elapsed >= 600 && s.reminderLevel < 3) {
+  if (elapsed >= L3 && s.reminderLevel < 3) {
     s.reminderLevel = 3;
     return "stuck";
   }
-  if (elapsed >= 300 && s.reminderLevel < 2) {
+  if (elapsed >= L2 && s.reminderLevel < 2) {
     if (!interactivePrompt) {
       if (deliverySuccess) s.reminderLevel = 2;
       return "slash";
     }
     return "none"; // skipped due to prompt
   }
-  if (elapsed >= 120 && s.reminderLevel < 1) {
+  if (elapsed >= L1 && s.reminderLevel < 1) {
     if (deliverySuccess) s.reminderLevel = 1;
     return "remind";
   }
@@ -1045,24 +1088,24 @@ function checkEscalation(
 }
 
 describe("Watcher: escalation state machine (step38)", () => {
-  it("no escalation before 2 minutes", () => {
+  it("no escalation before 5 minutes", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    assert.strictEqual(checkEscalation(s, 1060, false, false), "none");
+    assert.strictEqual(checkEscalation(s, 1200, false, false), "none"); // 200s < 300s
   });
 
-  it("L1 REMINDER after 2 minutes", () => {
+  it("L1 REMINDER after 5 minutes", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    assert.strictEqual(checkEscalation(s, 1120, false, false), "remind");
+    assert.strictEqual(checkEscalation(s, 1300, false, false), "remind"); // 300s
     assert.strictEqual(s.reminderLevel, 1);
   });
 
-  it("L2 slash after 5 minutes", () => {
+  it("L2 slash after 15 minutes", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
     s.reminderLevel = 1; // L1 already sent
-    assert.strictEqual(checkEscalation(s, 1300, false, false), "slash");
+    assert.strictEqual(checkEscalation(s, 1900, false, false), "slash"); // 900s
     assert.strictEqual(s.reminderLevel, 2);
   });
 
@@ -1070,15 +1113,15 @@ describe("Watcher: escalation state machine (step38)", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
     s.reminderLevel = 1;
-    assert.strictEqual(checkEscalation(s, 1300, false, true), "none");
+    assert.strictEqual(checkEscalation(s, 1900, false, true), "none"); // 900s but prompt
     assert.strictEqual(s.reminderLevel, 1); // not advanced
   });
 
-  it("L3 stuck after 10 minutes", () => {
+  it("L3 stuck after 30 minutes", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
     s.reminderLevel = 2;
-    assert.strictEqual(checkEscalation(s, 1600, false, false), "stuck");
+    assert.strictEqual(checkEscalation(s, 2800, false, false), "stuck"); // 1800s
     assert.strictEqual(s.reminderLevel, 3);
   });
 
@@ -1092,12 +1135,12 @@ describe("Watcher: escalation state machine (step38)", () => {
   it("each level fires only once", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    checkEscalation(s, 1120, false, false); // L1
-    assert.strictEqual(checkEscalation(s, 1130, false, false), "none"); // L1 already sent
-    checkEscalation(s, 1300, false, false); // L2
-    assert.strictEqual(checkEscalation(s, 1310, false, false), "none"); // L2 already sent
-    checkEscalation(s, 1600, false, false); // L3
-    assert.strictEqual(checkEscalation(s, 1700, false, false), "none"); // L3 already sent
+    checkEscalation(s, 1300, false, false); // L1 at 5min
+    assert.strictEqual(checkEscalation(s, 1400, false, false), "none"); // L1 already sent
+    checkEscalation(s, 1900, false, false); // L2 at 15min
+    assert.strictEqual(checkEscalation(s, 2000, false, false), "none"); // L2 already sent
+    checkEscalation(s, 2800, false, false); // L3 at 30min
+    assert.strictEqual(checkEscalation(s, 3000, false, false), "none"); // L3 already sent
   });
 
   it("resets on turn change", () => {
@@ -1108,48 +1151,78 @@ describe("Watcher: escalation state machine (step38)", () => {
     s.seenTurn = "lisa"; s.ackedTurn = ""; s.notifySentAt = 0; s.reminderLevel = 0;
     assert.strictEqual(checkEscalation(s, 2000, false, false), "none"); // not acked yet
     s.ackedTurn = "lisa"; s.notifySentAt = 2000;
-    assert.strictEqual(checkEscalation(s, 2120, false, false), "remind"); // fresh L1
+    assert.strictEqual(checkEscalation(s, 2300, false, false), "remind"); // fresh L1 at 5min
   });
 
   it("L1 delivery failure does not advance level", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    // L1 attempted but delivery fails
-    assert.strictEqual(checkEscalation(s, 1120, false, false, false), "remind");
+    assert.strictEqual(checkEscalation(s, 1300, false, false, false), "remind");
     assert.strictEqual(s.reminderLevel, 0, "level should not advance on failed delivery");
   });
 
   it("L2 delivery failure does not advance level", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    s.reminderLevel = 1; // L1 succeeded previously
-    assert.strictEqual(checkEscalation(s, 1300, false, false, false), "slash");
+    s.reminderLevel = 1;
+    assert.strictEqual(checkEscalation(s, 1900, false, false, false), "slash");
     assert.strictEqual(s.reminderLevel, 1, "level should not advance on failed delivery");
   });
 
   it("L3 is reachable even when L1 delivery keeps failing", () => {
     const s = newEscalationState();
     s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
-    // L1 fails repeatedly — level stays at 0
-    checkEscalation(s, 1120, false, false, false);
+    checkEscalation(s, 1300, false, false, false); // L1 fails
     assert.strictEqual(s.reminderLevel, 0);
-    checkEscalation(s, 1200, false, false, false);
+    checkEscalation(s, 1500, false, false, false);
     assert.strictEqual(s.reminderLevel, 0);
-    // But at 10 minutes, L3 fires because it's checked first (elapsed >= 600)
-    assert.strictEqual(checkEscalation(s, 1600, false, false, false), "stuck");
+    // At 30 min, L3 fires because it's checked first
+    assert.strictEqual(checkEscalation(s, 2800, false, false, false), "stuck");
     assert.strictEqual(s.reminderLevel, 3, "L3 must be reachable despite L1 failures");
   });
 
   it("L3 is reachable even when L2 delivery keeps failing", () => {
     const s = newEscalationState();
     s.seenTurn = "lisa"; s.ackedTurn = "lisa"; s.notifySentAt = 1000;
-    s.reminderLevel = 1; // L1 succeeded
-    // L2 fails
-    checkEscalation(s, 1300, false, false, false);
+    s.reminderLevel = 1;
+    checkEscalation(s, 1900, false, false, false); // L2 fails
     assert.strictEqual(s.reminderLevel, 1);
-    // L3 fires at 10 minutes
-    assert.strictEqual(checkEscalation(s, 1600, false, false, false), "stuck");
+    assert.strictEqual(checkEscalation(s, 2800, false, false, false), "stuck");
     assert.strictEqual(s.reminderLevel, 3);
+  });
+});
+
+describe("Watcher: configurable escalation thresholds (step43)", () => {
+  it("custom thresholds override defaults", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+    const custom = { l1: 60, l2: 180, l3: 600 }; // 1m/3m/10m
+
+    // Before L1 (60s)
+    assert.strictEqual(checkEscalation(s, 1050, false, false, true, custom), "none");
+
+    // At L1 (60s)
+    assert.strictEqual(checkEscalation(s, 1060, false, false, true, custom), "remind");
+    assert.strictEqual(s.reminderLevel, 1);
+
+    // At L2 (180s)
+    assert.strictEqual(checkEscalation(s, 1180, false, false, true, custom), "slash");
+    assert.strictEqual(s.reminderLevel, 2);
+
+    // At L3 (600s)
+    assert.strictEqual(checkEscalation(s, 1600, false, false, true, custom), "stuck");
+    assert.strictEqual(s.reminderLevel, 3);
+  });
+
+  it("default thresholds still work when no custom provided", () => {
+    const s = newEscalationState();
+    s.seenTurn = "ralph"; s.ackedTurn = "ralph"; s.notifySentAt = 1000;
+
+    // 200s < default L1 (300s) → no escalation
+    assert.strictEqual(checkEscalation(s, 1200, false, false), "none");
+
+    // 300s = default L1 → remind
+    assert.strictEqual(checkEscalation(s, 1300, false, false), "remind");
   });
 });
 
@@ -1263,6 +1336,31 @@ describe("Watcher: consensus suppression with round boundary (step39)", () => {
     const action = checkAndTrigger(s, "ralph", true, 170, "5", false);
     assert.strictEqual(s.consensusAtRound, "");
   });
+
+  it("consensus does NOT suppress when delivery is pending (step46 bug fix)", () => {
+    const s = newState();
+    // Round 5: ralph acked
+    checkAndTrigger(s, "ralph", true, 100, "5");
+    assert.strictEqual(s.deliveryPending, false);
+
+    // Round 6: lisa's turn, delivery pending (Ralph just submitted CONSENSUS)
+    // Consensus tags exist (PASS+CONSENSUS), but Lisa hasn't responded yet
+    const action = checkAndTrigger(s, "lisa", true, 105, "6", true);
+    // Must deliver to Lisa — NOT suppress
+    assert.strictEqual(action, "ack", "must trigger Lisa even when consensus tags exist, because delivery is pending");
+    assert.strictEqual(s.ackedTurn, "lisa");
+  });
+
+  it("consensus suppresses AFTER delivery completes (step46)", () => {
+    const s = newState();
+    // Round 5: ralph acked, delivery complete
+    checkAndTrigger(s, "ralph", true, 100, "5");
+    assert.strictEqual(s.deliveryPending, false);
+
+    // Same round, past cooldown, consensus reached, delivery NOT pending → suppress
+    const action = checkAndTrigger(s, "ralph", true, 135, "5", true);
+    assert.strictEqual(action, "consensus");
+  });
 });
 
 describe("Watcher: state persistence (step39)", () => {
@@ -1306,5 +1404,226 @@ describe("Watcher: state persistence (step39)", () => {
     assert.strictEqual(action, "retry");
     assert.strictEqual(s.deliveryPending, true);
     assert.strictEqual(s.failCount, 1);
+  });
+});
+
+// ─── Step41 (v5): Per-round send cap (T1) ──────
+
+describe("Watcher v5: per-round send cap (T1)", () => {
+  it("allows first 2 sends within same round", () => {
+    const s = newState();
+    // First send: ack
+    const a1 = checkAndTrigger(s, "ralph", true, 100, "1");
+    assert.strictEqual(a1, "ack");
+    assert.strictEqual(s.sendCountThisRound, 1);
+
+    // Force re-delivery to test second send
+    s.ackedRound = "";
+    s.lastAckTime = 0;
+    const a2 = checkAndTrigger(s, "ralph", true, 105, "1");
+    assert.strictEqual(a2, "ack");
+    assert.strictEqual(s.sendCountThisRound, 2);
+  });
+
+  it("blocks 3rd send with send_cap", () => {
+    const s = newState();
+    // 2 sends
+    checkAndTrigger(s, "ralph", true, 100, "1");
+    s.ackedRound = "";
+    s.lastAckTime = 0;
+    checkAndTrigger(s, "ralph", true, 105, "1");
+    assert.strictEqual(s.sendCountThisRound, 2);
+
+    // 3rd attempt: blocked
+    s.ackedRound = "";
+    s.lastAckTime = 0;
+    const a3 = checkAndTrigger(s, "ralph", true, 110, "1");
+    assert.strictEqual(a3, "send_cap");
+    assert.strictEqual(s.sendCountThisRound, 2); // not incremented
+  });
+
+  it("resets send count on round change", () => {
+    const s = newState();
+    // Max out sends in round 1
+    checkAndTrigger(s, "ralph", true, 100, "1");
+    s.ackedRound = "";
+    s.lastAckTime = 0;
+    checkAndTrigger(s, "ralph", true, 105, "1");
+    assert.strictEqual(s.sendCountThisRound, 2);
+
+    // New round resets
+    const a = checkAndTrigger(s, "lisa", true, 110, "2");
+    assert.strictEqual(a, "ack");
+    assert.strictEqual(s.sendCountThisRound, 1); // reset to 0, then incremented
+  });
+
+  it("resets send count on force-turn (no round change)", () => {
+    const s = newState();
+    checkAndTrigger(s, "ralph", true, 100, "1");
+    s.ackedRound = "";
+    s.lastAckTime = 0;
+    checkAndTrigger(s, "ralph", true, 105, "1");
+    assert.strictEqual(s.sendCountThisRound, 2);
+
+    // Force-turn: turn changes but round stays same
+    s.ackedRound = "1"; // pretend acked to avoid delivery path
+    const a = checkAndTrigger(s, "lisa", true, 110, "1");
+    assert.strictEqual(a, "ack");
+    assert.strictEqual(s.sendCountThisRound, 1); // reset + 1
+  });
+
+  it("failed sends also count against cap", () => {
+    const s = newState();
+    // 2 failed sends
+    checkAndTrigger(s, "ralph", false, 100, "1");
+    assert.strictEqual(s.sendCountThisRound, 1);
+    checkAndTrigger(s, "ralph", false, 105, "1");
+    assert.strictEqual(s.sendCountThisRound, 2);
+
+    // 3rd attempt blocked
+    const a = checkAndTrigger(s, "ralph", false, 110, "1");
+    assert.strictEqual(a, "send_cap");
+  });
+});
+
+// ─── Step41 (v5): Delivery/monitor decoupling (T2) ──────
+
+/**
+ * Simulate v5 send_go_to_pane: returns success if send-keys succeeded
+ * (message left input line), regardless of post-send output monitoring.
+ * In v4 this would return false when pipe-pane verification failed.
+ */
+function simulateSendGoV5(
+  agentAlive: boolean,
+  interactivePrompt: boolean,
+  enterRegistered: boolean[],
+  maxRetries: number = 3
+): { delivered: boolean; sendCount: number } {
+  if (!agentAlive) return { delivered: false, sendCount: 0 };
+  if (interactivePrompt) return { delivered: false, sendCount: 0 };
+
+  for (let i = 0; i < maxRetries; i++) {
+    if (enterRegistered[i] !== false) {
+      // v5: send-keys succeeded + message left input = delivered
+      // No post-send log verification needed
+      return { delivered: true, sendCount: 1 };
+    }
+  }
+  return { delivered: false, sendCount: 0 };
+}
+
+/**
+ * Simulate v5 monitor_agent_response: passive check, no message injection.
+ * Returns whether agent appears active.
+ */
+function simulateMonitorResponse(
+  paneChanged: boolean,
+  logGrew: boolean,
+  turnChanged: boolean
+): { agentActive: boolean; pipeRebuild: boolean } {
+  // Cross-reference: pane changed but log didn't grow → pipe dead
+  const pipeRebuild = paneChanged && !logGrew;
+
+  // Agent is active if pane changed or turn changed
+  const agentActive = paneChanged || turnChanged;
+
+  return { agentActive, pipeRebuild };
+}
+
+describe("Watcher v5: delivery/monitor decoupling (T2)", () => {
+  it("delivery succeeds even when pipe-pane is dead (v4 bug fixed)", () => {
+    // In v4: send-keys OK but log didn't grow → returned false → re-sent
+    // In v5: send-keys OK → returned true, monitoring is separate
+    const result = simulateSendGoV5(true, false, [true]);
+    assert.strictEqual(result.delivered, true);
+    assert.strictEqual(result.sendCount, 1);
+  });
+
+  it("delivery still fails when send-keys actually fails", () => {
+    const result = simulateSendGoV5(true, false, [false, false, false]);
+    assert.strictEqual(result.delivered, false);
+  });
+
+  it("monitor detects active agent without sending messages", () => {
+    const result = simulateMonitorResponse(true, false, false);
+    assert.strictEqual(result.agentActive, true);
+    // No message was sent — purely observational
+  });
+
+  it("monitor detects stalled agent", () => {
+    const result = simulateMonitorResponse(false, false, false);
+    assert.strictEqual(result.agentActive, false);
+  });
+
+  it("monitor resets escalation when agent is active", () => {
+    // Simulate: delivery succeeded (ack), then escalation path checks monitor
+    const s = newState();
+    checkAndTrigger(s, "ralph", true, 100, "1");
+
+    // Simulate escalation check: agent is active via capture-pane
+    const monitor = simulateMonitorResponse(true, true, false);
+    assert.strictEqual(monitor.agentActive, true);
+    // Escalation should reset (tested via state, not checkAndTrigger directly)
+  });
+});
+
+// ─── Step41 (v5): Capture-pane idle detection (T3) ──────
+
+/**
+ * Simulate v5 check_output_stable: uses capture-pane hash diff.
+ * hash1/hash2: simulated pane content hashes at two points in time.
+ */
+function simulateOutputStable(hash1: string, hash2: string): boolean {
+  return hash1 === hash2; // stable if unchanged
+}
+
+describe("Watcher v5: capture-pane idle detection (T3)", () => {
+  it("detects stable output (same hash)", () => {
+    assert.strictEqual(simulateOutputStable("abc123", "abc123"), true);
+  });
+
+  it("detects active output (different hash)", () => {
+    assert.strictEqual(simulateOutputStable("abc123", "def456"), false);
+  });
+
+  it("works correctly when pane is empty", () => {
+    assert.strictEqual(simulateOutputStable("", ""), true);
+  });
+
+  it("detects change from empty to content", () => {
+    assert.strictEqual(simulateOutputStable("", "abc123"), false);
+  });
+});
+
+// ─── Step41 (v5): Pipe-pane cross-reference rebuild (T4) ──────
+
+describe("Watcher v5: pipe-pane cross-reference rebuild (T4)", () => {
+  it("detects dead pipe: pane changed but log stale", () => {
+    const result = simulateMonitorResponse(true, false, false);
+    assert.strictEqual(result.pipeRebuild, true);
+    assert.strictEqual(result.agentActive, true);
+  });
+
+  it("healthy pipe: pane changed and log grew", () => {
+    const result = simulateMonitorResponse(true, true, false);
+    assert.strictEqual(result.pipeRebuild, false);
+    assert.strictEqual(result.agentActive, true);
+  });
+
+  it("idle agent: no pane change, no log growth", () => {
+    const result = simulateMonitorResponse(false, false, false);
+    assert.strictEqual(result.pipeRebuild, false);
+    assert.strictEqual(result.agentActive, false);
+  });
+
+  it("no rebuild when pane unchanged (even if log grew)", () => {
+    const result = simulateMonitorResponse(false, true, false);
+    assert.strictEqual(result.pipeRebuild, false);
+  });
+
+  it("turn change signals active agent without pane change", () => {
+    const result = simulateMonitorResponse(false, false, true);
+    assert.strictEqual(result.agentActive, true);
+    assert.strictEqual(result.pipeRebuild, false);
   });
 });

@@ -5,6 +5,14 @@
 
 ## v0.3.x
 
+### v0.3.12 の新機能
+
+- **Watcher v5**: メッセージ送信と応答検証を分離 — 作業中のエージェントに14以上の重複メッセージを送信するフラッディングバグを修正。ラウンドあたりの送信上限（最大2回）、capture-pane ベースのアイドル検出（pipe-pane 非依存）、pipe-pane クロスリファレンス自己修復、パッシブ post-send モニタリング。
+- **テスト実行の強制**: `[PLAN]` にはテスト計画（テストコマンド＋カバレッジ範囲）が必要。`[CODE]`/`[FIX]` の Test Results には終了コードまたは合格/不合格数が必要。正当な理由付きの `Skipped:` を許容。Lisa はレビュー時にテストを再実行する必要あり。
+- **エスカレーションタイミング**: デフォルトを 2m/5m/10m から 5m/15m/30m に延長。`RL_ESCALATION_L1`、`RL_ESCALATION_L2`、`RL_ESCALATION_L3` 環境変数でカスタマイズ可能。
+- **UX ワーディング**: すべてのロールテンプレートとコマンドファイルで「STOP immediately」/「MUST STOP」を「フィードバックを待つ」に置換。
+- **サブエージェントガイダンス**: ロールテンプレートに長時間タスクでのサブエージェント使用の提案を追加。
+
 ### v0.3.11 の新機能
 
 - **`ralph-lisa stop` コマンド**: auto モードのグレースフルシャットダウン — watcher を停止し、エージェントペインに `/exit` を送信し、tmux セッションを終了します。`--force` で即時強制終了、`--no-archive` でログアーカイブをスキップ。
@@ -29,7 +37,7 @@
 - **事実の検証**: Lisa が「未実装」や「不足している」と主張する場合、`file:line` のエビデンスを提示する必要があります。
 - **Policy レイヤー**: `warn`/`block` モードで設定可能な提出品質チェック。
 - **Watcher v3**: Fire-and-forget トリガー、30秒クールダウン、checkpoint システム（`RL_CHECKPOINT_ROUNDS`）、クラッシュ時の自動再起動、設定可能なログ閾値（`RL_LOG_MAX_MB`）、heartbeat ファイル。
-- **Deadlock の回避**: consensus なしに 5 ラウンド経過後、エージェントは `[OVERRIDE]` または `[HANDOFF]` を使用できます。
+- **Deadlock 検出**: 5 ラウンド連続 `[NEEDS_WORK]` の後、watcher が自動的に一時停止。ユーザーが `scope-update` または `force-turn` で介入。
 - **ミニマルセットアップ**: `ralph-lisa init --minimal` でセッション状態のみを作成（プロジェクトファイルなし）。
 - **`doctor` コマンド**: `ralph-lisa doctor` ですべての依存関係を確認。
 

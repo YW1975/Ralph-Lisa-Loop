@@ -1536,6 +1536,12 @@ description: Lisa review commands for Ralph-Lisa dual-agent collaboration
 
 This skill provides Lisa's review commands for the Ralph-Lisa collaboration.
 
+## Turn Rules
+
+When it's not your turn, do not submit work. You may use subagents for preparatory tasks.
+If triggered by the user but it's not your turn, suggest checking watcher status:
+\`cat .dual-agent/.watcher_heartbeat\` and \`ralph-lisa status\`.
+
 ## Available Commands
 
 ### Check Turn
@@ -1546,9 +1552,7 @@ Check if it's your turn before taking action.
 
 ### Submit Review
 \`\`\`bash
-ralph-lisa submit-lisa "[TAG] summary
-
-detailed content..."
+ralph-lisa submit-lisa --file .dual-agent/submit.md
 \`\`\`
 Submit your review. Valid tags: PASS, NEEDS_WORK, CHALLENGE, DISCUSS, QUESTION, CONSENSUS
 
@@ -1563,6 +1567,13 @@ View current task, turn, and last action.
 ralph-lisa read work.md
 \`\`\`
 Read Ralph's latest submission.
+
+## Review Requirements
+
+For [CODE]/[FIX] reviews:
+- Verify Test Results match the test plan from [PLAN] phase
+- Re-run the test command yourself to verify results
+- Check for exit code or pass/fail count (or explicit Skipped: with justification)
 `;
   writeFile(path.join(codexSkillDir, "SKILL.md"), skillContent);
 
@@ -1926,8 +1937,9 @@ export function cmdAuto(args: string[]): void {
   // Create watcher script
   const watcherScript = path.join(dir, "watcher.sh");
   let watcherContent = `#!/bin/bash
-# Turn watcher v4 - round-based change detection + persistent state
+# Turn watcher v5 - decoupled delivery + send caps + capture-pane monitoring
 # Architecture: polling main loop + optional event acceleration
+# v5: Fixes message flooding and stall bugs from v4 (step41)
 # v4: Round-based detection fixes double-flip deadlock (step39)
 
 STATE_DIR=".dual-agent"
@@ -1950,9 +1962,17 @@ DEADLOCK_REMIND_TIME=0
 CLEANUP_DONE=0
 
 # Per-turn escalation state (step38: anti-flooding + stuck-agent detection)
+# step43: configurable escalation timing via env vars (default: 5m/15m/30m)
 NOTIFY_SENT_AT=0        # epoch when first notification was sent this turn
 REMINDER_LEVEL=0        # 0=initial, 1=REMINDER sent, 2=slash sent, 3=user notified
 CURRENT_TURN_HASH=""    # hash of turn.txt content for change detection
+ESCALATION_L1=\${RL_ESCALATION_L1:-300}   # L1 REMINDER (default 5 min)
+ESCALATION_L2=\${RL_ESCALATION_L2:-900}   # L2 /check-turn (default 15 min)
+ESCALATION_L3=\${RL_ESCALATION_L3:-1800}  # L3 STUCK notify (default 30 min)
+
+# v5: Per-round send cap (P0-2: prevents message flooding)
+SEND_COUNT_THIS_ROUND=0
+MAX_SENDS_PER_ROUND=2   # initial + 1 retry max
 
 PANE0_LOG="\${STATE_DIR}/pane0.log"
 PANE1_LOG="\${STATE_DIR}/pane1.log"
@@ -2104,27 +2124,23 @@ check_agent_alive() {
 }
 
 # Returns 0 if pane output has been stable for at least N seconds
+# v5 (P0-3): Uses capture-pane diff instead of pipe-pane log mtime.
+# The old log-mtime approach failed silently when pipe-pane died,
+# causing false-idle detection and message injection into active agents.
 check_output_stable() {
-  local log_file="\$1"
+  local pane="\$1"
   local stable_seconds="\${2:-5}"
 
-  if [[ ! -f "\$log_file" ]]; then
-    return 0
-  fi
+  # Capture current pane content hash
+  local hash1 hash2
+  hash1=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5sum 2>/dev/null || tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5)
+  sleep "\$stable_seconds"
+  hash2=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5sum 2>/dev/null || tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5)
 
-  local mtime_epoch now_epoch elapsed
-  if [[ "\$(uname)" == "Darwin" ]]; then
-    mtime_epoch=\$(stat -f %m "\$log_file" 2>/dev/null || echo 0)
-  else
-    mtime_epoch=\$(stat -c %Y "\$log_file" 2>/dev/null || echo 0)
+  if [[ "\$hash1" == "\$hash2" ]]; then
+    return 0  # Stable — pane content unchanged
   fi
-  now_epoch=\$(date +%s)
-  elapsed=\$(( now_epoch - mtime_epoch ))
-
-  if (( elapsed >= stable_seconds )); then
-    return 0  # Stable
-  fi
-  return 1  # Still producing output
+  return 1  # Still producing output — pane content changed
 }
 
 # Returns 0 if interactive prompt detected (do NOT send go)
@@ -2182,14 +2198,14 @@ send_go_to_pane() {
 
   # 3. Wait for agent to be idle (output stable for 5s)
   #    Prevents injecting text while agent is mid-response
+  #    v5 (P0-3): uses capture-pane diff, not pipe-pane log mtime
   local stable_wait=0
   while (( stable_wait < 30 )); do
-    if check_output_stable "\$log_file" 5; then
+    if check_output_stable "\$pane" 5; then
       break
     fi
     echo "[Watcher] Waiting for \$agent_name to finish output..."
-    sleep 3
-    stable_wait=\$((stable_wait + 3))
+    stable_wait=\$((stable_wait + 5))
   done
   if (( stable_wait >= 30 )); then
     echo "[Watcher] \$agent_name still producing output after 30s, sending anyway"
@@ -2228,35 +2244,85 @@ send_go_to_pane() {
     return 1
   fi
 
-  # 6. Post-send verification: wait up to 20s for agent to start responding
-  #    Record size AFTER send+retry completes (not before), so we only measure
-  #    the agent's actual response, not the injected text appearing in the pane.
-  local post_send_baseline=0
-  if [[ -f "\$log_file" ]]; then
-    post_send_baseline=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
-  fi
-  local verify_wait=0
-  while (( verify_wait < 20 )); do
-    sleep 4
-    verify_wait=\$((verify_wait + 4))
-    if [[ -f "\$log_file" ]]; then
-      local cur_size
-      cur_size=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
-      if (( cur_size > post_send_baseline + 100 )); then
-        echo "[Watcher] OK: \$agent_name responded (output grew +\$((cur_size - post_send_baseline)) bytes)"
-        return 0
-      fi
-    fi
-  done
+  # v5 (P0-1): send-keys succeeded + message left input line = delivered.
+  # Post-send response monitoring is now decoupled — handled by monitor_agent_response()
+  # in the escalation path. This eliminates the flooding bug where pipe-pane failure
+  # caused send_go_to_pane to return 1 despite successful delivery.
+  echo "[Watcher] OK: Message delivered to \$agent_name (send-keys confirmed)"
+  SEND_COUNT_THIS_ROUND=\$((SEND_COUNT_THIS_ROUND + 1))
+  return 0
+}
 
-  echo "[Watcher] WARN: \$agent_name did not produce output after send — may not have received message"
-  return 1
+# v5 (P1-2): Passive post-send monitoring — checks if agent is responding
+# without sending any messages. Uses capture-pane diff + log growth cross-reference.
+# Called from escalation path, NOT from delivery path.
+monitor_agent_response() {
+  local pane="\$1"
+  local agent_name="\$2"
+  local log_file="\$3"
+
+  # Record log size BEFORE sleep so we can measure real growth
+  local log_size_before=0
+  if [[ -f "\$log_file" ]]; then
+    log_size_before=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
+  fi
+
+  # Check 1: capture-pane diff (primary signal, works even if pipe-pane is dead)
+  local hash_before hash_after
+  hash_before=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5sum 2>/dev/null || tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5)
+  sleep 5
+  hash_after=\$(tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5sum 2>/dev/null || tmux capture-pane -t "\${SESSION}:\${pane}" -p 2>/dev/null | md5)
+
+  local pane_changed=0
+  local log_grew=0
+
+  if [[ "\$hash_before" != "\$hash_after" ]]; then
+    pane_changed=1
+  fi
+
+  # Check 2: log file growth (secondary signal, depends on pipe-pane being alive)
+  # size_before was recorded BEFORE the 5s sleep above
+  if [[ -f "\$log_file" ]]; then
+    local log_size_after
+    log_size_after=\$(wc -c < "\$log_file" 2>/dev/null | tr -d ' ')
+    if (( log_size_after > log_size_before + 50 )); then
+      log_grew=1
+    fi
+  fi
+
+  # Cross-reference for pipe-pane health (P1-1)
+  if (( pane_changed && !log_grew )); then
+    echo "[Watcher] Pipe-pane appears dead (pane active but log stale), rebuilding for \$pane"
+    tmux pipe-pane -t "\${SESSION}:\${pane}" 2>/dev/null || true
+    tmux pipe-pane -o -t "\${SESSION}:\${pane}" "cat >> \\"\$log_file\\"" 2>/dev/null || true
+  fi
+
+  if (( pane_changed )); then
+    echo "[Watcher] Monitor: \$agent_name is active (pane output changing)"
+    return 0  # Agent is working
+  fi
+
+  # Check 3: turn.txt changed (ultimate signal — agent finished and submitted)
+  local current_turn
+  current_turn=\$(cat "\$STATE_DIR/turn.txt" 2>/dev/null || echo "")
+  if [[ "\$current_turn" != "\$SEEN_TURN" ]]; then
+    echo "[Watcher] Monitor: Turn changed to \$current_turn — agent completed work"
+    return 0
+  fi
+
+  return 1  # No activity detected
 }
 
 # ─── trigger_agent ───────────────────────────────
 
 trigger_agent() {
   local turn="\$1"
+
+  # v5 (P0-2): Check send cap before attempting delivery
+  if (( SEND_COUNT_THIS_ROUND >= MAX_SENDS_PER_ROUND )); then
+    echo "[Watcher] SEND_CAP: Max sends (\$MAX_SENDS_PER_ROUND) reached for round \$SEEN_ROUND, passive monitoring only"
+    return 1
+  fi
 
   # Read task context for trigger messages (last meaningful line = latest direction)
   local task_ctx=""
@@ -2459,6 +2525,8 @@ check_and_trigger() {
       # Reset per-turn escalation state (step38)
       NOTIFY_SENT_AT=0
       REMINDER_LEVEL=0
+      # v5 (P0-2): Reset send cap for new round
+      SEND_COUNT_THIS_ROUND=0
 
       # Mark delivery pending (step39: decouple ack from delivery)
       DELIVERY_PENDING=1
@@ -2479,6 +2547,8 @@ check_and_trigger() {
       LAST_ACK_TIME=0
       NOTIFY_SENT_AT=0
       REMINDER_LEVEL=0
+      # v5 (P0-2): Reset send cap for new turn
+      SEND_COUNT_THIS_ROUND=0
       DELIVERY_PENDING=1
       PENDING_TARGET="\$CURRENT_TURN"
       save_watcher_state
@@ -2498,7 +2568,9 @@ check_and_trigger() {
 
     # Consensus suppression (step38): suppress notifications when consensus reached
     # step39: only suppress if round hasn't changed since consensus was detected
-    if check_consensus_reached; then
+    # step46: only suppress if delivery is NOT pending — if turn points to an agent
+    # that hasn't responded yet, they need to be triggered to confirm consensus
+    if check_consensus_reached && (( !DELIVERY_PENDING )); then
       if [[ "\$CONSENSUS_AT_ROUND" == "" ]]; then
         CONSENSUS_AT_ROUND="\$CURRENT_ROUND"
       fi
@@ -2579,40 +2651,58 @@ check_and_trigger() {
         target_pane="0.1"; target_name="Lisa"; target_log="\$PANE1_LOG"
       fi
 
-      # Check for context limit in pane output (unrecoverable — notify user immediately)
-      local pane_tail
-      pane_tail=\$(tmux capture-pane -t "\${SESSION}:\${target_pane}" -p 2>/dev/null | tail -10)
-      if echo "\$pane_tail" | grep -qiE "context limit|conversation too long|token limit|context window"; then
-        if (( REMINDER_LEVEL < 3 )); then
-          echo "[Watcher] CONTEXT LIMIT detected for \$target_name. Manual intervention required."
-          echo "[Watcher] Restart the agent session to continue."
-          REMINDER_LEVEL=3
-        fi
+      # v5 (P1-2): Passive monitoring — check if agent is working before escalating
+      # This also handles pipe-pane cross-reference rebuild (P1-1)
+      if monitor_agent_response "\$target_pane" "\$target_name" "\$target_log"; then
+        # Agent is active — reset escalation timer, no action needed
+        NOTIFY_SENT_AT=\$(date +%s)
+        REMINDER_LEVEL=0
+      else
+        # Agent not responding — proceed with escalation
 
-      # Time-based escalation: each level checked independently by elapsed time.
-      # If L1/L2 delivery fails, time still advances, so L3 is always reachable.
-
-      # Level 3: notify user after 10 minutes — always reachable regardless of L1/L2 success
-      elif (( elapsed >= 600 && REMINDER_LEVEL < 3 )); then
-        echo "[Watcher] STUCK: \$target_name has not responded for \${elapsed}s. Manual intervention needed."
-        REMINDER_LEVEL=3
-
-      # Level 2: slash command after 5 minutes, with prompt guard
-      elif (( elapsed >= 300 && REMINDER_LEVEL < 2 )); then
-        if ! check_for_interactive_prompt "\$target_pane"; then
-          echo "[Watcher] Escalation L2: Sending /check-turn to \$target_name (no response for \${elapsed}s)"
-          if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "/check-turn"; then
-            REMINDER_LEVEL=2
+        # Check for context limit in pane output (unrecoverable — notify user immediately)
+        local pane_tail
+        pane_tail=\$(tmux capture-pane -t "\${SESSION}:\${target_pane}" -p 2>/dev/null | tail -10)
+        if echo "\$pane_tail" | grep -qiE "context limit|conversation too long|token limit|context window"; then
+          if (( REMINDER_LEVEL < 3 )); then
+            echo "[Watcher] CONTEXT LIMIT detected for \$target_name. Manual intervention required."
+            echo "[Watcher] Restart the agent session to continue."
+            REMINDER_LEVEL=3
           fi
-        else
-          echo "[Watcher] Escalation L2: Skipped — interactive prompt detected for \$target_name"
-        fi
 
-      # Level 1: REMINDER after 2 minutes
-      elif (( elapsed >= 120 && REMINDER_LEVEL < 1 )); then
-        echo "[Watcher] Escalation L1: Sending REMINDER to \$target_name (no response for \${elapsed}s)"
-        if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "REMINDER: It is your turn. Please check turn and continue working."; then
-          REMINDER_LEVEL=1
+        # Time-based escalation: each level checked independently by elapsed time.
+        # If L1/L2 delivery fails, time still advances, so L3 is always reachable.
+
+        # Level 3: notify user (default 30 min) — always reachable regardless of L1/L2 success
+        elif (( elapsed >= ESCALATION_L3 && REMINDER_LEVEL < 3 )); then
+          echo "[Watcher] STUCK: \$target_name has not responded for \${elapsed}s. Manual intervention needed."
+          REMINDER_LEVEL=3
+
+        # Level 2: slash command (default 15 min), with prompt guard
+        # v5: escalation also respects send cap to prevent flooding
+        elif (( elapsed >= ESCALATION_L2 && REMINDER_LEVEL < 2 )); then
+          if (( SEND_COUNT_THIS_ROUND >= MAX_SENDS_PER_ROUND )); then
+            echo "[Watcher] Escalation L2: Skipped — send cap reached for round \$SEEN_ROUND"
+          elif ! check_for_interactive_prompt "\$target_pane"; then
+            echo "[Watcher] Escalation L2: Sending /check-turn to \$target_name (no response for \${elapsed}s)"
+            if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "/check-turn"; then
+              REMINDER_LEVEL=2
+            fi
+          else
+            echo "[Watcher] Escalation L2: Skipped — interactive prompt detected for \$target_name"
+          fi
+
+        # Level 1: REMINDER (default 5 min)
+        # v5: escalation also respects send cap to prevent flooding
+        elif (( elapsed >= ESCALATION_L1 && REMINDER_LEVEL < 1 )); then
+          if (( SEND_COUNT_THIS_ROUND >= MAX_SENDS_PER_ROUND )); then
+            echo "[Watcher] Escalation L1: Skipped — send cap reached for round \$SEEN_ROUND"
+          else
+            echo "[Watcher] Escalation L1: Sending REMINDER to \$target_name (no response for \${elapsed}s)"
+            if send_go_to_pane "\$target_pane" "\$target_name" "\$target_log" "REMINDER: It is your turn. Please check turn and continue working."; then
+              REMINDER_LEVEL=1
+            fi
+          fi
         fi
       fi
     fi
@@ -2621,7 +2711,7 @@ check_and_trigger() {
 
 # ─── Main ────────────────────────────────────────
 
-echo "[Watcher] Starting v4... (Ctrl+C to stop)"
+echo "[Watcher] Starting v5... (Ctrl+C to stop)"
 echo "[Watcher] Monitoring \$STATE_DIR/turn.txt + round.txt"
 echo "[Watcher] Pane logs: \$PANE0_LOG, \$PANE1_LOG"
 if (( CHECKPOINT_ROUNDS > 0 )); then

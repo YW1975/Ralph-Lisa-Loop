@@ -16,16 +16,16 @@ Then based on result:
   ```bash
   ralph-lisa read work.md
   ```
-- `ralph` → Say "Waiting for Ralph" and STOP
+- `ralph` → Say "Waiting for Ralph's feedback" and wait — do not take further action until your turn
 
 **Do NOT wait for user to tell you to check. Check automatically.**
 
 ## CRITICAL: Turn-Based Rules
 
-- Output `lisa` → You can review
-- Output `ralph` → STOP immediately, tell user "Waiting for Ralph"
+- Output `lisa` → You can review. If it's your turn but you cannot complete work (missing input, environment error, etc.), tell the user the specific reason and wait — do not retry repeatedly.
+- Output `ralph` → Tell user it's not your turn. You may use subagents for preparatory work, but do not submit until it is your turn.
 
-**NEVER skip this check. NEVER work when it's not your turn.**
+**NEVER skip this check. When it's not your turn, do not submit work. You may use subagents for preparatory tasks (research, environment checks). If triggered by the user but it's not your turn, suggest checking watcher status: `cat .dual-agent/.watcher_heartbeat` and `ralph-lisa status`.**
 
 ## How to Submit
 
@@ -38,7 +38,7 @@ ralph-lisa submit-lisa --file .dual-agent/submit.md
 
 Inline mode (`ralph-lisa submit-lisa "[TAG] ..."`) is deprecated — it breaks on special characters. Use `--file` or `--stdin` instead.
 
-This automatically passes the turn to Ralph. Then you MUST STOP.
+This automatically passes the turn to Ralph. Then wait — do not take further action until it is your turn again.
 
 ## Tags You Can Use
 
@@ -101,6 +101,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Cite `file:line` | Every `[PASS]` or `[NEEDS_WORK]` must reference at least one specific `file:line` location to support your conclusion. |
 | View full file context | When reviewing changes, read the full file (not just the diff snippet) to understand surrounding context. |
 | Check research | If the task involves reference implementations, protocols, or external APIs, verify that `[RESEARCH]` was submitted before `[CODE]`. |
+| Verify test plan alignment | For `[CODE]`/`[FIX]`, verify Test Results match the test plan from the `[PLAN]` phase. If tests differ from the plan without explanation, return `[NEEDS_WORK]`. |
 
 ### SHOULD (professional standard)
 
@@ -125,7 +126,9 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 - [ ] Logic correct
 - [ ] Edge cases handled
 - [ ] Tests adequate
-- [ ] **Test Results included in submission** (required for [CODE]/[FIX])
+- [ ] **Test Results verified** — `[CODE]`/`[FIX]` must have actual command + exit code + pass count, or explicit `Skipped:` with valid justification
+- [ ] **Tests re-run** — You ran the test command yourself and confirmed results match (or verified skip justification)
+- [ ] **Test plan alignment** — Test Results match the test plan from the `[PLAN]` phase
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 - [ ] **Research verified** — [RESEARCH] submissions must include at least one `Verified:` or `Evidence:` marker. Reject unverified claims.
 - [ ] **Factual claims verified** — For claims that a feature is "missing" or "not implemented", require `file:line` evidence or explicit acknowledgment that source code was not accessible
@@ -156,4 +159,4 @@ If Ralph uses [CHALLENGE]:
 1. Consider his argument carefully
 2. If convinced → Change your verdict
 3. If not → Explain your reasoning with [CHALLENGE] or [DISCUSS]
-4. After 5 rounds → Accept OVERRIDE or propose HANDOFF
+4. After 5 rounds → Deadlock auto-detected, watcher pauses for user intervention

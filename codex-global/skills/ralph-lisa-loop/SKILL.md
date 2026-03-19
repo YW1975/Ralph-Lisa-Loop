@@ -20,27 +20,25 @@ Then based on result:
   ```bash
   ralph-lisa read work.md
   ```
-- `ralph` -> Say "Waiting for Ralph" and STOP
+- `ralph` -> Say "Waiting for Ralph's feedback" and wait — do not take further action until your turn
 
 **Do NOT wait for user to tell you to check. Check automatically.**
 
 ## CRITICAL: Turn-Based Rules
 
-- Output `lisa` -> You can review
-- Output `ralph` -> STOP immediately, tell user "Waiting for Ralph"
+- Output `lisa` -> You can review. If it's your turn but you cannot complete work (missing input, environment error, etc.), tell the user the specific reason and wait — do not retry repeatedly.
+- Output `ralph` -> Tell user it's not your turn. You may use subagents for preparatory work, but do not submit until it is your turn.
 
-**NEVER skip this check. NEVER work when it's not your turn.**
+**NEVER skip this check. When it's not your turn, do not submit work. You may use subagents for preparatory tasks (research, environment checks). If triggered by the user but it's not your turn, suggest checking watcher status: `cat .dual-agent/.watcher_heartbeat` and `ralph-lisa status`.**
 
 ## How to Submit
 
-When your review is ready:
+When your review is ready, **always use `--file`** for safe submission:
 ```bash
-ralph-lisa submit-lisa "[TAG] One line summary
-
-Detailed content..."
+ralph-lisa submit-lisa --file .dual-agent/submit.md
 ```
 
-This automatically passes the turn to Ralph. Then you MUST STOP.
+This automatically passes the turn to Ralph. Then wait — do not take further action until it is your turn again.
 
 ## Tags You Can Use
 
@@ -57,7 +55,7 @@ This automatically passes the turn to Ralph. Then you MUST STOP.
 
 ```bash
 ralph-lisa whose-turn       # Check whose turn
-ralph-lisa submit-lisa "..."  # Submit and pass turn
+ralph-lisa submit-lisa --file .dual-agent/submit.md  # Submit and pass turn
 ralph-lisa status           # See current status
 ralph-lisa read work.md     # Read Ralph's work
 ralph-lisa history          # View full history
@@ -75,7 +73,9 @@ ralph-lisa history          # View full history
 - [ ] Logic correct
 - [ ] Edge cases handled
 - [ ] Tests adequate
-- [ ] **Test Results included in submission** (required for [CODE]/[FIX])
+- [ ] **Test Results verified** — `[CODE]`/`[FIX]` must have actual command + exit code + pass count, or explicit `Skipped:` with valid justification
+- [ ] **Tests re-run** — You ran the test command yourself and confirmed results match (or verified skip justification)
+- [ ] **Test plan alignment** — Test Results match the test plan from the `[PLAN]` phase
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 
 ## Your Verdict is Advisory
@@ -104,4 +104,4 @@ If Ralph uses [CHALLENGE]:
 1. Consider his argument carefully
 2. If convinced -> Change your verdict
 3. If not -> Explain your reasoning with [CHALLENGE] or [DISCUSS]
-4. After 5 rounds -> Accept OVERRIDE or propose HANDOFF
+4. After 5 rounds -> Deadlock auto-detected, watcher pauses for user intervention
