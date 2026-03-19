@@ -3,7 +3,7 @@ import * as assert from "node:assert";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import { generateSessionName, executeForceTurn, parseSubtasks } from "../commands.js";
+import { generateSessionName, executeForceTurn, parseSubtasks, notifyUser } from "../commands.js";
 import { resetProjectRootCache, _setTmuxStateDirOverride } from "../state.js";
 
 const CLI = path.join(__dirname, "..", "cli.js");
@@ -1905,5 +1905,197 @@ describe("CLI: step resets turn and work/review (step38)", () => {
     const workFile = path.join(TMP, ".dual-agent", "work.md");
     const content = fs.readFileSync(workFile, "utf-8");
     assert.ok(content.includes("[PLAN]"), "work.md should have new PLAN tag");
+  });
+});
+
+// ─── emergency-msg tests ─────────────────────────
+
+describe("CLI: emergency-msg", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("shows usage when no args", () => {
+    const r = run("emergency-msg");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+
+  it("rejects invalid target", () => {
+    const r = run("emergency-msg", "bob", "hello");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("ralph") || r.stdout.includes("lisa"));
+  });
+
+  // Note: heartbeat gate and tmux delivery tests require a live tmux session.
+  // cmdEmergencyMsg checks tmux session (L3570) BEFORE heartbeat (L3578),
+  // so heartbeat behavior cannot be isolated in a no-tmux test environment.
+  // These paths are verified via manual integration testing.
+
+  // Note: emergency-msg requires a live tmux session to test beyond usage/target validation.
+  // The tmux session check, heartbeat gate, and delivery paths are verified via manual integration testing.
+});
+
+// ─── notify tests ────────────────────────────────
+
+describe("CLI: notify", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("shows error when RL_NOTIFY_CMD not set", () => {
+    const r = run("notify", "test message");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("RL_NOTIFY_CMD"));
+  });
+
+  it("shows usage when no message", () => {
+    const r = run("notify");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Usage"));
+  });
+
+  it("delivers message via witness file when RL_NOTIFY_CMD set", () => {
+    const witnessFile = path.join(TMP, ".notify-witness");
+    try { fs.unlinkSync(witnessFile); } catch {}
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "notify", "hello from test"], {
+        cwd: TMP,
+        encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_NOTIFY_CMD: `cat >> "${witnessFile}"` },
+      });
+      // Give spawn a moment to write
+      execFileSync("sleep", ["0.5"]);
+      assert.ok(fs.existsSync(witnessFile), "witness file must exist after notify");
+      const content = fs.readFileSync(witnessFile, "utf-8");
+      assert.ok(content.includes("hello from test"));
+    } catch (e: any) {
+      // notify command itself should succeed
+      assert.fail("notify command failed: " + (e.stdout || e.stderr || e.message));
+    }
+  });
+});
+
+// ─── notify hook integration tests ──────────────
+
+describe("CLI: notify hooks (step47)", () => {
+  const witnessFile = path.join(TMP, ".notify-hook-witness");
+
+  function runWithNotify(...args: string[]): { stdout: string; exitCode: number } {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, ...args], {
+        cwd: TMP,
+        encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_NOTIFY_CMD: `cat >> "${witnessFile}"` },
+      });
+      return { stdout, exitCode: 0 };
+    } catch (e: any) {
+      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
+    }
+  }
+
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+    try { fs.unlinkSync(witnessFile); } catch {}
+  });
+
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    try { fs.unlinkSync(witnessFile); } catch {}
+  });
+
+  it("notifies on deadlock (5 consecutive NEEDS_WORK)", () => {
+    for (let i = 0; i < 5; i++) {
+      run("submit-ralph", `[FIX] attempt ${i}\\n\\ncommands.ts:1\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed`);
+      runWithNotify("submit-lisa", `[NEEDS_WORK] Fix issue ${i}\\n\\n- Bug at commands.ts:${i + 1}`);
+    }
+    execFileSync("sleep", ["0.5"]);
+    assert.ok(fs.existsSync(witnessFile), "witness file must exist after deadlock");
+    const content = fs.readFileSync(witnessFile, "utf-8");
+    assert.ok(content.includes("DEADLOCK"), "witness file should contain DEADLOCK notification");
+  });
+
+  it("notifies on step complete (CONSENSUS+CONSENSUS)", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    runWithNotify("submit-lisa", "[CONSENSUS] Confirmed\\n\\n- All good at commands.ts:1");
+    execFileSync("sleep", ["0.5"]);
+    assert.ok(fs.existsSync(witnessFile), "witness file must exist after consensus");
+    const content = fs.readFileSync(witnessFile, "utf-8");
+    assert.ok(content.includes("complete") || content.includes("consensus"), "witness should contain completion notification");
+  });
+
+  it("notifies on step complete (PASS+CONSENSUS)", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    runWithNotify("submit-lisa", "[PASS] Approved\\n\\n- Clean at commands.ts:1");
+    execFileSync("sleep", ["0.5"]);
+    assert.ok(fs.existsSync(witnessFile), "witness file must exist after PASS+CONSENSUS");
+    const content = fs.readFileSync(witnessFile, "utf-8");
+    assert.ok(content.includes("complete") || content.includes("consensus"), "witness should contain completion notification");
+  });
+
+  it("notifies on step complete via Ralph-side combo (Lisa PASS then Ralph CONSENSUS)", () => {
+    // Ralph submits first (turn starts as ralph)
+    run("submit-ralph", "[CODE] Initial\\n\\ncommands.ts:1\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed");
+    // Lisa submits PASS (turn is now lisa)
+    run("submit-lisa", "[PASS] Approved\\n\\n- Clean at commands.ts:1");
+    // Ralph submits CONSENSUS with notify (turn is now ralph, review.md has PASS)
+    runWithNotify("submit-ralph", "[CONSENSUS] Agreed");
+    execFileSync("sleep", ["0.5"]);
+    assert.ok(fs.existsSync(witnessFile), "witness file must exist after Ralph-side PASS+CONSENSUS");
+    const content = fs.readFileSync(witnessFile, "utf-8");
+    assert.ok(content.includes("complete") || content.includes("consensus"), "witness should contain completion notification");
+  });
+
+  it("no notification when RL_NOTIFY_CMD is unset", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\\n\\n- All good at commands.ts:1");
+    assert.ok(!fs.existsSync(witnessFile), "witness file should not exist when RL_NOTIFY_CMD is unset");
+  });
+});
+
+// ─── notifyUser unit tests ───────────────────────
+
+describe("notifyUser", () => {
+  it("does not crash when RL_NOTIFY_CMD is unset", () => {
+    const orig = process.env.RL_NOTIFY_CMD;
+    delete process.env.RL_NOTIFY_CMD;
+    try {
+      // Should return immediately without error
+      notifyUser("test message");
+    } finally {
+      if (orig !== undefined) process.env.RL_NOTIFY_CMD = orig;
+    }
+  });
+
+  it("spawns successfully when RL_NOTIFY_CMD is set", () => {
+    const notifyFile = path.join(TMP, ".notify-unit-test");
+    try { fs.unlinkSync(notifyFile); } catch {}
+    const orig = process.env.RL_NOTIFY_CMD;
+    process.env.RL_NOTIFY_CMD = `cat >> "${notifyFile}"`;
+    try {
+      notifyUser("unit test notification");
+      // Give the spawned process a moment to write
+    } finally {
+      if (orig !== undefined) {
+        process.env.RL_NOTIFY_CMD = orig;
+      } else {
+        delete process.env.RL_NOTIFY_CMD;
+      }
+    }
+    // The spawn is fire-and-forget + detached, so we just verify no crash
   });
 });

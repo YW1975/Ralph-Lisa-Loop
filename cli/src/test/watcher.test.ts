@@ -1627,3 +1627,62 @@ describe("Watcher v5: pipe-pane cross-reference rebuild (T4)", () => {
     assert.strictEqual(result.pipeRebuild, false);
   });
 });
+
+// ─── Step47: Watcher template notify_user verification ──────
+
+describe("Watcher: template contains notify_user hooks (step47)", () => {
+  // Read the generated watcher template from commands.ts source
+  // The watcher is a bash string built in cmdAuto, so we verify
+  // the source file contains notify_user in the right places.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  // Read the TypeScript source (not compiled .js) for template string verification
+  const commandsSrc = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "commands.ts"),
+    "utf-8"
+  );
+
+  it("watcher template defines notify_user bash function", () => {
+    assert.ok(
+      commandsSrc.includes("notify_user()"),
+      "watcher template must define notify_user bash function"
+    );
+  });
+
+  it("L3 STUCK branch calls notify_user", () => {
+    // Find the STUCK section (REMINDER_LEVEL=3 for stuck)
+    const stuckMatch = commandsSrc.match(/STUCK:.*has not responded[\s\S]*?REMINDER_LEVEL=3/);
+    assert.ok(stuckMatch, "STUCK branch must exist in watcher template");
+    // notify_user should be near REMINDER_LEVEL=3 in the STUCK path
+    const afterStuck = commandsSrc.slice(commandsSrc.indexOf("STUCK:"));
+    const stuckBlock = afterStuck.slice(0, afterStuck.indexOf("elif") > 0 ? afterStuck.indexOf("elif") : 500);
+    assert.ok(
+      stuckBlock.includes("notify_user"),
+      "L3 STUCK branch must call notify_user"
+    );
+  });
+
+  it("CONTEXT LIMIT branch calls notify_user", () => {
+    const ctxMatch = commandsSrc.match(/CONTEXT LIMIT.*Manual intervention/);
+    assert.ok(ctxMatch, "CONTEXT LIMIT branch must exist in watcher template");
+    const afterCtx = commandsSrc.slice(commandsSrc.indexOf("CONTEXT LIMIT"));
+    const ctxBlock = afterCtx.slice(0, afterCtx.indexOf("elif") > 0 ? afterCtx.indexOf("elif") : 500);
+    assert.ok(
+      ctxBlock.includes("notify_user"),
+      "CONTEXT LIMIT branch must call notify_user"
+    );
+  });
+
+  it("wrapper restart loop contains notify", () => {
+    // The wrapper is built as an inline shell string
+    const wrapperMatch = commandsSrc.match(/restarting in 5s/);
+    assert.ok(wrapperMatch, "wrapper restart message must exist");
+    // Check notify is near the restart message
+    const afterRestart = commandsSrc.slice(commandsSrc.indexOf("restarting in 5s"));
+    const restartBlock = afterRestart.slice(0, 300);
+    assert.ok(
+      restartBlock.includes("RL_NOTIFY_CMD") || restartBlock.includes("notify"),
+      "wrapper restart must include notification"
+    );
+  });
+});

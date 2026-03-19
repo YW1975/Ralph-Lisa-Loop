@@ -33,6 +33,8 @@ import {
   cmdSubtask,
   cmdAddContext,
   cmdStop,
+  cmdEmergencyMsg,
+  cmdNotify,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -145,6 +147,14 @@ switch (cmd) {
     cmdStop(rest);
     break;
 
+  case "emergency-msg":
+    cmdEmergencyMsg(rest);
+    break;
+
+  case "notify":
+    cmdNotify(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -238,6 +248,10 @@ function showHelp(): void {
   console.log("  ralph-lisa remote --port 8080       Custom port");
   console.log("  ralph-lisa remote --auth user:pass   Enable basic auth");
   console.log("  ralph-lisa remote --stop             Stop ttyd server");
+  console.log("");
+  console.log("Emergency & Notifications:");
+  console.log('  ralph-lisa emergency-msg <agent> "msg"  Send emergency message to agent pane');
+  console.log('  ralph-lisa notify "message"              Send notification via RL_NOTIFY_CMD');
   console.log("");
   console.log("Diagnostics:");
   console.log("  ralph-lisa state-dir                Show state directory resolution");

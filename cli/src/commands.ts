@@ -6,7 +6,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import {
   STATE_DIR,
   ARCHIVE_DIR,
@@ -33,6 +33,28 @@ import { runPolicyCheck, checkRalph, checkLisa, checkNeedsWorkResponse } from ".
 
 function line(ch = "=", len = 40): string {
   return ch.repeat(len);
+}
+
+/**
+ * Send a notification to the user via RL_NOTIFY_CMD.
+ * Notification failure must not block main flow.
+ */
+export function notifyUser(message: string): void {
+  const cmd = process.env.RL_NOTIFY_CMD;
+  if (!cmd) return;
+  try {
+    const child = spawn("sh", ["-c", cmd], {
+      detached: true,
+      stdio: ["pipe", "ignore", "ignore"],
+    });
+    if (child.stdin) {
+      child.stdin.write(message);
+      child.stdin.end();
+    }
+    child.unref();
+  } catch {
+    // Notification failure must not block main flow
+  }
 }
 
 /**
@@ -386,6 +408,20 @@ export function cmdSubmitRalph(args: string[]): void {
   console.log(line());
   console.log("");
   console.log("Now wait for Lisa. Check with: ralph-lisa whose-turn");
+
+  // Notify on step completion (consensus reached)
+  const latestWork = readFile(path.join(dir, "work.md"));
+  const latestReview = readFile(path.join(dir, "review.md"));
+  const wTag = extractLastTag(latestWork);
+  const rTag = extractLastTag(latestReview);
+  if (
+    (wTag === "CONSENSUS" && rTag === "CONSENSUS") ||
+    (wTag === "CONSENSUS" && rTag === "PASS") ||
+    (wTag === "PASS" && rTag === "CONSENSUS")
+  ) {
+    const stepName = getStep();
+    notifyUser(`[RLL] Step "${stepName}" complete — consensus reached.`);
+  }
 }
 
 // ─── submit-lisa ─────────────────────────────────
@@ -487,6 +523,7 @@ export function cmdSubmitLisa(args: string[]): void {
       console.log("Watcher will pause for user intervention.");
       console.log("To resolve: ralph-lisa scope-update or ralph-lisa force-turn");
       console.log(line("!", 40));
+      notifyUser(`[RLL] DEADLOCK: ${newCount} consecutive NEEDS_WORK rounds. User intervention needed.`);
     }
   } else {
     // Reset counter on non-NEEDS_WORK review
@@ -525,6 +562,20 @@ export function cmdSubmitLisa(args: string[]): void {
   console.log(line());
   console.log("");
   console.log("Now wait for Ralph. Check with: ralph-lisa whose-turn");
+
+  // Notify on step completion (consensus reached)
+  const latestWork = readFile(path.join(dir, "work.md"));
+  const latestReview = readFile(path.join(dir, "review.md"));
+  const wTag = extractLastTag(latestWork);
+  const rTag = extractLastTag(latestReview);
+  if (
+    (wTag === "CONSENSUS" && rTag === "CONSENSUS") ||
+    (wTag === "CONSENSUS" && rTag === "PASS") ||
+    (wTag === "PASS" && rTag === "CONSENSUS")
+  ) {
+    const stepName = getStep();
+    notifyUser(`[RLL] Step "${stepName}" complete — consensus reached.`);
+  }
 }
 
 // ─── status ──────────────────────────────────────
@@ -1978,6 +2029,13 @@ PANE0_LOG="\${STATE_DIR}/pane0.log"
 PANE1_LOG="\${STATE_DIR}/pane1.log"
 PID_FILE="\${STATE_DIR}/watcher.pid"
 
+# User notification hook (step47)
+notify_user() {
+  if [[ -n "\$RL_NOTIFY_CMD" ]]; then
+    echo "\$1" | eval "\$RL_NOTIFY_CMD" 2>/dev/null &
+  fi
+}
+
 # Interactive prompt patterns (do NOT send "go" if matched)
 # Covers: passwords, confirmations, Claude Code permission prompts, Codex approval prompts
 # NOTE: patterns must be specific enough to avoid false positives in normal agent output
@@ -2668,6 +2726,7 @@ check_and_trigger() {
             echo "[Watcher] CONTEXT LIMIT detected for \$target_name. Manual intervention required."
             echo "[Watcher] Restart the agent session to continue."
             REMINDER_LEVEL=3
+            notify_user "[RLL] CONTEXT LIMIT: \$target_name needs restart"
           fi
 
         # Time-based escalation: each level checked independently by elapsed time.
@@ -2677,6 +2736,7 @@ check_and_trigger() {
         elif (( elapsed >= ESCALATION_L3 && REMINDER_LEVEL < 3 )); then
           echo "[Watcher] STUCK: \$target_name has not responded for \${elapsed}s. Manual intervention needed."
           REMINDER_LEVEL=3
+          notify_user "[RLL] STUCK: \$target_name not responding for \${elapsed}s"
 
         # Level 2: slash command (default 15 min), with prompt guard
         # v5: escalation also respects send cap to prevent flooding
@@ -2816,7 +2876,7 @@ done
   // Watcher runs in background with session-guarded restart loop
   const watcherLog = path.join(dir, "watcher.log");
   execSync(
-    `bash -c 'nohup bash -c '"'"'while tmux has-session -t "${sessionName}" 2>/dev/null; do bash "${watcherScript}"; EXIT_CODE=$?; if ! tmux has-session -t "${sessionName}" 2>/dev/null; then echo "[Watcher] Session gone, not restarting." >> "${watcherLog}"; break; fi; echo "[Watcher] Exited ($EXIT_CODE), restarting in 5s..." >> "${watcherLog}"; sleep 5; done'"'"' > "${watcherLog}" 2>&1 & echo $! > "${wrapperPidFile}"'`
+    `bash -c 'nohup bash -c '"'"'while tmux has-session -t "${sessionName}" 2>/dev/null; do bash "${watcherScript}"; EXIT_CODE=$?; if ! tmux has-session -t "${sessionName}" 2>/dev/null; then echo "[Watcher] Session gone, not restarting." >> "${watcherLog}"; break; fi; echo "[Watcher] Exited ($EXIT_CODE), restarting in 5s..." >> "${watcherLog}"; if [[ -n "$RL_NOTIFY_CMD" ]]; then echo "[RLL] Watcher crashed (exit $EXIT_CODE), restarting..." | eval "$RL_NOTIFY_CMD" 2>/dev/null & fi; sleep 5; done'"'"' > "${watcherLog}" 2>&1 & echo $! > "${wrapperPidFile}"'`
   );
 
   console.log("");
@@ -3485,4 +3545,86 @@ export function cmdDoctor(args: string[]): void {
   if (strict && !allOk) {
     process.exit(1);
   }
+}
+
+// ─── emergency-msg ───────────────────────────────
+
+export function cmdEmergencyMsg(args: string[]): void {
+  if (args.length < 2) {
+    console.error("Usage: ralph-lisa emergency-msg <ralph|lisa> \"message\"");
+    process.exit(1);
+  }
+  const target = args[0];
+  const message = args.slice(1).join(" ");
+
+  if (target !== "ralph" && target !== "lisa") {
+    console.error("Error: target must be 'ralph' or 'lisa'");
+    process.exit(1);
+  }
+
+  // Use project root for session name (not cwd, which may be a subdirectory)
+  const dir = stateDir();
+  const projectRoot = path.resolve(dir, "..");
+  const sessionName = generateSessionName(projectRoot);
+
+  // Check tmux session exists
+  try {
+    execSync(`tmux has-session -t "${sessionName}" 2>/dev/null`);
+  } catch {
+    console.error(`Error: tmux session '${sessionName}' not found.`);
+    process.exit(1);
+  }
+
+  // Check watcher health — only allow emergency-msg when watcher is unhealthy
+  const heartbeatFile = path.join(dir, ".watcher_heartbeat");
+  if (fs.existsSync(heartbeatFile)) {
+    const heartbeat = parseInt(readFile(heartbeatFile).trim(), 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (now - heartbeat < 300) { // 5 minutes
+      console.error("Error: Watcher is healthy (heartbeat < 5min old). Use normal submit flow.");
+      console.error("Emergency messaging is only available when watcher appears stuck.");
+      process.exit(1);
+    }
+  }
+
+  // Send via tmux — use temp file to avoid shell injection
+  // (user message could contain $(), backticks, etc.)
+  const pane = target === "ralph" ? "0.0" : "0.1";
+  const emergencyMsg = `[EMERGENCY] ${message}`;
+  const tmpMsgFile = path.join(dir, ".emergency_msg_tmp");
+  try {
+    writeFile(tmpMsgFile, emergencyMsg);
+    execSync(`tmux load-buffer "${tmpMsgFile}" 2>/dev/null && tmux paste-buffer -t "${sessionName}:${pane}" 2>/dev/null`);
+    execSync(`tmux send-keys -t "${sessionName}:${pane}" Enter 2>/dev/null`);
+    try { fs.unlinkSync(tmpMsgFile); } catch {}
+  } catch {
+    console.error(`Error: Failed to send message to ${target}'s pane.`);
+    process.exit(1);
+  }
+
+  // Log to emergency.log
+  const ts = new Date().toISOString();
+  const logEntry = `[${ts}] To ${target}: ${message}\n`;
+  const logFile = path.join(dir, "emergency.log");
+  fs.appendFileSync(logFile, logEntry);
+
+  console.log(`Emergency message sent to ${target}: ${message}`);
+  console.log(`Logged to ${logFile}`);
+}
+
+// ─── notify ──────────────────────────────────────
+
+export function cmdNotify(args: string[]): void {
+  const message = args.join(" ");
+  if (!message) {
+    console.error("Usage: ralph-lisa notify \"message\"");
+    process.exit(1);
+  }
+  if (!process.env.RL_NOTIFY_CMD) {
+    console.error("Error: RL_NOTIFY_CMD not set. Configure it first:");
+    console.error('  export RL_NOTIFY_CMD="cat >> /tmp/notify.txt"');
+    process.exit(1);
+  }
+  notifyUser(message);
+  console.log(`Notification sent: ${message}`);
 }
