@@ -12,6 +12,7 @@
 - **Escalation 时间调整**：默认从 2m/5m/10m 延长为 5m/15m/30m。可通过 `RL_ESCALATION_L1`、`RL_ESCALATION_L2`、`RL_ESCALATION_L3` 环境变量自定义。
 - **UX 措辞优化**：所有角色模板和命令文件中的 "STOP immediately" / "MUST STOP" 替换为 "等待反馈"。
 - **Subagent 建议**：角色模板新增建议——对耗时任务使用 subagent 避免阻塞协作循环。
+- **冒烟测试**：8 个端到端 CLI 工作流场景，隔离测试目录。
 
 ### v0.3.11 新增功能
 

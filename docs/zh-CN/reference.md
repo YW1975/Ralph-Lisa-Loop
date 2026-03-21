@@ -73,6 +73,13 @@
 | `ralph-lisa doctor` | 检查所有依赖项并报告状态 |
 | `ralph-lisa doctor --strict` | 缺少依赖时退出码为 1（适用于 CI） |
 
+## 测试
+
+| 命令 | 说明 |
+|------|------|
+| `npm test` | 运行全部测试（单元 + 冒烟） |
+| `npm run test:smoke` | 仅运行冒烟测试 |
+
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |

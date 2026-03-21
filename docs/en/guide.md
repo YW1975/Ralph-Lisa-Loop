@@ -330,6 +330,18 @@ ralph-lisa policy check-next-step       # Comprehensive: consensus + all policy 
 - Lisa's `[PASS]`/`[NEEDS_WORK]` must include at least 1 reason and file:line reference
 - After `[NEEDS_WORK]`, Ralph must respond with `[FIX]`/`[CHALLENGE]`/`[DISCUSS]`/`[QUESTION]` (not `[CODE]`/`[PLAN]`)
 
+## Testing
+
+RLL includes unit tests and smoke tests. See the [Testing Guide](testing.md) for details.
+
+```bash
+# Run all tests
+cd cli && npm test
+
+# Smoke tests only
+npm run test:smoke
+```
+
 ## Mid-Session Controls
 
 ### Update Task Direction

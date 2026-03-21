@@ -72,6 +72,13 @@ Standalone policy commands always exit non-zero on violations, regardless of `RL
 | `ralph-lisa doctor` | Check all dependencies and report status |
 | `ralph-lisa doctor --strict` | Exit 1 if any dependency is missing (for CI) |
 
+## Testing
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Run all tests (unit + smoke) |
+| `npm run test:smoke` | Run smoke tests only |
+
 ## Environment Variables
 
 | Variable | Default | Description |

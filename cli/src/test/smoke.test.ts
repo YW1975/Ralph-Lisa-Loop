@@ -14,18 +14,19 @@ const CLI = path.join(__dirname, "..", "cli.js");
 const { TMUX: _stripTmux, RL_STATE_DIR: _stripRlStateDir, ...TEST_ENV } = process.env;
 
 // Each suite creates its own isolated temp directory
+let smokeCounter = 0;
 function createSuiteDir(name: string): string {
-  const dir = path.join(__dirname, "..", "..", `.smoke-${name}-${Date.now()}`);
+  const dir = path.join(__dirname, "..", "..", `.smoke-${name}-${Date.now()}-${++smokeCounter}-${Math.random().toString(36).slice(2, 6)}`);
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-function makeRun(tmpDir: string) {
+function makeRun(tmpDir: string, extraEnv?: Record<string, string>) {
   return function run(...args: string[]): { stdout: string; exitCode: number } {
     try {
       const stdout = execFileSync(process.execPath, [CLI, ...args], {
         cwd: tmpDir, encoding: "utf-8",
-        env: { ...TEST_ENV, RL_POLICY_MODE: "off" },
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", ...extraEnv },
       });
       return { stdout, exitCode: 0 };
     } catch (e: any) {
@@ -150,25 +151,13 @@ describe("Smoke: deadlock trigger and scope-update recovery", () => {
   let run: ReturnType<typeof makeRun>;
   let readState: ReturnType<typeof makeReadState>;
 
-  function runDL(...args: string[]): { stdout: string; exitCode: number } {
-    try {
-      const stdout = execFileSync(process.execPath, [CLI, ...args], {
-        cwd: TMP, encoding: "utf-8",
-        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_DEADLOCK_THRESHOLD: "5" },
-      });
-      return { stdout, exitCode: 0 };
-    } catch (e: any) {
-      return { stdout: (e.stdout || "") + (e.stderr || ""), exitCode: e.status };
-    }
-  }
-
-  beforeEach(() => { TMP = createSuiteDir("t4"); run = makeRun(TMP); readState = makeReadState(TMP); run("init", "--minimal"); });
+  beforeEach(() => { TMP = createSuiteDir("t4"); run = makeRun(TMP, { RL_DEADLOCK_THRESHOLD: "5" }); readState = makeReadState(TMP); run("init", "--minimal"); });
   afterEach(() => { fs.rmSync(TMP, { recursive: true, force: true }); });
 
   it("triggers deadlock after threshold and recovers via scope-update", () => {
     for (let i = 0; i < 5; i++) {
-      runDL("submit-ralph", `[FIX] Fix attempt ${i}\\n\\ncommands.ts:${i}\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed`);
-      runDL("submit-lisa", `[NEEDS_WORK] Still broken ${i}\\n\\n- Issue at commands.ts:${i}`);
+      run("submit-ralph", `[FIX] Fix attempt ${i}\\n\\ncommands.ts:${i}\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed`);
+      run("submit-lisa", `[NEEDS_WORK] Still broken ${i}\\n\\n- Issue at commands.ts:${i}`);
     }
 
     const deadlockPath = path.join(TMP, ".dual-agent", "deadlock.txt");

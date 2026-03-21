@@ -331,6 +331,18 @@ ralph-lisa policy check-next-step       # 综合检查：consensus + 所有 poli
 - Lisa 的 `[PASS]`/`[NEEDS_WORK]` 必须包含至少 1 个原因和 file:line 引用
 - `[NEEDS_WORK]` 后 Ralph 必须用 `[FIX]`/`[CHALLENGE]`/`[DISCUSS]`/`[QUESTION]` 回应
 
+## 测试
+
+RLL 包含单元测试和冒烟测试。详见[测试指南](testing.md)。
+
+```bash
+# 运行全部测试
+cd cli && npm test
+
+# 仅冒烟测试
+npm run test:smoke
+```
+
 ## 会话中途控制
 
 ### 更新任务方向

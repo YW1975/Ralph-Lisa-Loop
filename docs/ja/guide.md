@@ -331,6 +331,18 @@ ralph-lisa policy check-next-step       # 包括的検査: consensus + すべて
 - Lisa の `[PASS]`/`[NEEDS_WORK]` には少なくとも1つの理由と file:line 参照が必要
 - `[NEEDS_WORK]` 後、Ralph は `[FIX]`/`[CHALLENGE]`/`[DISCUSS]`/`[QUESTION]` で応答する必要あり
 
+## テスト
+
+RLL にはユニットテストとスモークテストが含まれています。詳細は[テストガイド](testing.md)を参照してください。
+
+```bash
+# 全テストの実行
+cd cli && npm test
+
+# スモークテストのみ
+npm run test:smoke
+```
+
 ## セッション中の制御
 
 ### タスク方針の更新

@@ -11,6 +11,7 @@
 - **Escalation timing**: Extended defaults from 2m/5m/10m to 5m/15m/30m. Configurable via `RL_ESCALATION_L1`, `RL_ESCALATION_L2`, `RL_ESCALATION_L3` environment variables.
 - **UX wording**: Replaced "STOP immediately" / "MUST STOP" with "wait for feedback" across all role templates and command files.
 - **Subagent guidance**: Role templates now suggest using subagents for long-running tasks to avoid blocking the collaboration loop.
+- **Smoke tests**: 8 end-to-end CLI workflow scenarios with isolated test directories.
 
 ### What's New in v0.3.11
 
