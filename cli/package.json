@@ -1,6 +1,6 @@
 {
   "name": "ralph-lisa-loop",
-  "version": "0.3.12",
+  "version": "0.3.13",
   "description": "Turn-based dual-agent collaboration: Ralph codes, Lisa reviews, consensus required.",
   "bin": {
     "ralph-lisa": "dist/cli.js"
