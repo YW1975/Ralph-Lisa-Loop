@@ -202,6 +202,7 @@ export function cmdInit(args: string[]): void {
   writeFile(path.join(dir, "round.txt"), "1");
   writeFile(path.join(dir, "step.txt"), "planning");
   writeFile(path.join(dir, "turn.txt"), "ralph");
+  writeFile(path.join(dir, ".project_root"), process.cwd()); // persist project root for smoke-test cwd
   writeFile(path.join(dir, "last_action.txt"), "(No action yet)");
   writeFile(
     path.join(dir, "plan.md"),
@@ -844,6 +845,26 @@ export function cmdStep(args: string[]): void {
       console.error("");
       console.error("Complete all subtasks first, or use --force to skip this check.");
       process.exit(1);
+    }
+  }
+
+  // Auto smoke test: run if current step had CODE/FIX submissions (step50)
+  if (process.env.RL_SMOKE_AUTO !== "false") {
+    const history = readFile(path.join(dir, "history.md"));
+    const currentStep = getStep();
+    const escaped = currentStep.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const stepBlockRe = new RegExp(`^# Step: ${escaped}\\n\\nStarted:`, "gm");
+    let lastMatch: RegExpExecArray | null = null;
+    let m: RegExpExecArray | null;
+    while ((m = stepBlockRe.exec(history)) !== null) {
+      lastMatch = m;
+    }
+    const stepSection = lastMatch ? history.slice(lastMatch.index) : "";
+    if (/\[CODE\]|\[FIX\]/.test(stepSection)) {
+      console.log(`[Smoke] Development step detected (CODE/FIX found). Running smoke test...`);
+      runSmokeTest(dir);
+    } else {
+      console.log(`[Smoke] Planning step (no CODE/FIX). Skipping smoke test.`);
     }
   }
 
@@ -3628,4 +3649,112 @@ export function cmdNotify(args: string[]): void {
   }
   notifyUser(message);
   console.log(`Notification sent: ${message}`);
+}
+
+// ─── smoke test ───────────────────────────────────
+
+/**
+ * Run smoke test command and persist results.
+ * Called automatically during step transition or manually via `ralph-lisa smoke-test`.
+ */
+export function runSmokeTest(dir: string): { passed: boolean; output: string } {
+  const cmd = process.env.RL_SMOKE_CMD;
+  if (!cmd) {
+    console.log("[Smoke] No RL_SMOKE_CMD configured. Skipping smoke test.");
+    return { passed: true, output: "Skipped: RL_SMOKE_CMD not configured" };
+  }
+
+  const debug = process.env.RL_SMOKE_DEBUG === "true";
+  console.log(`[Smoke] Running: ${cmd}`);
+  const ts = new Date().toISOString();
+  const startTime = Date.now();
+
+  let exitCode = 0;
+  let output = "";
+  try {
+    output = execSync(cmd, {
+      cwd: readFile(path.join(dir, ".project_root")).trim() || findProjectRoot() || process.cwd(), // persisted root > upward search > cwd
+      encoding: "utf-8",
+      timeout: 300000, // 5 min
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch (e: any) {
+    exitCode = e.status || 1;
+    output = (e.stdout || "") + "\n" + (e.stderr || "");
+  }
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+  const passed = exitCode === 0;
+
+  // Persist results (append)
+  const resultsFile = path.join(dir, "smoke-results.md");
+  const last50 = output.split("\n").slice(-50).join("\n");
+  const entry = `\n## Run: ${ts}\n- Command: ${cmd}\n- Exit code: ${exitCode}\n- Duration: ${duration}s\n- Result: ${passed ? "PASSED" : "FAILED"}\n\n### Output (last 50 lines)\n\`\`\`\n${last50}\n\`\`\`\n`;
+
+  // Create header if file doesn't exist
+  if (!fs.existsSync(resultsFile)) {
+    fs.writeFileSync(resultsFile, "# Smoke Test Results\n");
+  }
+  fs.appendFileSync(resultsFile, entry);
+
+  // Debug log (full output, overwrite)
+  if (debug) {
+    const debugFile = path.join(dir, "smoke-debug.log");
+    fs.writeFileSync(debugFile, `# Smoke Debug Log\n# ${ts}\n# Command: ${cmd}\n# Exit code: ${exitCode}\n\n${output}`);
+    console.log(`[Smoke] Debug log: ${debugFile}`);
+  }
+
+  if (passed) {
+    console.log(`[Smoke] PASSED (${duration}s)`);
+  } else {
+    console.log(`[Smoke] FAILED (exit code ${exitCode}, ${duration}s)`);
+    console.log("[Smoke] Results saved to .dual-agent/smoke-results.md");
+  }
+
+  return { passed, output: last50 };
+}
+
+export function cmdSmokeTest(_args: string[]): void {
+  const dir = stateDir();
+  const result = runSmokeTest(dir);
+  process.exit(result.passed ? 0 : 1);
+}
+
+export function cmdSmokeCheck(_args: string[]): void {
+  const cmd = process.env.RL_SMOKE_CMD;
+  console.log(line());
+  console.log("Smoke Test Environment Check");
+  console.log(line());
+
+  if (!cmd) {
+    console.log("  RL_SMOKE_CMD: (not set)");
+    console.log("");
+    console.log("  Configure your project's smoke test command:");
+    console.log('    export RL_SMOKE_CMD="npm run test:e2e"');
+    console.log('    export RL_SMOKE_CMD="pytest tests/smoke/"');
+    console.log('    export RL_SMOKE_CMD="flutter test integration_test/"');
+    console.log("");
+    console.log("  Then run: ralph-lisa smoke-check");
+    process.exit(1);
+  }
+
+  console.log(`  RL_SMOKE_CMD: ${cmd}`);
+
+  // Check base command exists
+  const baseCmd = cmd.split(/\s+/)[0];
+  try {
+    execSync(`command -v "${baseCmd}" 2>/dev/null`, { stdio: "pipe" });
+    console.log(`  Base command '${baseCmd}': OK`);
+  } catch {
+    console.log(`  Base command '${baseCmd}': NOT FOUND`);
+    console.log("");
+    console.log(`  Install '${baseCmd}' or adjust RL_SMOKE_CMD.`);
+    process.exit(1);
+  }
+
+  console.log(`  RL_SMOKE_AUTO: ${process.env.RL_SMOKE_AUTO || "true"} (auto-trigger on step transition)`);
+  console.log(`  RL_SMOKE_DEBUG: ${process.env.RL_SMOKE_DEBUG || "false"} (full output capture)`);
+  console.log("");
+  console.log(`  Tip: run the full command manually to verify: ${cmd}`);
+  console.log(line());
 }

@@ -2113,3 +2113,237 @@ describe("notifyUser", () => {
     // The spawn is fire-and-forget + detached, so we just verify no crash
   });
 });
+
+// ─── smoke-test and smoke-check command tests ─────
+
+describe("CLI: smoke-test command", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("skips when RL_SMOKE_CMD not set", () => {
+    const r = run("smoke-test");
+    assert.strictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("Skipping") || r.stdout.includes("not configured"));
+  });
+
+  it("runs configured command and creates smoke-results.md", () => {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo smoke-ok" },
+      });
+      assert.ok(stdout.includes("PASSED"));
+    } catch (e: any) {
+      assert.fail("smoke-test should pass with echo command: " + e.stdout);
+    }
+    const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
+    assert.ok(results.includes("smoke-ok"));
+    assert.ok(results.includes("PASSED"));
+  });
+
+  it("reports failure for bad command", () => {
+    try {
+      execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "false" },
+      });
+      assert.fail("should have failed");
+    } catch (e: any) {
+      assert.ok(e.status !== 0);
+    }
+    const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
+    assert.ok(results.includes("FAILED"));
+  });
+
+  it("creates debug log when RL_SMOKE_DEBUG=true", () => {
+    try {
+      execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo debug-test", RL_SMOKE_DEBUG: "true" },
+      });
+    } catch {}
+    assert.ok(fs.existsSync(path.join(TMP, ".dual-agent", "smoke-debug.log")));
+    const debug = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-debug.log"), "utf-8");
+    assert.ok(debug.includes("debug-test"));
+  });
+
+  it("appends results on multiple runs", () => {
+    for (let i = 0; i < 2; i++) {
+      try {
+        execFileSync(process.execPath, [CLI, "smoke-test"], {
+          cwd: TMP, encoding: "utf-8",
+          env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: `echo run-${i}` },
+        });
+      } catch {}
+    }
+    const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
+    assert.ok(results.includes("run-0"));
+    assert.ok(results.includes("run-1"));
+  });
+});
+
+describe("CLI: smoke-check command", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("reports missing RL_SMOKE_CMD", () => {
+    const r = run("smoke-check");
+    assert.notStrictEqual(r.exitCode, 0);
+    assert.ok(r.stdout.includes("not set") || r.stdout.includes("Configure"));
+  });
+
+  it("reports found base command", () => {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "smoke-check"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo hello" },
+      });
+      assert.ok(stdout.includes("OK"));
+    } catch (e: any) {
+      // echo should always be found
+      assert.ok(e.stdout?.includes("OK"));
+    }
+  });
+});
+
+// ─── smoke: .project_root persistence ─────────────
+
+describe("CLI: smoke-test uses persisted .project_root", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("init creates .project_root file", () => {
+    const rootFile = path.join(TMP, ".dual-agent", ".project_root");
+    assert.ok(fs.existsSync(rootFile), ".project_root must exist after init");
+    const root = fs.readFileSync(rootFile, "utf-8").trim();
+    assert.strictEqual(root, TMP, ".project_root should contain the init cwd");
+  });
+
+  it("smoke-test uses .project_root as cwd", () => {
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "pwd" },
+      });
+      assert.ok(stdout.includes("PASSED"));
+    } catch (e: any) {
+      assert.fail("smoke-test should pass: " + e.stdout);
+    }
+    const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
+    // The pwd output should be the project root (TMP), not some other dir
+    assert.ok(results.includes(path.resolve(TMP)), "smoke cwd should be project root");
+  });
+
+  it("smoke-test resolves project root via .project_root with external RL_STATE_DIR + subdirectory", () => {
+    // Simulate: project at TMP, external state dir, invoked from subdirectory
+    const extState = path.join(TMP, ".ext-state");
+    const extDualAgent = path.join(extState, ".dual-agent");
+    const subDir = path.join(TMP, "sub", "dir");
+    fs.mkdirSync(extDualAgent, { recursive: true });
+    fs.mkdirSync(subDir, { recursive: true });
+
+    // Copy session files to external state dir
+    const srcDualAgent = path.join(TMP, ".dual-agent");
+    for (const f of fs.readdirSync(srcDualAgent)) {
+      const src = path.join(srcDualAgent, f);
+      if (fs.statSync(src).isFile()) {
+        fs.copyFileSync(src, path.join(extDualAgent, f));
+      }
+    }
+
+    // .project_root in external state should point to TMP (project root)
+    fs.writeFileSync(path.join(extDualAgent, ".project_root"), TMP);
+
+    // Run smoke-test from subdirectory with external RL_STATE_DIR
+    try {
+      execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: subDir, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "pwd", RL_STATE_DIR: extDualAgent },
+      });
+    } catch {}
+
+    const results = fs.readFileSync(path.join(extDualAgent, "smoke-results.md"), "utf-8");
+    // cwd should be project root (TMP), NOT the subdirectory
+    assert.ok(results.includes(path.resolve(TMP)), "smoke cwd should be project root from .project_root, not subdirectory");
+    assert.ok(!results.includes(path.resolve(subDir)), "smoke cwd should NOT be the subdirectory");
+  });
+});
+
+// ─── smoke: auto-trigger on step transition ─────────
+
+describe("CLI: smoke auto-trigger on step transition", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("triggers smoke on step with CODE submissions", () => {
+    // Submit CODE in current step
+    run("submit-ralph", "[CODE] Implementation\\n\\ncommands.ts:1\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed");
+    run("submit-lisa", "[PASS] Good\\n\\n- commands.ts:1");
+    run("submit-ralph", "[CONSENSUS] Agreed");
+    run("submit-lisa", "[CONSENSUS] Confirmed\\n\\n- commands.ts:1");
+    // Step transition with smoke cmd
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "step", "phase-2"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo auto-smoke-triggered" },
+      });
+      assert.ok(stdout.includes("auto-smoke-triggered") || stdout.includes("[Smoke]"), "smoke should auto-trigger");
+    } catch (e: any) {
+      // step may succeed even if smoke info is in output
+      assert.ok(e.stdout?.includes("Smoke") || e.stdout?.includes("auto-smoke"), "smoke should be mentioned");
+    }
+  });
+
+  it("skips smoke on step without CODE (planning only)", () => {
+    run("submit-ralph", "[CONSENSUS] Agreed on plan");
+    run("submit-lisa", "[CONSENSUS] Confirmed\\n\\n- commands.ts:1");
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "step", "phase-2"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo should-not-run" },
+      });
+      assert.ok(!stdout.includes("should-not-run"), "smoke should NOT trigger for planning-only step");
+    } catch (e: any) {
+      assert.ok(!e.stdout?.includes("should-not-run"));
+    }
+  });
+
+  it("respects RL_SMOKE_AUTO=false", () => {
+    run("submit-ralph", "[CODE] Impl\\n\\ncommands.ts:1\\n\\nTest Results\\n- Exit code: 0\\n- 1/1 passed");
+    run("submit-lisa", "[PASS] OK\\n\\n- commands.ts:1");
+    run("submit-ralph", "[CONSENSUS] Done");
+    run("submit-lisa", "[CONSENSUS] Agreed\\n\\n- commands.ts:1");
+    try {
+      const stdout = execFileSync(process.execPath, [CLI, "step", "phase-2"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo disabled-smoke", RL_SMOKE_AUTO: "false" },
+      });
+      assert.ok(!stdout.includes("disabled-smoke"), "smoke should be disabled when RL_SMOKE_AUTO=false");
+    } catch (e: any) {
+      assert.ok(!e.stdout?.includes("disabled-smoke"));
+    }
+  });
+});

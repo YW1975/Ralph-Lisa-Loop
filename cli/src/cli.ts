@@ -35,6 +35,8 @@ import {
   cmdStop,
   cmdEmergencyMsg,
   cmdNotify,
+  cmdSmokeTest,
+  cmdSmokeCheck,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -155,6 +157,14 @@ switch (cmd) {
     cmdNotify(rest);
     break;
 
+  case "smoke-test":
+    cmdSmokeTest(rest);
+    break;
+
+  case "smoke-check":
+    cmdSmokeCheck(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -252,6 +262,10 @@ function showHelp(): void {
   console.log("Emergency & Notifications:");
   console.log('  ralph-lisa emergency-msg <agent> "msg"  Send emergency message to agent pane');
   console.log('  ralph-lisa notify "message"              Send notification via RL_NOTIFY_CMD');
+  console.log("");
+  console.log("Smoke Testing:");
+  console.log("  ralph-lisa smoke-test              Run smoke test (uses RL_SMOKE_CMD)");
+  console.log("  ralph-lisa smoke-check             Check smoke test environment");
   console.log("");
   console.log("Diagnostics:");
   console.log("  ralph-lisa state-dir                Show state directory resolution");
