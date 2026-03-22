@@ -37,6 +37,7 @@ import {
   cmdNotify,
   cmdSmokeTest,
   cmdSmokeCheck,
+  cmdTestReport,
 } from "./commands.js";
 
 const args = process.argv.slice(2);
@@ -165,6 +166,10 @@ switch (cmd) {
     cmdSmokeCheck(rest);
     break;
 
+  case "test-report":
+    cmdTestReport(rest);
+    break;
+
   case "help":
   case "--help":
   case "-h":
@@ -266,6 +271,8 @@ function showHelp(): void {
   console.log("Smoke Testing:");
   console.log("  ralph-lisa smoke-test              Run smoke test (uses RL_SMOKE_CMD)");
   console.log("  ralph-lisa smoke-check             Check smoke test environment");
+  console.log("  ralph-lisa test-report             Show latest test report");
+  console.log("  ralph-lisa test-report --list      List all test reports");
   console.log("");
   console.log("Diagnostics:");
   console.log("  ralph-lisa state-dir                Show state directory resolution");

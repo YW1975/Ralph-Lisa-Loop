@@ -29,6 +29,20 @@ npm run test:smoke
 env -u RL_STATE_DIR -u TMUX -u TMUX_PANE npm test
 ```
 
+## テストレポート
+
+スモークテスト結果は `.dual-agent/test-reports/` にタイムスタンプ付きレポートファイルとして自動保存されます。
+
+```bash
+# 最新レポートを表示
+ralph-lisa test-report
+
+# 全レポートを一覧
+ralph-lisa test-report --list
+```
+
+各レポートには環境情報（Node.js バージョン、OS、現在の step/round）とテスト出力の最後 50 行が含まれます。
+
 ## スモークテストシナリオ
 
 スモークテストは完全な複数ステップのワークフローを検証します。各シナリオは隔離された一時ディレクトリを使用します。

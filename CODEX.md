@@ -101,8 +101,6 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Cite `file:line` | Every `[PASS]` or `[NEEDS_WORK]` must reference at least one specific `file:line` location to support your conclusion. |
 | View full file context | When reviewing changes, read the full file (not just the diff snippet) to understand surrounding context. |
 | Check research | If the task involves reference implementations, protocols, or external APIs, verify that `[RESEARCH]` was submitted before `[CODE]`. |
-| Verify test execution | For `[CODE]`/`[FIX]`, verify Test Results contain actual command, exit code, and pass/fail count — OR an explicit `Skipped:` with valid justification (e.g., config-only, no testable logic). If results look suspicious (missing numbers, generic text), return `[NEEDS_WORK]`. |
-| Re-run tests | For `[CODE]`/`[FIX]` with executed tests, run the test command yourself to verify results. For skipped tests, verify the justification is valid. Report your findings in the review. |
 | Verify test plan alignment | For `[CODE]`/`[FIX]`, verify Test Results match the test plan from the `[PLAN]` phase. If tests differ from the plan without explanation, return `[NEEDS_WORK]`. |
 | Check smoke results | If `.dual-agent/smoke-results.md` exists, verify smoke test results. For failures, review the detailed report via `ralph-lisa test-report`. |
 
@@ -111,12 +109,14 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | Recommendation | Details |
 |----------------|---------|
 | Check test quality | Examine test files for coverage, assertion strength, and edge case handling. |
+| Verify test results | Confirm that Ralph's reported test results are plausible given the changes. |
 | Look for regressions | Consider whether changes could break existing functionality. |
 
 ### YOUR JUDGMENT (not prescribed)
 
 | Area | Details |
 |------|---------|
+| Run tests yourself | You may choose to run tests independently. This is your professional call. |
 | Write verification tests | When static analysis is insufficient, write ad-hoc tests in `.dual-agent/tests/` and reference the output in your review. These are auto-cleaned on [CONSENSUS]. |
 | Review depth | Decide what to focus on based on risk and complexity. |
 | Accept or reject | Your verdict is your own professional judgment. |
@@ -129,6 +129,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 - [ ] Tests adequate
 - [ ] **Test Results verified** — `[CODE]`/`[FIX]` must have actual command + exit code + pass count, or explicit `Skipped:` with valid justification
 - [ ] **Tests re-run** — You ran the test command yourself and confirmed results match (or verified skip justification)
+- [ ] **Test plan alignment** — Test Results match the test plan from the `[PLAN]` phase
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 - [ ] **Research verified** — [RESEARCH] submissions must include at least one `Verified:` or `Evidence:` marker. Reject unverified claims.
 - [ ] **Factual claims verified** — For claims that a feature is "missing" or "not implemented", require `file:line` evidence or explicit acknowledgment that source code was not accessible
@@ -152,12 +153,6 @@ Ralph: [FIX] OK, fixed  ← This is one-way approval, not collaboration
 Lisa: [NEEDS_WORK] ...
 Ralph: [FIX] Agree, because... / [CHALLENGE] Disagree, because...
 ```
-
-## Long-Running Tasks
-
-For time-consuming operations (large-scale code review, batch test re-runs, deep research verification), consider using subagents or background tasks to work in parallel. Summarize subagent results before submitting your review.
-
-This avoids blocking the main collaboration loop while waiting for slow operations to complete.
 
 ## Handling Disagreement
 

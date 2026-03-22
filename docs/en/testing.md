@@ -28,6 +28,23 @@ npm run test:smoke
 env -u RL_STATE_DIR -u TMUX -u TMUX_PANE npm test
 ```
 
+## Test Reports
+
+Smoke test results are automatically saved to `.dual-agent/test-reports/` with timestamped report files.
+
+```bash
+# View latest report
+ralph-lisa test-report
+
+# List all reports
+ralph-lisa test-report --list
+
+# View specific report
+ralph-lisa read test-reports/smoke-2026-03-22-103000.md
+```
+
+Each report includes environment info (Node.js version, OS, current step/round) and the last 50 lines of test output.
+
 ## Smoke Test Scenarios
 
 Smoke tests verify complete multi-step workflows. Each scenario uses an isolated temp directory.

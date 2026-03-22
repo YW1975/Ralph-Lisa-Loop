@@ -4,6 +4,10 @@
 
 ## v0.3.x
 
+### What's New in v0.3.13
+
+- **Test reports**: Centralized test reports in `.dual-agent/test-reports/` with environment info. New `ralph-lisa test-report` command.
+
 ### What's New in v0.3.12
 
 - **Watcher v5**: Decoupled message delivery from response verification — fixes message flooding bug where watcher sent 14+ duplicate messages to working agents. Per-round send cap (max 2), capture-pane based idle detection (no pipe-pane dependency), pipe-pane cross-reference self-heal, passive post-send monitoring.

@@ -340,6 +340,9 @@ cd cli && npm test
 
 # Smoke tests only
 npm run test:smoke
+
+# View latest test report
+ralph-lisa test-report
 ```
 
 ## Mid-Session Controls

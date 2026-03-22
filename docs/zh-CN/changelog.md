@@ -5,6 +5,10 @@
 
 ## v0.3.x
 
+### v0.3.13 新增功能
+
+- **测试报告**：测试报告集中存储在 `.dual-agent/test-reports/`，含环境信息。新增 `ralph-lisa test-report` 命令。
+
 ### v0.3.12 新增功能
 
 - **Watcher v5**：消息发送与响应验证解耦——修复了 watcher 向工作中的 agent 发送 14+ 条重复消息的洪水 bug。每轮发送上限（最多 2 次），基于 capture-pane 的空闲检测（不依赖 pipe-pane），pipe-pane 交叉验证自愈，被动 post-send 监控。

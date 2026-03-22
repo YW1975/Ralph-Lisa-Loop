@@ -341,6 +341,9 @@ cd cli && npm test
 
 # スモークテストのみ
 npm run test:smoke
+
+# 最新テストレポートを表示
+ralph-lisa test-report
 ```
 
 ## セッション中の制御

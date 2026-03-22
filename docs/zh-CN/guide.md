@@ -341,6 +341,9 @@ cd cli && npm test
 
 # 仅冒烟测试
 npm run test:smoke
+
+# 查看最新测试报告
+ralph-lisa test-report
 ```
 
 ## 会话中途控制

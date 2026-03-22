@@ -68,6 +68,10 @@ ralph-lisa update-task "new direction"   # Change task mid-session
 
 # Diagnostics
 ralph-lisa doctor                        # Check dependencies
+
+# Testing
+ralph-lisa test-report                   # View latest test report
+ralph-lisa test-report --list            # List all test reports
 ```
 
 ## Requirements

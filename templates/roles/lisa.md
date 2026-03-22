@@ -102,6 +102,7 @@ This is your PRIMARY responsibility — catching direction drift early saves mor
 | View full file context | When reviewing changes, read the full file (not just the diff snippet) to understand surrounding context. |
 | Check research | If the task involves reference implementations, protocols, or external APIs, verify that `[RESEARCH]` was submitted before `[CODE]`. |
 | Verify test plan alignment | For `[CODE]`/`[FIX]`, verify Test Results match the test plan from the `[PLAN]` phase. If tests differ from the plan without explanation, return `[NEEDS_WORK]`. |
+| Check smoke results | If `.dual-agent/smoke-results.md` exists, verify smoke test results. For failures, review the detailed report via `ralph-lisa test-report`. |
 
 ### SHOULD (professional standard)
 

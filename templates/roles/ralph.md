@@ -92,6 +92,7 @@ your understanding of the task before you start coding. Include:
 - **Quality gate commands** (recommended): Identify lint/format/type-check commands for the project
   - Examples: `npm run lint`, `ruff check .`, `go vet ./...`
   - These can be configured via `RL_RALPH_GATE` + `RL_GATE_COMMANDS` for auto mode
+- **Smoke test readiness** (recommended): Run `ralph-lisa smoke-check` to verify test infrastructure
 
 ## Workflow
 

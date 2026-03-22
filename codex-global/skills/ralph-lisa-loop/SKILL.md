@@ -76,6 +76,7 @@ ralph-lisa history          # View full history
 - [ ] **Test Results verified** — `[CODE]`/`[FIX]` must have actual command + exit code + pass count, or explicit `Skipped:` with valid justification
 - [ ] **Tests re-run** — You ran the test command yourself and confirmed results match (or verified skip justification)
 - [ ] **Test plan alignment** — Test Results match the test plan from the `[PLAN]` phase
+- [ ] **Smoke results checked** — If smoke-results.md exists, verify results and review failures
 - [ ] **Research adequate** (if task involves reference implementations/protocols/external APIs, check that [RESEARCH] was submitted)
 
 ## Your Verdict is Advisory

@@ -2143,8 +2143,13 @@ describe("CLI: smoke-test command", () => {
       assert.fail("smoke-test should pass with echo command: " + e.stdout);
     }
     const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
-    assert.ok(results.includes("smoke-ok"));
     assert.ok(results.includes("PASSED"));
+    // Detailed output is now in test-reports/
+    const reportsDir = path.join(TMP, ".dual-agent", "test-reports");
+    const files = fs.readdirSync(reportsDir).filter((f: string) => f.endsWith(".md"));
+    assert.ok(files.length > 0, "should create a report file");
+    const report = fs.readFileSync(path.join(reportsDir, files[0]), "utf-8");
+    assert.ok(report.includes("smoke-ok"));
   });
 
   it("reports failure for bad command", () => {
@@ -2182,9 +2187,17 @@ describe("CLI: smoke-test command", () => {
         });
       } catch {}
     }
+    // smoke-results.md is now an index with multiple entries
     const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
-    assert.ok(results.includes("run-0"));
-    assert.ok(results.includes("run-1"));
+    const latestMatches = results.match(/## Latest: smoke-/g);
+    assert.ok(latestMatches && latestMatches.length >= 2, "should have at least 2 index entries");
+    // Detailed output is in individual report files
+    const reportsDir = path.join(TMP, ".dual-agent", "test-reports");
+    const files = fs.readdirSync(reportsDir).filter((f: string) => f.endsWith(".md"));
+    assert.ok(files.length >= 2, "should have at least 2 report files");
+    const allContent = files.map((f: string) => fs.readFileSync(path.join(reportsDir, f), "utf-8")).join("\n");
+    assert.ok(allContent.includes("run-0"));
+    assert.ok(allContent.includes("run-1"));
   });
 });
 
@@ -2246,9 +2259,12 @@ describe("CLI: smoke-test uses persisted .project_root", () => {
     } catch (e: any) {
       assert.fail("smoke-test should pass: " + e.stdout);
     }
-    const results = fs.readFileSync(path.join(TMP, ".dual-agent", "smoke-results.md"), "utf-8");
-    // The pwd output should be the project root (TMP), not some other dir
-    assert.ok(results.includes(path.resolve(TMP)), "smoke cwd should be project root");
+    // pwd output is now in the report file, not smoke-results.md
+    const reportsDir = path.join(TMP, ".dual-agent", "test-reports");
+    const files = fs.readdirSync(reportsDir).filter((f: string) => f.endsWith(".md"));
+    assert.ok(files.length > 0);
+    const report = fs.readFileSync(path.join(reportsDir, files[0]), "utf-8");
+    assert.ok(report.includes(path.resolve(TMP)), "smoke cwd should be project root");
   });
 
   it("smoke-test resolves project root via .project_root with external RL_STATE_DIR + subdirectory", () => {
@@ -2279,10 +2295,14 @@ describe("CLI: smoke-test uses persisted .project_root", () => {
       });
     } catch {}
 
-    const results = fs.readFileSync(path.join(extDualAgent, "smoke-results.md"), "utf-8");
+    // pwd output is now in the report file, not smoke-results.md
+    const reportsDir = path.join(extDualAgent, "test-reports");
+    const files = fs.readdirSync(reportsDir).filter((f: string) => f.endsWith(".md"));
+    assert.ok(files.length > 0);
+    const report = fs.readFileSync(path.join(reportsDir, files[0]), "utf-8");
     // cwd should be project root (TMP), NOT the subdirectory
-    assert.ok(results.includes(path.resolve(TMP)), "smoke cwd should be project root from .project_root, not subdirectory");
-    assert.ok(!results.includes(path.resolve(subDir)), "smoke cwd should NOT be the subdirectory");
+    assert.ok(report.includes(path.resolve(TMP)), "smoke cwd should be project root from .project_root, not subdirectory");
+    assert.ok(!report.includes(path.resolve(subDir)), "smoke cwd should NOT be the subdirectory");
   });
 });
 
@@ -2345,5 +2365,89 @@ describe("CLI: smoke auto-trigger on step transition", () => {
     } catch (e: any) {
       assert.ok(!e.stdout?.includes("disabled-smoke"));
     }
+  });
+});
+
+describe("CLI: test-report command", () => {
+  beforeEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+    fs.mkdirSync(TMP, { recursive: true });
+    run("init", "--minimal");
+  });
+  afterEach(() => {
+    fs.rmSync(TMP, { recursive: true, force: true });
+  });
+
+  it("shows no reports when none exist", () => {
+    const r = run("test-report");
+    assert.ok(r.stdout.includes("No test reports"));
+  });
+
+  it("shows latest report after smoke-test", () => {
+    try {
+      execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo report-test" },
+      });
+    } catch {}
+    const r = run("test-report");
+    assert.ok(r.stdout.includes("report-test") || r.stdout.includes("PASSED"));
+  });
+
+  it("lists reports with --list", () => {
+    // Run smoke twice
+    for (let i = 0; i < 2; i++) {
+      try {
+        execFileSync(process.execPath, [CLI, "smoke-test"], {
+          cwd: TMP, encoding: "utf-8",
+          env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: `echo test-${i}` },
+        });
+      } catch {}
+    }
+    const r = run("test-report", "--list");
+    assert.ok(r.stdout.includes("Test Reports"));
+    assert.ok(r.stdout.includes("smoke-"));
+  });
+
+  it("same-second reports are ordered newest-first by mtime", () => {
+    // Create two report files with same timestamp but different suffixes
+    const reportsDir = path.join(TMP, ".dual-agent", "test-reports");
+    fs.mkdirSync(reportsDir, { recursive: true });
+
+    const base = path.join(reportsDir, "smoke-2026-01-01-120000.md");
+    const suffixed = path.join(reportsDir, "smoke-2026-01-01-120000-2.md");
+
+    // Write base first (older)
+    fs.writeFileSync(base, "# Test Report\n\n## Results\n- Result: FAILED\n");
+    // Small delay to ensure different mtime
+    const start = Date.now(); while (Date.now() - start < 50) {}
+    // Write suffixed second (newer)
+    fs.writeFileSync(suffixed, "# Test Report\n\n## Results\n- Result: PASSED\n");
+
+    // Plain test-report should show the newer (-2) report
+    const r1 = run("test-report");
+    assert.ok(r1.stdout.includes("PASSED"), "plain test-report should show newer (-2) report");
+
+    // --list should show -2 before base
+    const r2 = run("test-report", "--list");
+    const lines = r2.stdout.split("\n").filter((l: string) => l.includes("smoke-"));
+    assert.ok(lines.length >= 2, "should list both reports");
+    assert.ok(lines[0].includes("-2"), "newer -2 report should be listed first");
+  });
+
+  it("report includes environment info", () => {
+    try {
+      execFileSync(process.execPath, [CLI, "smoke-test"], {
+        cwd: TMP, encoding: "utf-8",
+        env: { ...TEST_ENV, RL_POLICY_MODE: "off", RL_SMOKE_CMD: "echo env-check" },
+      });
+    } catch {}
+    const reportsDir = path.join(TMP, ".dual-agent", "test-reports");
+    const files = fs.readdirSync(reportsDir).filter((f: string) => f.endsWith(".md"));
+    assert.ok(files.length > 0);
+    const report = fs.readFileSync(path.join(reportsDir, files[0]), "utf-8");
+    assert.ok(report.includes("Environment"));
+    assert.ok(report.includes("Node.js"));
+    assert.ok(report.includes("OS"));
   });
 });

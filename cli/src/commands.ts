@@ -6,6 +6,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
+import * as os from "node:os";
 import { execSync, spawn } from "node:child_process";
 import {
   STATE_DIR,
@@ -1647,6 +1648,7 @@ For [CODE]/[FIX] reviews:
 - Verify Test Results match the test plan from [PLAN] phase
 - Re-run the test command yourself to verify results
 - Check for exit code or pass/fail count (or explicit Skipped: with justification)
+- Check smoke-results.md if it exists — verify smoke tests passed
 `;
   writeFile(path.join(codexSkillDir, "SKILL.md"), skillContent);
 
@@ -3666,7 +3668,8 @@ export function runSmokeTest(dir: string): { passed: boolean; output: string } {
 
   const debug = process.env.RL_SMOKE_DEBUG === "true";
   console.log(`[Smoke] Running: ${cmd}`);
-  const ts = new Date().toISOString();
+  const now = new Date();
+  const ts = now.toISOString();
   const startTime = Date.now();
 
   let exitCode = 0;
@@ -3685,24 +3688,83 @@ export function runSmokeTest(dir: string): { passed: boolean; output: string } {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   const passed = exitCode === 0;
-
-  // Persist results (append)
-  const resultsFile = path.join(dir, "smoke-results.md");
   const last50 = output.split("\n").slice(-50).join("\n");
-  const entry = `\n## Run: ${ts}\n- Command: ${cmd}\n- Exit code: ${exitCode}\n- Duration: ${duration}s\n- Result: ${passed ? "PASSED" : "FAILED"}\n\n### Output (last 50 lines)\n\`\`\`\n${last50}\n\`\`\`\n`;
 
-  // Create header if file doesn't exist
-  if (!fs.existsSync(resultsFile)) {
-    fs.writeFileSync(resultsFile, "# Smoke Test Results\n");
+  // Build timestamped report filename
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const datePart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const timePart = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  let reportName = `smoke-${datePart}-${timePart}`;
+
+  // Ensure test-reports directory exists
+  const reportsDir = path.join(dir, "test-reports");
+  if (!fs.existsSync(reportsDir)) {
+    fs.mkdirSync(reportsDir, { recursive: true });
   }
-  fs.appendFileSync(resultsFile, entry);
 
-  // Debug log (full output, overwrite)
+  // Deduplicate if a report with the same timestamp already exists
+  if (fs.existsSync(path.join(reportsDir, `${reportName}.md`))) {
+    let seq = 2;
+    while (fs.existsSync(path.join(reportsDir, `${reportName}-${seq}.md`))) {
+      seq++;
+    }
+    reportName = `${reportName}-${seq}`;
+  }
+
+  // Read environment info
+  let version = "unknown";
+  try {
+    const pkg = require("../package.json");
+    version = pkg.version || "unknown";
+  } catch { /* ignore */ }
+  const nodeVersion = process.version;
+  const osInfo = `${process.platform} ${os.release()}`;
+  const step = readFile(path.join(dir, "step.txt")).trim() || "unknown";
+  const round = readFile(path.join(dir, "round.txt")).trim() || "unknown";
+
+  // Debug log
+  let debugPath = "";
   if (debug) {
     const debugFile = path.join(dir, "smoke-debug.log");
     fs.writeFileSync(debugFile, `# Smoke Debug Log\n# ${ts}\n# Command: ${cmd}\n# Exit code: ${exitCode}\n\n${output}`);
+    debugPath = debugFile;
     console.log(`[Smoke] Debug log: ${debugFile}`);
   }
+
+  // Write individual report
+  const reportFile = path.join(reportsDir, `${reportName}.md`);
+  const report = `# Test Report: ${reportName}
+
+## Environment
+- Version: ${version}
+- Node.js: ${nodeVersion}
+- OS: ${osInfo}
+- Step: ${step}
+- Round: ${round}
+
+## Results
+- Command: ${cmd}
+- Exit code: ${exitCode}
+- Duration: ${duration}s
+- Result: ${passed ? "PASSED" : "FAILED"}
+
+## Output (last 50 lines)
+\`\`\`
+${last50}
+\`\`\`
+
+## Debug Log
+${debugPath ? debugPath : "(not enabled — set RL_SMOKE_DEBUG=true)"}
+`;
+  fs.writeFileSync(reportFile, report);
+
+  // Update smoke-results.md as index (append)
+  const resultsFile = path.join(dir, "smoke-results.md");
+  if (!fs.existsSync(resultsFile)) {
+    fs.writeFileSync(resultsFile, "# Smoke Test Results\n");
+  }
+  const indexEntry = `\n## Latest: ${reportName}\n- Result: ${passed ? "PASSED" : "FAILED"}\n- See: test-reports/${reportName}.md\n`;
+  fs.appendFileSync(resultsFile, indexEntry);
 
   if (passed) {
     console.log(`[Smoke] PASSED (${duration}s)`);
@@ -3718,6 +3780,57 @@ export function cmdSmokeTest(_args: string[]): void {
   const dir = stateDir();
   const result = runSmokeTest(dir);
   process.exit(result.passed ? 0 : 1);
+}
+
+export function cmdTestReport(args: string[]): void {
+  const dir = stateDir();
+  const reportsDir = path.join(dir, "test-reports");
+
+  if (args.includes("--list")) {
+    // List all reports
+    if (!fs.existsSync(reportsDir)) {
+      console.log("No test reports found.");
+      return;
+    }
+    const files = fs.readdirSync(reportsDir)
+      .filter(f => f.endsWith(".md"))
+      .sort((a, b) => {
+        const ma = fs.statSync(path.join(reportsDir, a)).mtimeMs;
+        const mb = fs.statSync(path.join(reportsDir, b)).mtimeMs;
+        return mb - ma; // newest first
+      });
+    if (files.length === 0) {
+      console.log("No test reports found.");
+      return;
+    }
+    console.log("Test Reports:");
+    for (const f of files) {
+      const content = readFile(path.join(reportsDir, f));
+      const resultMatch = content.match(/Result: (PASSED|FAILED)/);
+      const result = resultMatch ? resultMatch[1] : "UNKNOWN";
+      console.log(`  ${result === "PASSED" ? "\u2713" : "\u2717"} ${f.replace(".md", "")}`);
+    }
+    return;
+  }
+
+  // Show latest report
+  if (!fs.existsSync(reportsDir)) {
+    console.log("No test reports found. Run: ralph-lisa smoke-test");
+    return;
+  }
+  const files = fs.readdirSync(reportsDir)
+    .filter(f => f.endsWith(".md"))
+    .sort((a, b) => {
+      const ma = fs.statSync(path.join(reportsDir, a)).mtimeMs;
+      const mb = fs.statSync(path.join(reportsDir, b)).mtimeMs;
+      return mb - ma; // newest first
+    });
+  if (files.length === 0) {
+    console.log("No test reports found. Run: ralph-lisa smoke-test");
+    return;
+  }
+  const latest = path.join(reportsDir, files[0]);
+  console.log(readFile(latest));
 }
 
 export function cmdSmokeCheck(_args: string[]): void {

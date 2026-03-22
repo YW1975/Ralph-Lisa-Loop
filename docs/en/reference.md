@@ -78,6 +78,8 @@ Standalone policy commands always exit non-zero on violations, regardless of `RL
 |---------|-------------|
 | `npm test` | Run all tests (unit + smoke) |
 | `npm run test:smoke` | Run smoke tests only |
+| `ralph-lisa test-report` | Show latest test report |
+| `ralph-lisa test-report --list` | List all test reports |
 
 ## Environment Variables
 

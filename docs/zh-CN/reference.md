@@ -79,6 +79,8 @@
 |------|------|
 | `npm test` | 运行全部测试（单元 + 冒烟） |
 | `npm run test:smoke` | 仅运行冒烟测试 |
+| `ralph-lisa test-report` | 查看最新测试报告 |
+| `ralph-lisa test-report --list` | 列出所有测试报告 |
 
 ## 环境变量
 

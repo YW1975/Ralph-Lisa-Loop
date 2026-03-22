@@ -29,6 +29,20 @@ npm run test:smoke
 env -u RL_STATE_DIR -u TMUX -u TMUX_PANE npm test
 ```
 
+## 测试报告
+
+冒烟测试结果自动保存到 `.dual-agent/test-reports/`，带时间戳的报告文件。
+
+```bash
+# 查看最新报告
+ralph-lisa test-report
+
+# 列出所有报告
+ralph-lisa test-report --list
+```
+
+每份报告包含环境信息（Node.js 版本、OS、当前 step/round）和最后 50 行测试输出。
+
 ## 冒烟测试场景
 
 冒烟测试验证完整的多步骤工作流。每个场景使用隔离的临时目录。

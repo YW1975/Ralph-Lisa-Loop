@@ -79,6 +79,8 @@
 |---------|------|
 | `npm test` | 全テストを実行（ユニット + スモーク） |
 | `npm run test:smoke` | スモークテストのみ実行 |
+| `ralph-lisa test-report` | 最新テストレポートを表示 |
+| `ralph-lisa test-report --list` | 全テストレポートを一覧 |
 
 ## 環境変数
 
