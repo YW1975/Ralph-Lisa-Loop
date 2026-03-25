@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SWE-CI Live Results | RLL Dual-Agent Benchmark</title>
+    <meta name="description" content="Live results from the SWE-CI benchmark using RLL (Ralph-Lisa Loop) dual-agent collaboration with Claude Sonnet 4.6. Watch AI agents solve real-world coding tasks in real-time.">
+    <meta property="og:title" content="SWE-CI Live Results | RLL Dual-Agent Benchmark">
+    <meta property="og:description" content="Watch two AI agents collaborate to solve 137 real-world coding tasks. Live progress, full dialogue replay, and verifiable results.">
+    <meta property="og:type" content="website">
+    <link rel="canonical" href="">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --yellow: #d29922;
+            --red: #f85149;
+            --ralph-blue: #388bfd;
+            --lisa-green: #2ea043;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Header */
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header h1 span { color: var(--text-muted); font-weight: 400; }
+        .header-links { display: flex; gap: 16px; font-size: 14px; }
+
+        /* Hero stats */
+        .hero {
+            padding: 48px 24px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-title { font-size: 14px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+        .hero-stats { display: flex; justify-content: center; gap: 48px; flex-wrap: wrap; margin-bottom: 24px; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 48px; font-weight: 700; line-height: 1.1; }
+        .stat-value.green { color: var(--green); }
+        .stat-label { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+        .progress-bar {
+            max-width: 600px;
+            margin: 0 auto;
+            height: 12px;
+            background: var(--surface);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--green), var(--accent));
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+        .hero-sub { font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+
+        /* Model comparison */
+        .comparison {
+            max-width: 800px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+        .comparison h2 { font-size: 18px; margin-bottom: 16px; }
+        .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+        .bar-row { display: flex; align-items: center; gap: 12px; }
+        .bar-label { width: 160px; font-size: 13px; text-align: right; color: var(--text-muted); }
+        .bar-label.ours { color: var(--green); font-weight: 600; }
+        .bar-track { flex: 1; height: 24px; background: var(--surface); border-radius: 4px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 12px; font-weight: 600; transition: width 0.8s ease; }
+        .bar-fill.ours { background: var(--green); }
+        .bar-fill.other { background: var(--border); }
+        .bar-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+        /* Task table */
+        .section {
+            max-width: 1200px;
+            margin: 32px auto;
+            padding: 0 24px;
+        }
+        .section h2 { font-size: 18px; margin-bottom: 16px; }
+        .table-wrap { overflow-x: auto; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { color: var(--text); }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        tr:hover { background: var(--surface); }
+        .status-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-solved { background: rgba(63,185,80,0.15); color: var(--green); }
+        .status-improving { background: rgba(210,153,34,0.15); color: var(--yellow); }
+        .status-stuck { background: rgba(248,81,73,0.15); color: var(--red); }
+        .status-pending { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+        .gap-arrow { color: var(--text-muted); }
+        .gap-zero { color: var(--green); font-weight: 600; }
+        .task-link { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; }
+
+        /* How it works */
+        .how-it-works {
+            max-width: 800px;
+            margin: 48px auto;
+            padding: 0 24px;
+        }
+        .how-it-works h2 { font-size: 18px; margin-bottom: 16px; }
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin: 24px 0;
+        }
+        .flow-step {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 13px;
+        }
+        .flow-step strong { display: block; font-size: 14px; margin-bottom: 4px; }
+        .flow-arrow { color: var(--text-muted); font-size: 20px; }
+
+        /* Footer */
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 48px;
+        }
+        .footer a { color: var(--accent); }
+
+        /* Auto-refresh indicator */
+        .refresh-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .stat-value { font-size: 36px; }
+            .hero-stats { gap: 24px; }
+            .bar-label { width: 100px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SWE-CI <span>Live Results</span></h1>
+        <div class="header-links">
+            <a href="https://github.com/anthropics/ralph-lisa-loop" target="_blank">Ralph-Lisa Loop</a>
+            <a href="https://arxiv.org/pdf/2603.03823" target="_blank">SWE-CI Paper</a>
+            <a href="https://huggingface.co/datasets/skylenage/SWE-CI" target="_blank">Dataset</a>
+        </div>
+    </div>
+
+    <div class="hero">
+        <div class="hero-title"><span class="refresh-dot"></span>Live Benchmark Progress</div>
+        <div class="hero-stats">
+            <div class="stat">
+                <div class="stat-value green" id="solved-count">--</div>
+                <div class="stat-label">Tasks Solved</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="total-count">/ --</div>
+                <div class="stat-label">Total Tasks</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value green" id="solve-rate">--%</div>
+                <div class="stat-label">Solve Rate</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value green" id="zero-reg">--%</div>
+                <div class="stat-label">Zero-Regression</div>
+            </div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+        <div class="hero-sub" id="hero-sub">Loading...</div>
+    </div>
+
+    <div class="comparison">
+        <h2>Zero-Regression Rate vs. Published Baselines</h2>
+        <div class="bar-chart" id="zero-reg-chart"></div>
+        <div class="bar-note" style="margin-top: 12px;">
+            Paper reference: "most models achieve a zero-regression rate below 0.25,
+            with only two models in the Claude-opus series exceeding 0.5"
+            (<a href="https://arxiv.org/abs/2603.03823">arXiv:2603.03823</a>, Section 4.2, Figure 6)
+        </div>
+        <div class="bar-note">* RLL score based on completed tasks. Full benchmark (137 tasks) in progress.</div>
+    </div>
+
+    <div class="section">
+        <h2>All Tasks</h2>
+        <div class="table-wrap">
+            <table id="task-table">
+                <thead>
+                    <tr>
+                        <th data-sort="task_id">Task</th>
+                        <th data-sort="repo_name">Repo</th>
+                        <th data-sort="initial_gap">Gap</th>
+                        <th data-sort="num_epochs">Epochs</th>
+                        <th data-sort="fix_rate">Fix %</th>
+                        <th data-sort="evoscore">EvoScore</th>
+                        <th data-sort="status">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="task-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="how-it-works">
+        <h2>How It Works</h2>
+        <p style="color: var(--text-muted); margin-bottom: 16px;">
+            RLL (Ralph-Lisa Loop) is a dual-agent collaboration system where two AI agents work together
+            in a turn-based review cycle — just like a developer and code reviewer.
+        </p>
+        <div class="flow">
+            <div class="flow-step" style="border-color: var(--accent);">
+                <strong>Architect</strong>
+                Analyzes failing tests,<br>writes requirements
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step" style="border-color: var(--ralph-blue);">
+                <strong>Ralph (Developer)</strong>
+                Claude Sonnet 4.6<br>Plans, codes, tests
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step" style="border-color: var(--lisa-green);">
+                <strong>Lisa (Reviewer)</strong>
+                Codex GPT-5.4<br>Reviews, verifies, feedback
+            </div>
+            <div class="flow-arrow">&rarr;</div>
+            <div class="flow-step">
+                <strong>Consensus</strong>
+                Both agree the fix<br>is correct
+            </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px;">
+            Each task's detail page shows the complete Ralph-Lisa dialogue — you can see exactly how
+            the AI agents discuss, debug, and refine their solution. Click any task above to view.
+        </p>
+
+        <h3 style="font-size: 15px; margin-top: 24px; margin-bottom: 12px;">Why These Metrics?</h3>
+        <div style="color: var(--text-muted); font-size: 13px; line-height: 1.8;">
+            <p><strong style="color: var(--text);">Solve Rate</strong> — Percentage of completed tasks where all target tests pass (gap&rarr;0). In CI/CD terms: the pipeline goes green. Production doesn't give partial credit — code either works or it doesn't.</p>
+            <p style="margin-top: 8px;"><strong style="color: var(--text);">Zero-Regression Rate</strong> — Percentage of tasks where test pass counts never decreased across epochs. Measures whether the AI agent is safe to trust with your codebase. The SWE-CI paper reports that most single-agent models achieve below 25%, with only Claude Opus exceeding 50%. RLL internalizes code review into the agent loop — Lisa (reviewer) catches regressions before they persist, similar to how CI pipelines protect human teams.</p>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 16px;">
+            Powered by <a href="https://github.com/anthropics/ralph-lisa-loop">Ralph-Lisa Loop</a>.
+            Ralph: Claude Sonnet 4.6 &middot; Lisa: Codex GPT-5.4.
+        </p>
+    </div>
+
+    <div class="footer">
+        <p>
+            <a href="https://github.com/anthropics/ralph-lisa-loop">Ralph-Lisa Loop</a> &middot;
+            <a href="https://arxiv.org/pdf/2603.03823">SWE-CI Paper</a> &middot;
+            <a href="https://huggingface.co/datasets/skylenage/SWE-CI">Dataset</a>
+        </p>
+        <p style="margin-top: 8px;">Data auto-refreshes every 60 seconds.</p>
+    </div>
+
+    <script>
+    // Zero-Regression Rate baselines from paper (Section 4.2, Figure 6)
+    const ZR_BASELINES = [
+        { name: "RLL (Sonnet 4.6 + Codex GPT-5.4) *", score: 0, ours: true },
+        { name: "Claude Opus 4.6", score: 0.55 },
+        { name: "Claude Opus 4.5", score: 0.50 },
+        { name: "Most other models", score: 0.25 },
+    ];
+
+    let currentSort = { key: "status", asc: true };
+    let summaryData = null;
+
+    async function loadData() {
+        try {
+            const resp = await fetch("data/summary.json?" + Date.now());
+            summaryData = await resp.json();
+            render(summaryData);
+        } catch (e) {
+            console.error("Failed to load data:", e);
+        }
+    }
+
+    function render(data) {
+        // Hero stats
+        document.getElementById("solved-count").textContent = data.solved;
+        document.getElementById("total-count").textContent = "/ " + data.total_benchmark_tasks;
+        document.getElementById("solve-rate").textContent = (data.solve_rate || 0).toFixed(0) + "%";
+        document.getElementById("zero-reg").textContent = (data.zero_regression_rate || 0).toFixed(0) + "%";
+
+        const pct = (data.solved / data.total_benchmark_tasks * 100).toFixed(1);
+        document.getElementById("progress-fill").style.width = pct + "%";
+        document.getElementById("hero-sub").textContent =
+            `${data.total_evaluated} tasks evaluated \u00b7 ${data.solved} solved \u00b7 ` +
+            `${data.pending || 0} in progress \u00b7 Ralph: ${data.model} \u00b7 Lisa: ${data.lisa_model || 'codex-gpt-5.4'}`;
+
+        // Zero-Regression comparison chart
+        const ourZR = (data.zero_regression_rate || 0) / 100;
+        ZR_BASELINES[0].score = ourZR;
+        ZR_BASELINES.sort((a, b) => b.score - a.score);
+        const chartEl = document.getElementById("zero-reg-chart");
+        chartEl.innerHTML = ZR_BASELINES.map(b => `
+            <div class="bar-row">
+                <div class="bar-label ${b.ours ? 'ours' : ''}">${b.name}</div>
+                <div class="bar-track">
+                    <div class="bar-fill ${b.ours ? 'ours' : 'other'}"
+                         style="width: ${(b.score * 100).toFixed(1)}%">
+                        ${(b.score * 100).toFixed(0)}%
+                    </div>
+                </div>
+            </div>
+        `).join("");
+
+        // Task table
+        renderTable(data.tasks);
+    }
+
+    function renderTable(tasks) {
+        tasks.sort((a, b) => {
+            let va = a[currentSort.key], vb = b[currentSort.key];
+            if (typeof va === "string") va = va.toLowerCase();
+            if (typeof vb === "string") vb = vb.toLowerCase();
+            // Sort status: solved first, then improving, pending, stuck
+            if (currentSort.key === "status") {
+                const order = { solved: 0, improving: 1, pending: 2, stuck: 3 };
+                va = order[a.status] ?? 4;
+                vb = order[b.status] ?? 4;
+            }
+            if (va < vb) return currentSort.asc ? -1 : 1;
+            if (va > vb) return currentSort.asc ? 1 : -1;
+            return 0;
+        });
+
+        const tbody = document.getElementById("task-tbody");
+        tbody.innerHTML = tasks.map(t => {
+            const finalGap = t.final_gap <= 0
+                ? `<span class="gap-zero">0</span>`
+                : t.final_gap;
+            const statusClass = `status-${t.status}`;
+            const shortId = t.task_id.replace(/__/g, "/").replace(/_/g, " ").substring(0, 40);
+            return `<tr onclick="location.href='task.html?id=${t.task_id}'" style="cursor:pointer">
+                <td><span class="task-link">${t.task_id}</span></td>
+                <td>${t.repo_name || ""}</td>
+                <td>${t.initial_gap} <span class="gap-arrow">&rarr;</span> ${finalGap}</td>
+                <td>${t.num_epochs - 1 || 0}</td>
+                <td>${t.fix_rate.toFixed(0)}%</td>
+                <td>${t.evoscore.toFixed(4)}</td>
+                <td><span class="status-badge ${statusClass}">${t.status}</span></td>
+            </tr>`;
+        }).join("");
+    }
+
+    // Table sorting
+    document.querySelectorAll("th[data-sort]").forEach(th => {
+        th.addEventListener("click", () => {
+            const key = th.dataset.sort;
+            if (currentSort.key === key) {
+                currentSort.asc = !currentSort.asc;
+            } else {
+                currentSort = { key, asc: true };
+            }
+            if (summaryData) renderTable(summaryData.tasks);
+        });
+    });
+
+    // Load and auto-refresh
+    loadData();
+    setInterval(loadData, 60000);
+    </script>
+</body>
+</html>

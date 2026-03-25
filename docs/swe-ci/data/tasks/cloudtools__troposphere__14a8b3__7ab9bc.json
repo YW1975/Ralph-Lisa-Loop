@@ -1,0 +1,33 @@
+{
+  "task_id": "cloudtools__troposphere__14a8b3__7ab9bc",
+  "repo_name": "cloudtools/troposphere",
+  "repo_url": "https://github.com/cloudtools/troposphere.git",
+  "initial_gap": 12,
+  "final_gap": 12,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 12,
+      "passed": 544,
+      "failed": 12,
+      "total": 556
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "test_results": {},
+  "last_updated": "2026-03-25T07:15:28",
+  "batch": "rll_full_batch_05",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

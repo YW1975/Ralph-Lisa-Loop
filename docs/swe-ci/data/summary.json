@@ -1,0 +1,395 @@
+{
+  "total_benchmark_tasks": 137,
+  "total_evaluated": 27,
+  "solved": 22,
+  "improving": 2,
+  "stuck": 0,
+  "pending": 3,
+  "total_completed": 24,
+  "solve_rate": 91.7,
+  "zero_regression_rate": 91.7,
+  "zero_regression_count": 22,
+  "avg_fix_rate": 87.1,
+  "avg_evoscore": 0.9306,
+  "avg_evoscore_completed": 0.9844,
+  "batches": [
+    {
+      "batch": "rll_full_batch_01",
+      "total": 5,
+      "solved": 5,
+      "avg_evoscore": 0.9998,
+      "tasks": [
+        "9001__copyparty__452592__4bdcbc",
+        "9001__copyparty__8c52b8__a96d9a",
+        "9001__copyparty__ccdace__6a0aaa",
+        "agronholm__anyio__439951__41647f",
+        "ahmedfgad__geneticalgorithmpython__b028c2__d745c6"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_02",
+      "total": 5,
+      "solved": 5,
+      "avg_evoscore": 0.9992,
+      "tasks": [
+        "aio-libs__yarl__576b5e__857930",
+        "aledipa__free-gpt4-web-api__79537a__08972a",
+        "algorithmicsuperintelligence__openevolve__884ad1__14e0de",
+        "almarklein__timetagger__f48db7__4899dd",
+        "amaranth-lang__amaranth__3e6e78__8c65a7"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_03",
+      "total": 5,
+      "solved": 5,
+      "avg_evoscore": 0.9927,
+      "tasks": [
+        "amaranth-lang__amaranth__46e0a0__a4402b",
+        "amaranth-lang__amaranth__6b5125__d3c5b9",
+        "amaranth-lang__amaranth__eef248__1d2b9c",
+        "anthropics__anthropic-sdk-python__16eb64__84aa15",
+        "anthropics__claude-agent-sdk-python__91315e__22fa9f"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_04",
+      "total": 5,
+      "solved": 5,
+      "avg_evoscore": 0.9993,
+      "tasks": [
+        "argoproj-labs__hera__7ac8d5__3b30d5",
+        "behave__behave__951f29__e23a17",
+        "caronc__apprise__ebbe26__d050fb",
+        "cgarciae__pypeln__9121c6__518136",
+        "checkthechain__checkthechain__0ca3e3__6bf2c0"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_05",
+      "total": 5,
+      "solved": 0,
+      "avg_evoscore": 0.6343,
+      "tasks": [
+        "checkthechain__checkthechain__13f5d2__761b89",
+        "checkthechain__checkthechain__60ea1d__25597e",
+        "cle-b__httpdbg__22e489__af88c4",
+        "cle-b__httpdbg__83ede4__224597",
+        "cloudtools__troposphere__14a8b3__7ab9bc"
+      ]
+    },
+    {
+      "batch": "rll_host_v3_mini",
+      "total": 2,
+      "solved": 2,
+      "avg_evoscore": 1.0,
+      "tasks": [
+        "15r10nk__inline-snapshot__3bb05d__e2b9b2",
+        "2captcha__2captcha-python__cb1d76__5a231d"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "task_id": "15r10nk__inline-snapshot__3bb05d__e2b9b2",
+      "repo_name": "15r10nk/inline-snapshot",
+      "initial_gap": 16,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_host_v3_mini"
+    },
+    {
+      "task_id": "2captcha__2captcha-python__cb1d76__5a231d",
+      "repo_name": "2captcha/2captcha-python",
+      "initial_gap": 23,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_host_v3_mini"
+    },
+    {
+      "task_id": "9001__copyparty__452592__4bdcbc",
+      "repo_name": "9001/copyparty",
+      "initial_gap": 16,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_01"
+    },
+    {
+      "task_id": "9001__copyparty__8c52b8__a96d9a",
+      "repo_name": "9001/copyparty",
+      "initial_gap": 7,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_01"
+    },
+    {
+      "task_id": "9001__copyparty__ccdace__6a0aaa",
+      "repo_name": "9001/copyparty",
+      "initial_gap": 10,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_01"
+    },
+    {
+      "task_id": "agronholm__anyio__439951__41647f",
+      "repo_name": "agronholm/anyio",
+      "initial_gap": 73,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.999,
+      "status": "solved",
+      "batch": "rll_full_batch_01"
+    },
+    {
+      "task_id": "ahmedfgad__geneticalgorithmpython__b028c2__d745c6",
+      "repo_name": "ahmedfgad/GeneticAlgorithmPython",
+      "initial_gap": 10,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_01"
+    },
+    {
+      "task_id": "aio-libs__yarl__576b5e__857930",
+      "repo_name": "aio-libs/yarl",
+      "initial_gap": 57,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9988,
+      "status": "solved",
+      "batch": "rll_full_batch_02"
+    },
+    {
+      "task_id": "aledipa__free-gpt4-web-api__79537a__08972a",
+      "repo_name": "aledipa/Free-GPT4-WEB-API",
+      "initial_gap": 15,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_02"
+    },
+    {
+      "task_id": "algorithmicsuperintelligence__openevolve__884ad1__14e0de",
+      "repo_name": "algorithmicsuperintelligence/openevolve",
+      "initial_gap": 6,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_02"
+    },
+    {
+      "task_id": "almarklein__timetagger__f48db7__4899dd",
+      "repo_name": "almarklein/timetagger",
+      "initial_gap": 14,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_02"
+    },
+    {
+      "task_id": "amaranth-lang__amaranth__3e6e78__8c65a7",
+      "repo_name": "amaranth-lang/amaranth",
+      "initial_gap": 90,
+      "final_gap": 0,
+      "num_epochs": 4,
+      "fix_rate": 100.0,
+      "evoscore": 0.9974,
+      "status": "solved",
+      "batch": "rll_full_batch_02"
+    },
+    {
+      "task_id": "amaranth-lang__amaranth__46e0a0__a4402b",
+      "repo_name": "amaranth-lang/amaranth",
+      "initial_gap": 37,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_03"
+    },
+    {
+      "task_id": "amaranth-lang__amaranth__6b5125__d3c5b9",
+      "repo_name": "amaranth-lang/amaranth",
+      "initial_gap": 95,
+      "final_gap": 0,
+      "num_epochs": 7,
+      "fix_rate": 100.0,
+      "evoscore": 0.9835,
+      "status": "solved",
+      "batch": "rll_full_batch_03"
+    },
+    {
+      "task_id": "amaranth-lang__amaranth__eef248__1d2b9c",
+      "repo_name": "amaranth-lang/amaranth",
+      "initial_gap": 19,
+      "final_gap": 0,
+      "num_epochs": 4,
+      "fix_rate": 100.0,
+      "evoscore": 0.98,
+      "status": "solved",
+      "batch": "rll_full_batch_03"
+    },
+    {
+      "task_id": "anthropics__anthropic-sdk-python__16eb64__84aa15",
+      "repo_name": "anthropics/anthropic-sdk-python",
+      "initial_gap": 20,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_03"
+    },
+    {
+      "task_id": "anthropics__claude-agent-sdk-python__91315e__22fa9f",
+      "repo_name": "anthropics/claude-agent-sdk-python",
+      "initial_gap": 24,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_03"
+    },
+    {
+      "task_id": "argoproj-labs__hera__7ac8d5__3b30d5",
+      "repo_name": "argoproj-labs/hera",
+      "initial_gap": 64,
+      "final_gap": 0,
+      "num_epochs": 4,
+      "fix_rate": 100.0,
+      "evoscore": 0.9963,
+      "status": "solved",
+      "batch": "rll_full_batch_04"
+    },
+    {
+      "task_id": "behave__behave__951f29__e23a17",
+      "repo_name": "behave/behave",
+      "initial_gap": 12,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_04"
+    },
+    {
+      "task_id": "caronc__apprise__ebbe26__d050fb",
+      "repo_name": "caronc/apprise",
+      "initial_gap": 11,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_04"
+    },
+    {
+      "task_id": "cgarciae__pypeln__9121c6__518136",
+      "repo_name": "cgarciae/pypeln",
+      "initial_gap": 18,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_04"
+    },
+    {
+      "task_id": "checkthechain__checkthechain__0ca3e3__6bf2c0",
+      "repo_name": "checkthechain/checkthechain",
+      "initial_gap": 13,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_04"
+    },
+    {
+      "task_id": "checkthechain__checkthechain__13f5d2__761b89",
+      "repo_name": "checkthechain/checkthechain",
+      "initial_gap": 89,
+      "final_gap": 5,
+      "num_epochs": 3,
+      "fix_rate": 94.4,
+      "evoscore": 1.0,
+      "status": "improving",
+      "batch": "rll_full_batch_05"
+    },
+    {
+      "task_id": "checkthechain__checkthechain__60ea1d__25597e",
+      "repo_name": "checkthechain/checkthechain",
+      "initial_gap": 14,
+      "final_gap": 6,
+      "num_epochs": 2,
+      "fix_rate": 57.1,
+      "evoscore": 0.6714,
+      "status": "improving",
+      "batch": "rll_full_batch_05"
+    },
+    {
+      "task_id": "cle-b__httpdbg__22e489__af88c4",
+      "repo_name": "cle-b/httpdbg",
+      "initial_gap": 5,
+      "final_gap": 5,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_05"
+    },
+    {
+      "task_id": "cle-b__httpdbg__83ede4__224597",
+      "repo_name": "cle-b/httpdbg",
+      "initial_gap": 15,
+      "final_gap": 15,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_05"
+    },
+    {
+      "task_id": "cloudtools__troposphere__14a8b3__7ab9bc",
+      "repo_name": "cloudtools/troposphere",
+      "initial_gap": 12,
+      "final_gap": 12,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_05"
+    }
+  ],
+  "last_updated": "2026-03-25T07:15:28",
+  "model": "claude-sonnet-4-6",
+  "lisa_model": "codex-gpt-5.4",
+  "agent": "RLL (Ralph-Lisa Loop)"
+}

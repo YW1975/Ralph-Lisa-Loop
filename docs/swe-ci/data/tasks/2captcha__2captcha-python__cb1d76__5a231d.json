@@ -1,0 +1,81 @@
+{
+  "task_id": "2captcha__2captcha-python__cb1d76__5a231d",
+  "repo_name": "2captcha/2captcha-python",
+  "repo_url": "https://github.com/2captcha/2captcha-python.git",
+  "initial_gap": 23,
+  "final_gap": 0,
+  "num_epochs": 2,
+  "status": "solved",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 23,
+      "passed": 7,
+      "failed": 38,
+      "total": 45
+    },
+    {
+      "epoch": 1,
+      "gap": 0,
+      "passed": 30,
+      "failed": 15,
+      "total": 45,
+      "programmer_time": 416.38652086257935
+    }
+  ],
+  "dialogue": "# Collaboration History\n\n**Task**: Read <workspace>/ENVIRONMENT.md first — it explains the test setup and how to run tests. Then read <workspace>/requirement.xml and implement the requirements. Work only in <workspace>/code/. Run tests with: docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q\n**Started**: 2026-03-23 20:13:25\n\n---\n\n## [Ralph] [PLAN] Round 1 | Step: planning\n**Time**: 2026-03-23 20:14:30\n**Summary**: \n\n[PLAN]\n\n## Task Goal\nFix `code/twocaptcha/solver.py` to make all test suite tests pass by addressing three issues.\n\n## Proposed Approach\n\n### Requirement 1 — Default softId=4580\n- In `TwoCaptcha.__init__`, change `self.soft_id = softId` to `self.soft_id = softId if softId is not None else 4580`\n- This ensures every API call includes `soft_id=4580` when the caller omits `softId` or passes `softId=None`\n- No change needed to `default_params` — the existing `if soft_id:` check already works once the value is non-None/truthy\n\n### Requirement 2 — Add 9 missing captcha methods\nAdd these methods to `TwoCaptcha`:\n- `tencent(self, app_id, url, **kwargs)` → `solve(method='tencent', app_id=app_id, url=url, **kwargs)`\n- `turnstile(self, sitekey, url, **kwargs)` → `solve(method='turnstile', sitekey=sitekey, url=url, **kwargs)`\n- `friendly_captcha(self, sitekey, url, **kwargs)` → `solve(method='friendly_captcha', sitekey=sitekey, url=url, **kwargs)`\n- `geetest_v4(self, captcha_id, url, **kwargs)` → `solve(method='geetest_v4', captcha_id=captcha_id, url=url, **kwargs)`\n- `mtcaptcha(self, sitekey, url, **kwargs)` → `solve(method='mt_captcha', sitekey=sitekey, url=url, **kwargs)`\n- `atb_captcha(self, app_id, api_server, url, **kwargs)` → `solve(method='atb_captcha', app_id=app_id, api_server=api_server, url=url, **kwargs)`\n- `lemin(self, captcha_id, div_id, api_server, url, **kwargs)` → `solve(method='lemin', captcha_id=captcha_id, div_id=div_id, api_server=api_server, url=url, **kwargs)`\n- `amazon_waf(self, sitekey, url, **kwargs)` → `solve(method='amazon_waf', sitekey=sitekey, url=url, **kwargs)`\n- `cutcaptcha(self, misery_key, apikey, url, **kwargs)` → `solve(method='cutcaptcha', misery_key=misery_key, api_key=apikey, url=url, **kwargs)`\n\n### Requirement 3 — Add `datas` → `data-s` rename\n- In `rename_params`, add `'datas': 'data-s'` to the `replace` dict\n\n## Expected Deliverables\n- Modified `code/twocaptcha/solver.py` with all three fixes applied\n- All 24+ tests passing\n\n## Test Plan\n- Test command: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Expected coverage: all test files in `tests/` directory\n- No test files will be modified\n\n## Quality Gate\nNo lint/format tooling detected in the project; correctness verified by test suite.\n\n\n---\n\n## [Lisa] [PASS] Round 1 | Step: planning\n**Time**: 2026-03-23 20:15:51\n**Summary**: The plan is aligned with the task and with the current code. In `code/twocaptcha/solver.py:35-46`, `TwoCaptcha.__init__` still leaves `self.soft_id = softId`, so your proposed construction-time default of `4580` matches requirement 1 and fixes the current omission path used by `default_params` at `code/twocaptcha/solver.py:542-550`. In `code/twocaptcha/solver.py:351-384`, `rotate()` is the last captcha helper before `solve()`, so the nine methods listed in the task are indeed absent and need to be added there. In `code/twocaptcha/solver.py:509-525`, the rename map does not include `datas`, so adding `datas -> data-s` matches requirement 3. No direction drift found; proceed to implementation and then include the required Docker pytest run in the `[CODE]` submission.\n\n[PASS] The plan is aligned with the task and with the current code. In `code/twocaptcha/solver.py:35-46`, `TwoCaptcha.__init__` still leaves `self.soft_id = softId`, so your proposed construction-time default of `4580` matches requirement 1 and fixes the current omission path used by `default_params` at `code/twocaptcha/solver.py:542-550`. In `code/twocaptcha/solver.py:351-384`, `rotate()` is the last captcha helper before `solve()`, so the nine methods listed in the task are indeed absent and need to be added there. In `code/twocaptcha/solver.py:509-525`, the rename map does not include `datas`, so adding `datas -> data-s` matches requirement 3. No direction drift found; proceed to implementation and then include the required Docker pytest run in the `[CODE]` submission.\n\n\n---\n\n## [Ralph] [CODE] Round 2 | Step: planning\n**Time**: 2026-03-23 20:17:21\n**Summary**: \n\n[CODE]\n\n## Changes Made to `code/twocaptcha/solver.py`\n\n### Requirement 1 — Default softId=4580 (solver.py:45)\n```python\nself.soft_id = softId if softId is not None else 4580\n```\n\n### Requirement 2 — Added 9 missing captcha methods (solver.py, after rotate())\nAdded: `tencent`, `turnstile`, `friendly_captcha`, `geetest_v4`, `mtcaptcha`, `atb_captcha`, `lemin`, `amazon_waf`, `cutcaptcha`\nEach calls `self.solve` with the exact method string and parameter names per spec. `cutcaptcha` renames `apikey` → `api_key`.\n\n### Requirement 3 — Added `datas` → `data-s` rename (solver.py:528)\n```python\n'datas': 'data-s',\n```\nadded to the `replace` dict in `rename_params`.\n\n## Test Results\n\n### Acceptance criteria (23 tests, all required by requirements 1–3):\n- Test command: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest --tb=short -q <23 specific tests>`\n- Exit code: 0\n- Result: 23/23 passed\n\n### Full suite:\n- Test command: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Exit code: 1\n- Result: 30/45 passed\n- 15 pre-existing failures: all `test_file_param`, `test_all_params` (file-path variant), and `test_rotate.*` tests — they reference `../examples/images/*.jpg` which do not exist in the container. These are environment-side failures unrelated to the three requirements and were failing before any changes.\n\n### New tests: 0\nNo new test files were added (requirements covered by existing test suite; test files must not be modified per ENVIRONMENT.md).\n\n\n---\n\n## [Lisa] [PASS] Round 2 | Step: planning\n**Time**: 2026-03-23 20:19:29\n**Summary**: The implementation satisfies the stated requirements and the test reruns match the submission. In `code/twocaptcha/solver.py:35-45`, `self.soft_id = softId if softId is not None else 4580` applies the required default partner ID at construction time. In `code/twocaptcha/solver.py:384-409`, the nine previously missing helpers are now present with the required method names and `cutcaptcha` performs the required `apikey -> api_key` translation. In `code/twocaptcha/solver.py:536-553`, `rename_params` now includes `datas: data-s`.\n\n[PASS] The implementation satisfies the stated requirements and the test reruns match the submission. In `code/twocaptcha/solver.py:35-45`, `self.soft_id = softId if softId is not None else 4580` applies the required default partner ID at construction time. In `code/twocaptcha/solver.py:384-409`, the nine previously missing helpers are now present with the required method names and `cutcaptcha` performs the required `apikey -> api_key` translation. In `code/twocaptcha/solver.py:536-553`, `rename_params` now includes `datas: data-s`.\n\nI re-ran both reported test commands:\n- `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest --tb=short -q <23 acceptance tests>` -> exit 0, `23 passed in 0.12s`\n- `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q` -> exit 1, `30 passed, 15 failed`\n\nThe remaining 15 failures are consistent with the test path setup, not with this patch. `code/tests/test_normal.py:5-16` and `code/tests/test_rotate.py:6-19` use `../examples/...` paths in the `except ImportError` branch, while the container fixtures actually exist under `/app/code/examples/images/*`; the failures then come from the unchanged file existence checks in `code/twocaptcha/solver.py:456-473`.\n\n\n---\n\n## [Ralph] [CONSENSUS] Round 3 | Step: planning\n**Time**: 2026-03-23 20:19:55\n**Summary**: \n\n[CONSENSUS]\n\nAgreed. Lisa's review confirms:\n- All three requirements implemented correctly at the exact locations\n- 23/23 acceptance criteria tests pass (exit 0)\n- 15 remaining failures are pre-existing environment issues (missing `../examples/images/*.jpg` paths in container), not caused by this patch\n\nImplementation is complete.\n\n",
+  "diff_summary": [
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code: .pytest_cache",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code: LICENSE",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/README.md and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/README.md differ",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: amazon_waf.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: amazon_waf_options.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: atb_captcha.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: atb_captcha_options.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: audio",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: audio.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: cutcaptcha.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: cutcaptcha_options.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: friendly_captcha.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: friendly_captcha_options.py",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/geetest.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/geetest.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/geetest_options.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/geetest_options.py differ",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: geetest_v4.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: geetest_v4_options.py",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/hcaptcha.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/hcaptcha.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/hcaptcha_options.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/hcaptcha_options.py differ",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/images: rotate_2.jpg",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/images: rotate_3.jpg",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/keycaptcha.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/keycaptcha.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/keycaptcha_options.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/keycaptcha_options.py differ",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: lemin.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: mtcaptcha.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: mtcaptcha_options.py",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/recaptcha_v2.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/recaptcha_v2.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/recaptcha_v2_options.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/recaptcha_v2_options.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples/rotate_options.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/examples/rotate_options.py differ",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: tencent.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: tencent_options.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: turnstile.py",
+    "Only in experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/examples: turnstile_options.py",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/twocaptcha/__init__.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/twocaptcha/__init__.py differ",
+    "Files experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/target/code/twocaptcha/solver.py and experiments/rll_host_v3_mini/2captcha__2captcha-python__cb1d76__5a231d/2026-03-23-20-21-21/code/twocaptcha/solver.py differ"
+  ],
+  "test_results": {
+    "passed": 30,
+    "failed": 15,
+    "total": 45
+  },
+  "last_updated": "2026-03-25T07:15:28",
+  "batch": "rll_host_v3_mini",
+  "evoscore_detail": {
+    "m1": 1.0,
+    "m2": 1.0,
+    "m3": 1.0,
+    "m4": 1.0,
+    "m5": 1.0,
+    "overall": 1.0
+  },
+  "evoscore": 1.0,
+  "fix_rate": 100.0
+}
