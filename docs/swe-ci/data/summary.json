@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 27,
-  "solved": 27,
+  "total_evaluated": 32,
+  "solved": 32,
   "improving": 0,
   "stuck": 0,
   "pending": 0,
-  "total_completed": 27,
+  "total_completed": 32,
   "solve_rate": 100.0,
-  "zero_regression_rate": 92.6,
-  "zero_regression_count": 25,
+  "zero_regression_rate": 93.8,
+  "zero_regression_count": 30,
   "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9892,
-  "avg_evoscore_completed": 0.9892,
+  "avg_evoscore": 0.9908,
+  "avg_evoscore_completed": 0.9908,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -76,6 +76,19 @@
         "cle-b__httpdbg__22e489__af88c4",
         "cle-b__httpdbg__83ede4__224597",
         "cloudtools__troposphere__14a8b3__7ab9bc"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_06",
+      "total": 5,
+      "solved": 5,
+      "avg_evoscore": 0.9994,
+      "tasks": [
+        "dbrattli__expression__8a6e63__3981fd",
+        "desgeeko__pdfsyntax__8fa6b3__a08472",
+        "ebodshojaei__bake__8de354__a3736b",
+        "ebodshojaei__bake__cbb2b0__144d85",
+        "eliben__pycparser__262a41__febd20"
       ]
     },
     {
@@ -386,9 +399,64 @@
       "evoscore": 0.9992,
       "status": "solved",
       "batch": "rll_full_batch_05"
+    },
+    {
+      "task_id": "dbrattli__expression__8a6e63__3981fd",
+      "repo_name": "dbrattli/Expression",
+      "initial_gap": 43,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_06"
+    },
+    {
+      "task_id": "desgeeko__pdfsyntax__8fa6b3__a08472",
+      "repo_name": "desgeeko/pdfsyntax",
+      "initial_gap": 46,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9989,
+      "status": "solved",
+      "batch": "rll_full_batch_06"
+    },
+    {
+      "task_id": "ebodshojaei__bake__8de354__a3736b",
+      "repo_name": "EbodShojaei/bake",
+      "initial_gap": 12,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_06"
+    },
+    {
+      "task_id": "ebodshojaei__bake__cbb2b0__144d85",
+      "repo_name": "EbodShojaei/bake",
+      "initial_gap": 12,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9983,
+      "status": "solved",
+      "batch": "rll_full_batch_06"
+    },
+    {
+      "task_id": "eliben__pycparser__262a41__febd20",
+      "repo_name": "eliben/pycparser",
+      "initial_gap": 26,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_06"
     }
   ],
-  "last_updated": "2026-03-25T10:48:51",
+  "last_updated": "2026-03-25T12:36:38",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
