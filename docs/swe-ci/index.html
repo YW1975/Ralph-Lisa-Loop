@@ -398,7 +398,7 @@
                 : t.final_gap;
             const statusClass = `status-${t.status}`;
             const shortId = t.task_id.replace(/__/g, "/").replace(/_/g, " ").substring(0, 40);
-            return `<tr onclick="location.href='task.html?id=${t.task_id}'" style="cursor:pointer">
+            return `<tr onclick="location.href='tasks/${t.task_id}.html'" style="cursor:pointer">
                 <td><span class="task-link">${t.task_id}</span></td>
                 <td>${t.repo_name || ""}</td>
                 <td>${t.initial_gap} <span class="gap-arrow">&rarr;</span> ${finalGap}</td>
