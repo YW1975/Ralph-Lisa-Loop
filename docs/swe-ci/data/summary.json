@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 42,
-  "solved": 38,
+  "solved": 39,
   "improving": 1,
   "stuck": 0,
-  "pending": 3,
-  "total_completed": 39,
-  "solve_rate": 97.4,
-  "zero_regression_rate": 94.9,
-  "zero_regression_count": 37,
-  "avg_fix_rate": 92.7,
-  "avg_evoscore": 0.9514,
-  "avg_evoscore_completed": 0.9861,
+  "pending": 2,
+  "total_completed": 40,
+  "solve_rate": 97.5,
+  "zero_regression_rate": 95.0,
+  "zero_regression_count": 38,
+  "avg_fix_rate": 95.0,
+  "avg_evoscore": 0.9633,
+  "avg_evoscore_completed": 0.9864,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -107,8 +107,8 @@
     {
       "batch": "rll_full_batch_08",
       "total": 5,
-      "solved": 1,
-      "avg_evoscore": 0.653,
+      "solved": 2,
+      "avg_evoscore": 0.753,
       "tasks": [
         "ewels__rich-click__b91f51__f283ea",
         "eylles__pywal16__49af6c__6fafdf",
@@ -540,11 +540,11 @@
       "task_id": "ewels__rich-click__b91f51__f283ea",
       "repo_name": "ewels/rich-click",
       "initial_gap": 9,
-      "final_gap": 9,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
       "batch": "rll_full_batch_08"
     },
     {
@@ -592,7 +592,7 @@
       "batch": "rll_full_batch_08"
     }
   ],
-  "last_updated": "2026-03-25T20:56:45",
+  "last_updated": "2026-03-25T20:59:18",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
