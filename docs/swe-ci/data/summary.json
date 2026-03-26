@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 50,
-  "solved": 45,
+  "solved": 46,
   "improving": 0,
   "stuck": 0,
-  "pending": 5,
-  "total_completed": 45,
+  "pending": 4,
+  "total_completed": 46,
   "solve_rate": 100.0,
-  "zero_regression_rate": 95.6,
-  "zero_regression_count": 43,
-  "avg_fix_rate": 90.0,
-  "avg_evoscore": 0.9434,
-  "avg_evoscore_completed": 0.9927,
+  "zero_regression_rate": 95.7,
+  "zero_regression_count": 44,
+  "avg_fix_rate": 92.0,
+  "avg_evoscore": 0.9534,
+  "avg_evoscore_completed": 0.9928,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -131,8 +131,8 @@
     {
       "batch": "rll_full_batch_10",
       "total": 5,
-      "solved": 0,
-      "avg_evoscore": 0.5,
+      "solved": 1,
+      "avg_evoscore": 0.6,
       "tasks": [
         "httpie__http-prompt__6deb8d__eecb93",
         "igrek51__wat__ecddda__8efafa",
@@ -663,11 +663,11 @@
       "task_id": "igrek51__wat__ecddda__8efafa",
       "repo_name": "igrek51/wat",
       "initial_gap": 5,
-      "final_gap": 5,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
       "batch": "rll_full_batch_10"
     },
     {
@@ -704,7 +704,7 @@
       "batch": "rll_full_batch_10"
     }
   ],
-  "last_updated": "2026-03-26T02:58:16",
+  "last_updated": "2026-03-26T03:28:21",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
