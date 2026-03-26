@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 42,
-  "solved": 41,
-  "improving": 1,
+  "solved": 42,
+  "improving": 0,
   "stuck": 0,
   "pending": 0,
   "total_completed": 42,
-  "solve_rate": 97.6,
+  "solve_rate": 100.0,
   "zero_regression_rate": 95.2,
   "zero_regression_count": 40,
-  "avg_fix_rate": 99.9,
-  "avg_evoscore": 0.9871,
-  "avg_evoscore_completed": 0.9871,
+  "avg_fix_rate": 100.0,
+  "avg_evoscore": 0.9922,
+  "avg_evoscore_completed": 0.9922,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -107,8 +107,8 @@
     {
       "batch": "rll_full_batch_08",
       "total": 5,
-      "solved": 4,
-      "avg_evoscore": 0.9528,
+      "solved": 5,
+      "avg_evoscore": 0.9957,
       "tasks": [
         "ewels__rich-click__b91f51__f283ea",
         "eylles__pywal16__49af6c__6fafdf",
@@ -584,15 +584,15 @@
       "task_id": "falconry__falcon__a12995__60ecec",
       "repo_name": "falconry/falcon",
       "initial_gap": 60,
-      "final_gap": 3,
-      "num_epochs": 2,
-      "fix_rate": 95.0,
-      "evoscore": 0.785,
-      "status": "improving",
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9995,
+      "status": "solved",
       "batch": "rll_full_batch_08"
     }
   ],
-  "last_updated": "2026-03-25T23:07:13",
+  "last_updated": "2026-03-25T23:17:24",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
