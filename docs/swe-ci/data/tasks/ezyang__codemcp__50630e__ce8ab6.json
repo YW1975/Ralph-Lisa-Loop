@@ -1,0 +1,49 @@
+{
+  "task_id": "ezyang__codemcp__50630e__ce8ab6",
+  "repo_name": "ezyang/codemcp",
+  "repo_url": "https://github.com/ezyang/codemcp.git",
+  "licence": "Apache License 2.0",
+  "initial_gap": 12,
+  "final_gap": 12,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 12,
+      "passed": 53,
+      "failed": 0,
+      "total": 53
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T20:29:13",
+  "batch": "rll_full_batch_08",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

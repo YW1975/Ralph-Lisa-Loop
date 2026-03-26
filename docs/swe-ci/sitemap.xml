@@ -228,4 +228,22 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/ewels__rich-click__b91f51__f283ea.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/eylles__pywal16__49af6c__6fafdf.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/ezyang__codemcp__50630e__ce8ab6.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

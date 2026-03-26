@@ -1,0 +1,49 @@
+{
+  "task_id": "eylles__pywal16__49af6c__6fafdf",
+  "repo_name": "eylles/pywal16",
+  "repo_url": "https://github.com/eylles/pywal16.git",
+  "licence": "MIT License",
+  "initial_gap": 6,
+  "final_gap": 6,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 6,
+      "passed": 29,
+      "failed": 8,
+      "total": 37
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T20:29:13",
+  "batch": "rll_full_batch_08",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

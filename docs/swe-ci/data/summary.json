@@ -1,16 +1,16 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 37,
+  "total_evaluated": 40,
   "solved": 37,
   "improving": 0,
   "stuck": 0,
-  "pending": 0,
+  "pending": 3,
   "total_completed": 37,
   "solve_rate": 100.0,
   "zero_regression_rate": 94.6,
   "zero_regression_count": 35,
-  "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9917,
+  "avg_fix_rate": 92.5,
+  "avg_evoscore": 0.9548,
   "avg_evoscore_completed": 0.9917,
   "batches": [
     {
@@ -102,6 +102,17 @@
         "emilstenstrom__justhtml__8dfb31__3d5c90",
         "ewels__rich-click__493c50__cce38a",
         "ewels__rich-click__52e392__024b3b"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_08",
+      "total": 3,
+      "solved": 0,
+      "avg_evoscore": 0.5,
+      "tasks": [
+        "ewels__rich-click__b91f51__f283ea",
+        "eylles__pywal16__49af6c__6fafdf",
+        "ezyang__codemcp__50630e__ce8ab6"
       ]
     },
     {
@@ -522,9 +533,42 @@
       "evoscore": 0.996,
       "status": "solved",
       "batch": "rll_full_batch_07"
+    },
+    {
+      "task_id": "ewels__rich-click__b91f51__f283ea",
+      "repo_name": "ewels/rich-click",
+      "initial_gap": 9,
+      "final_gap": 9,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_08"
+    },
+    {
+      "task_id": "eylles__pywal16__49af6c__6fafdf",
+      "repo_name": "eylles/pywal16",
+      "initial_gap": 6,
+      "final_gap": 6,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_08"
+    },
+    {
+      "task_id": "ezyang__codemcp__50630e__ce8ab6",
+      "repo_name": "ezyang/codemcp",
+      "initial_gap": 12,
+      "final_gap": 12,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_08"
     }
   ],
-  "last_updated": "2026-03-25T20:20:27",
+  "last_updated": "2026-03-25T20:29:13",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
