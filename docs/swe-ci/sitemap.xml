@@ -258,4 +258,22 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/gh05tcrew__pentestagent__d191a0__fe51ae.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/grahamdumpleton__wrapt__3125a5__d8803a.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/home-assistant-libs__pytradfri__b63ebe__549764.html</loc>
+    <lastmod>2026-03-25</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 42,
-  "solved": 42,
+  "total_evaluated": 45,
+  "solved": 43,
   "improving": 0,
   "stuck": 0,
-  "pending": 0,
-  "total_completed": 42,
+  "pending": 2,
+  "total_completed": 43,
   "solve_rate": 100.0,
-  "zero_regression_rate": 95.2,
-  "zero_regression_count": 40,
-  "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9922,
-  "avg_evoscore_completed": 0.9922,
+  "zero_regression_rate": 95.3,
+  "zero_regression_count": 41,
+  "avg_fix_rate": 95.6,
+  "avg_evoscore": 0.9705,
+  "avg_evoscore_completed": 0.9923,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -115,6 +115,17 @@
         "ezyang__codemcp__50630e__ce8ab6",
         "falconry__falcon__89b5fb__3b35ee",
         "falconry__falcon__a12995__60ecec"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_09",
+      "total": 3,
+      "solved": 1,
+      "avg_evoscore": 0.6667,
+      "tasks": [
+        "gh05tcrew__pentestagent__d191a0__fe51ae",
+        "grahamdumpleton__wrapt__3125a5__d8803a",
+        "home-assistant-libs__pytradfri__b63ebe__549764"
       ]
     },
     {
@@ -590,9 +601,42 @@
       "evoscore": 0.9995,
       "status": "solved",
       "batch": "rll_full_batch_08"
+    },
+    {
+      "task_id": "gh05tcrew__pentestagent__d191a0__fe51ae",
+      "repo_name": "GH05TCREW/pentestagent",
+      "initial_gap": 6,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_09"
+    },
+    {
+      "task_id": "grahamdumpleton__wrapt__3125a5__d8803a",
+      "repo_name": "GrahamDumpleton/wrapt",
+      "initial_gap": 98,
+      "final_gap": 98,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_09"
+    },
+    {
+      "task_id": "home-assistant-libs__pytradfri__b63ebe__549764",
+      "repo_name": "home-assistant-libs/pytradfri",
+      "initial_gap": 5,
+      "final_gap": 5,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_09"
     }
   ],
-  "last_updated": "2026-03-25T23:17:24",
+  "last_updated": "2026-03-25T23:37:20",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
