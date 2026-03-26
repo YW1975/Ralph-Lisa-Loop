@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mdbloice/Augmentor — gap 11→11 | SWE-CI RLL Results</title>
+    <meta name="description" content="RLL dual-agent (Ralph + Lisa) working on mdbloice/Augmentor — test gap 11→11 in 0 epochs. Category: General. Complexity: LOW.">
+    <meta property="og:title" content="mdbloice/Augmentor — gap 11→11 | SWE-CI RLL Results">
+    <meta property="og:description" content="RLL dual-agent (Ralph + Lisa) working on mdbloice/Augmentor — test gap 11→11 in 0 epochs. Category: General. Complexity: LOW.">
+    <meta property="og:type" content="article">
+    <link rel="canonical" href="https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mdbloice__augmentor__c182f1__cab8b0.html">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --yellow: #d29922;
+            --red: #f85149;
+            --ralph-blue: #388bfd;
+            --lisa-green: #2ea043;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header a.back { color: var(--text-muted); font-size: 14px; }
+        .header h1 { font-size: 18px; font-weight: 600; }
+
+        .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+        /* Task info */
+        .task-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .info-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+        .info-card .value { font-size: 28px; font-weight: 700; }
+        .info-card .value.green { color: var(--green); }
+        .info-card .label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        /* Gap curve chart */
+        .chart-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        .chart-section h2 { font-size: 16px; margin-bottom: 16px; }
+        .chart-container { position: relative; height: 250px; }
+
+        /* EvoScore detail */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-bottom: 32px;
+        }
+        .metric-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            text-align: center;
+        }
+        .metric-box .mv { font-size: 20px; font-weight: 700; }
+        .metric-box .ml { font-size: 11px; color: var(--text-muted); }
+
+        /* Dialogue replay */
+        .dialogue-section h2 { font-size: 16px; margin-bottom: 16px; }
+        .dialogue {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .msg {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .msg-ralph {
+            align-self: flex-start;
+            background: rgba(56,139,253,0.12);
+            border: 1px solid rgba(56,139,253,0.3);
+            border-radius: 12px 12px 12px 2px;
+        }
+        .msg-lisa {
+            align-self: flex-end;
+            background: rgba(46,160,67,0.12);
+            border: 1px solid rgba(46,160,67,0.3);
+            border-radius: 12px 12px 2px 12px;
+        }
+        .msg-header {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .msg-ralph .msg-header { color: var(--ralph-blue); }
+        .msg-lisa .msg-header { color: var(--lisa-green); }
+        .msg-tag {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .tag-plan { background: rgba(88,166,255,0.2); color: var(--accent); }
+        .tag-code { background: rgba(63,185,80,0.2); color: var(--green); }
+        .tag-fix { background: rgba(210,153,34,0.2); color: var(--yellow); }
+        .tag-pass { background: rgba(63,185,80,0.2); color: var(--green); }
+        .tag-needs-work { background: rgba(248,81,73,0.2); color: var(--red); }
+        .tag-consensus { background: rgba(63,185,80,0.3); color: var(--green); }
+        .tag-challenge { background: rgba(210,153,34,0.2); color: var(--yellow); }
+        .tag-research { background: rgba(88,166,255,0.2); color: var(--accent); }
+        .msg-time { font-size: 11px; color: var(--text-muted); }
+        .msg-body { color: var(--text); }
+        .msg-body code {
+            background: rgba(110,118,129,0.2);
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        .msg-body pre {
+            background: rgba(0,0,0,0.3);
+            padding: 8px 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+
+        .msg-toggle {
+            font-size: 12px;
+            color: var(--accent);
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        /* Requirements */
+        .req-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .req-card .req-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .req-id {
+            background: var(--accent);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .req-location {
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            color: var(--accent);
+        }
+        .req-desc { color: var(--text); margin-bottom: 6px; }
+        .req-contract { color: var(--text-muted); font-style: italic; }
+        .req-tests {
+            margin-top: 6px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            color: var(--green);
+        }
+        .tag-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        .tag-bug_fix { background: rgba(248,81,73,0.2); color: var(--red); }
+        .tag-new_feature { background: rgba(63,185,80,0.2); color: var(--green); }
+        .tag-refactor { background: rgba(88,166,255,0.2); color: var(--accent); }
+        .tag-api_change { background: rgba(210,153,34,0.2); color: var(--yellow); }
+        .tag-general { background: rgba(139,148,158,0.2); color: var(--text-muted); }
+
+        /* Verification */
+        .verify {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 32px;
+        }
+        .verify h2 { font-size: 16px; margin-bottom: 12px; }
+        .verify ol { padding-left: 20px; color: var(--text-muted); font-size: 14px; }
+        .verify code { background: rgba(110,118,129,0.2); padding: 1px 4px; border-radius: 3px; }
+
+        .footer {
+            border-top: 1px solid var(--border);
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: 48px;
+        }
+
+        @media (max-width: 640px) {
+            .metrics-grid { grid-template-columns: repeat(3, 1fr); }
+            .msg { max-width: 95%; }
+        }
+    </style>
+</head>
+<body>
+    
+    <noscript>
+    <div style="max-width:960px;margin:24px auto;padding:0 24px;color:#e6edf3;font-family:sans-serif;">
+        <h1>mdbloice__augmentor__c182f1__cab8b0</h1>
+        <p><strong>Repository:</strong> <a href="https://github.com/mdbloice/Augmentor" target="_blank">mdbloice/Augmentor</a></p>
+        <p><strong>License:</strong> MIT License</p>
+        <p><strong>Status:</strong> pending</p>
+        <p><strong>Test Gap:</strong> 11 → 11</p>
+        <p><strong>Epochs:</strong> 0</p>
+        <p><strong>Fix Rate:</strong> 0%</p>
+        <p><strong>Complexity:</strong> LOW</p>
+        <p><strong>Category:</strong> General</p>
+        <p><strong>Requirements:</strong> 0 items</p>
+        <p>Enable JavaScript to see the full interactive page with gap curve, code diff, and Ralph-Lisa dialogue.</p>
+    </div>
+    </noscript>
+
+    <div class="header">
+        <a href="../index.html" class="back">&larr; Back</a>
+        <h1 id="page-title">Loading...</h1>
+    </div>
+
+    <div class="container">
+        <div class="task-info" id="task-info"></div>
+
+        <div class="chart-section">
+            <h2>Gap Curve</h2>
+            <div class="chart-container">
+                <canvas id="gap-chart"></canvas>
+            </div>
+        </div>
+
+        <h3 style="font-size:14px; color:var(--text-muted); margin-bottom:8px;">EvoScore Breakdown</h3>
+        <div class="metrics-grid" id="metrics-grid"></div>
+
+        <div class="chart-section" id="project-info" style="display:none">
+            <h2>Project Info</h2>
+            <div id="project-detail" style="font-size:14px; color:var(--text-muted); line-height:1.8;"></div>
+        </div>
+
+        <div class="chart-section" id="requirements-section" style="display:none">
+            <h2>Architect Requirements</h2>
+            <div id="requirements-list"></div>
+        </div>
+
+        <div class="chart-section" id="diff-section" style="display:none">
+            <h2>Code Changes</h2>
+            <div id="diff-stats" style="font-size:13px; color:var(--text-muted); margin-bottom:12px;"></div>
+            <pre id="code-diff" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; max-height:600px; overflow-y:auto;"></pre>
+        </div>
+
+        <div class="dialogue-section">
+            <h2>Ralph-Lisa Dialogue</h2>
+            <div id="dialogue-note" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:var(--text-muted);">
+                Showing dialogue from the final epoch. For complete test data and full dialogue history across all epochs, contact us at <a href="mailto:rll@skylenage.com">rll@skylenage.com</a>.
+            </div>
+            <div class="dialogue" id="dialogue"></div>
+        </div>
+
+        <div class="verify">
+            <h2>Verify This Result</h2>
+            <ol>
+                <li>Download the SWE-CI dataset: <code>huggingface-cli download skylenage/SWE-CI</code></li>
+                <li>Load the base image: <code>docker load &lt; data/&lt;task_id&gt;/image.tar.gz</code></li>
+                <li>Copy the output code into the container's <code>/app/code/</code></li>
+                <li>Run: <code>docker exec -w /app/code python -m pytest tests --tb=short -q</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Powered by <a href="https://github.com/YW1975/Ralph-Lisa-Loop">Ralph-Lisa Loop</a></p>
+    </div>
+
+    <script>
+    // Support both ?id=xxx (legacy) and tasks/xxx.html (SEO-friendly)
+    let taskId = new URLSearchParams(location.search).get("id");
+    if (!taskId) {
+        const match = location.pathname.match(/\/tasks\/(.+)\.html$/);
+        if (match) {
+            taskId = match[1];
+        } else {
+            location.href = "index.html";
+        }
+    }
+
+    async function loadTask() {
+        try {
+            const resp = await fetch(`../data/tasks/${taskId}.json?` + Date.now());
+            const task = await resp.json();
+            render(task);
+        } catch (e) {
+            document.getElementById("page-title").textContent = "Task not found";
+        }
+    }
+
+    function render(t) {
+        document.title = `${t.repo_name || t.task_id} | SWE-CI Results`;
+        document.querySelector('meta[name="description"]').content =
+            `RLL solved ${t.repo_name} (gap ${t.initial_gap}→${t.final_gap}) in ${t.num_epochs-1} epochs using dual-agent collaboration.`;
+
+        document.getElementById("page-title").textContent = t.task_id;
+
+        // Info cards
+        const finalGap = t.final_gap <= 0 ? 0 : t.final_gap;
+        document.getElementById("task-info").innerHTML = `
+            <div class="info-card">
+                <div class="value">${t.initial_gap} &rarr; ${finalGap === 0 ? '<span class="green">0</span>' : finalGap}</div>
+                <div class="label">Test Gap</div>
+            </div>
+            <div class="info-card">
+                <div class="value">${t.num_epochs - 1}</div>
+                <div class="label">Epochs</div>
+            </div>
+            <div class="info-card">
+                <div class="value ${t.fix_rate >= 100 ? 'green' : ''}">${t.fix_rate.toFixed(0)}%</div>
+                <div class="label">Fix Rate</div>
+            </div>
+            <div class="info-card">
+                <div class="value">${t.evoscore.toFixed(4)}</div>
+                <div class="label">EvoScore</div>
+            </div>
+            <div class="info-card">
+                <div class="value" style="font-size:16px">${t.repo_name || '-'}</div>
+                <div class="label">Repository</div>
+            </div>
+            <div class="info-card">
+                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status}</div>
+                <div class="label">Status</div>
+            </div>
+        `;
+
+        // Gap curve chart
+        const ctx = document.getElementById("gap-chart").getContext("2d");
+        new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: t.gap_curve.map(e => `Epoch ${e.epoch}`),
+                datasets: [{
+                    label: "Test Gap",
+                    data: t.gap_curve.map(e => Math.max(0, e.gap)),
+                    borderColor: "#58a6ff",
+                    backgroundColor: "rgba(88,166,255,0.1)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointBackgroundColor: t.gap_curve.map(e =>
+                        e.gap <= 0 ? "#3fb950" : "#58a6ff"
+                    ),
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: "rgba(48,54,61,0.5)" },
+                        ticks: { color: "#8b949e" },
+                    },
+                    x: {
+                        grid: { color: "rgba(48,54,61,0.5)" },
+                        ticks: { color: "#8b949e" },
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                }
+            }
+        });
+
+        // EvoScore metrics
+        const ev = t.evoscore_detail || {};
+        const metrics = [
+            { k: "m1", l: "M1 Progress" },
+            { k: "m2", l: "M2 Peak" },
+            { k: "m3", l: "M3 Stability" },
+            { k: "m4", l: "M4 Target" },
+            { k: "m5", l: "M5 Monotonic" },
+            { k: "overall", l: "Overall" },
+        ];
+        document.getElementById("metrics-grid").innerHTML = metrics.map(m => {
+            const v = ev[m.k] ?? 0;
+            const color = v >= 1.0 ? "var(--green)" : v >= 0.9 ? "var(--accent)" : v > 0 ? "var(--yellow)" : "var(--text-muted)";
+            return `<div class="metric-box"><div class="mv" style="color:${color}">${v.toFixed(4)}</div><div class="ml">${m.l}</div></div>`;
+        }).join("");
+
+        // Project info
+        renderProjectInfo(t);
+
+        // Architect requirements
+        renderRequirements(t.requirements || []);
+
+        // Code diff
+        renderCodeDiff(t.code_diff, t.diff_summary);
+
+        // Dialogue replay
+        renderDialogue(t.dialogue);
+    }
+
+    function renderProjectInfo(t) {
+        const section = document.getElementById("project-info");
+        const detail = document.getElementById("project-detail");
+        const analysis = t.task_analysis || {};
+        const catLabels = {
+            bug_fix: "Bug Fix", new_feature: "New Feature", refactor: "Refactor",
+            api_change: "API Change", config: "Config", general: "General", unknown: "Unknown"
+        };
+        const repoLink = t.repo_url
+            ? `<a href="${t.repo_url.replace('.git','')}" target="_blank">${t.repo_name}</a>`
+            : t.repo_name || '-';
+
+        // Category tags
+        const cats = analysis.categories || {};
+        const catTags = Object.entries(cats)
+            .filter(([k, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `<span class="tag-badge tag-${k}">${catLabels[k] || k} (${v})</span>`)
+            .join(" ");
+
+        detail.innerHTML = `
+            <p><strong>Repository:</strong> ${repoLink}</p>
+            <p><strong>License:</strong> ${t.licence || '-'}</p>
+            <p><strong>Complexity:</strong> <span class="tag-badge tag-${analysis.complexity === 'high' ? 'bug_fix' : analysis.complexity === 'medium' ? 'api_change' : 'new_feature'}">${(analysis.complexity || '-').toUpperCase()}</span> (initial gap: ${t.initial_gap})</p>
+            <p><strong>Architect Requirements:</strong> ${analysis.total_requirements || 0} items</p>
+            <p><strong>Task Categories:</strong> ${catTags || '<span style="color:var(--text-muted)">-</span>'}</p>
+        `;
+        section.style.display = "block";
+    }
+
+    function renderCodeDiff(diff, summary) {
+        if (!diff) return;
+        const section = document.getElementById("diff-section");
+        const statsEl = document.getElementById("diff-stats");
+        const diffEl = document.getElementById("code-diff");
+
+        // Count files changed, lines added/removed
+        const lines = diff.split("\n");
+        let added = 0, removed = 0, files = new Set();
+        for (const line of lines) {
+            if (line.startsWith("+++ ")) files.add(line);
+            else if (line.startsWith("+") && !line.startsWith("+++")) added++;
+            else if (line.startsWith("-") && !line.startsWith("---")) removed++;
+        }
+
+        statsEl.innerHTML = `${files.size} files changed, <span style="color:var(--green)">+${added}</span> <span style="color:var(--red)">-${removed}</span>`;
+
+        // Syntax highlight diff
+        const highlighted = lines.map(line => {
+            const escaped = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            if (line.startsWith("+++") || line.startsWith("---"))
+                return `<span style="color:var(--accent);font-weight:600">${escaped}</span>`;
+            if (line.startsWith("@@"))
+                return `<span style="color:var(--yellow)">${escaped}</span>`;
+            if (line.startsWith("+"))
+                return `<span style="color:var(--green)">${escaped}</span>`;
+            if (line.startsWith("-"))
+                return `<span style="color:var(--red)">${escaped}</span>`;
+            if (line.startsWith("diff "))
+                return `<span style="color:var(--accent);font-weight:700">${escaped}</span>`;
+            return escaped;
+        }).join("\n");
+
+        diffEl.innerHTML = highlighted;
+        section.style.display = "block";
+    }
+
+    function renderRequirements(reqEpochs) {
+        if (!reqEpochs || reqEpochs.length === 0) return;
+        const section = document.getElementById("requirements-section");
+        const container = document.getElementById("requirements-list");
+
+        let html = "";
+        for (const epoch of reqEpochs) {
+            if (reqEpochs.length > 1) {
+                html += `<h3 style="font-size:13px; color:var(--text-muted); margin: 16px 0 8px;">Epoch: ${epoch.epoch}</h3>`;
+            }
+            for (const req of (epoch.requirements || [])) {
+                html += `<div class="req-card">
+                    <div class="req-header">
+                        <span class="req-id">Requirement #${req.id}</span>
+                        <span class="req-location">${escapeHtml(req.location || '')}</span>
+                    </div>
+                    <div class="req-desc">${escapeHtml(req.description || '')}</div>
+                    <div class="req-contract">${escapeHtml(req.contract || '')}</div>
+                    ${req.acceptance_tests ? `<div class="req-tests">Tests: ${escapeHtml(req.acceptance_tests)}</div>` : ''}
+                </div>`;
+            }
+        }
+        container.innerHTML = html;
+        section.style.display = "block";
+    }
+
+    function renderDialogue(md) {
+        if (!md) {
+            document.getElementById("dialogue").innerHTML =
+                '<p style="color:var(--text-muted)">No dialogue recorded for this task.</p>';
+            return;
+        }
+
+        // Parse history.md into messages
+        const sections = md.split(/\n---\n/);
+        const msgs = [];
+        for (const section of sections) {
+            const headerMatch = section.match(/## \[(Ralph|Lisa)\] \[([^\]]+)\]/);
+            if (!headerMatch) continue;
+            const who = headerMatch[1].toLowerCase();
+            const tag = headerMatch[2];
+            const timeMatch = section.match(/\*\*Time\*\*: (.+)/);
+            const time = timeMatch ? timeMatch[1] : "";
+            const summaryIdx = section.indexOf("**Summary**:");
+            let body = "";
+            if (summaryIdx >= 0) {
+                body = section.substring(summaryIdx + "**Summary**:".length).trim();
+            }
+            msgs.push({ who, tag, time, body });
+        }
+
+        // Show note for multi-epoch tasks
+        const noteEl = document.getElementById("dialogue-note");
+        if (noteEl) noteEl.style.display = "block";
+
+        const container = document.getElementById("dialogue");
+        container.innerHTML = msgs.map((m, i) => {
+            const cls = m.who === "ralph" ? "msg-ralph" : "msg-lisa";
+            const name = m.who === "ralph" ? "Ralph (Developer)" : "Lisa (Reviewer)";
+            const tagCls = {
+                "PLAN": "tag-plan", "CODE": "tag-code", "FIX": "tag-fix",
+                "PASS": "tag-pass", "NEEDS_WORK": "tag-needs-work",
+                "CONSENSUS": "tag-consensus", "CHALLENGE": "tag-challenge",
+                "RESEARCH": "tag-research",
+            }[m.tag] || "tag-plan";
+
+            // Truncate long messages
+            const MAX_LEN = 2000;
+            const isLong = m.body.length > MAX_LEN;
+            const shortBody = isLong ? m.body.substring(0, MAX_LEN) + "\n\n... (click Show more)" : m.body;
+            const shortHtml = escapeHtml(shortBody);
+            const fullHtml = escapeHtml(m.body);
+
+            return `<div class="msg ${cls}">
+                <div class="msg-header">
+                    <span>${name} <span class="msg-tag ${tagCls}">${m.tag}</span></span>
+                    <span class="msg-time">${m.time}</span>
+                </div>
+                <div class="msg-body" id="msg-body-${i}" data-full="${btoa(unescape(encodeURIComponent(fullHtml)))}" data-short="${btoa(unescape(encodeURIComponent(shortHtml)))}">${shortHtml}</div>
+                ${isLong ? `<div class="msg-toggle" id="msg-toggle-${i}" onclick="toggleMsg(${i})">Show more</div>` : ''}
+            </div>`;
+        }).join("");
+    }
+
+    function escapeHtml(text) {
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/```[\s\S]*?```/g, match => {
+                const code = match.replace(/```\w*\n?/g, '').replace(/```/g, '');
+                return '<pre>' + code + '</pre>';
+            });
+    }
+
+    function toggleMsg(i) {
+        const el = document.getElementById("msg-body-" + i);
+        const toggle = document.getElementById("msg-toggle-" + i);
+        if (toggle.textContent === "Show more") {
+            el.innerHTML = decodeURIComponent(escape(atob(el.dataset.full)));
+            toggle.textContent = "Show less";
+        } else {
+            el.innerHTML = decodeURIComponent(escape(atob(el.dataset.short)));
+            toggle.textContent = "Show more";
+        }
+    }
+
+    loadTask();
+    </script>
+</body>
+</html>

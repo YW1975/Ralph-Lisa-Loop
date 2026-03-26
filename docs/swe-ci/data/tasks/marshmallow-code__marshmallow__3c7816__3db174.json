@@ -1,0 +1,49 @@
+{
+  "task_id": "marshmallow-code__marshmallow__3c7816__3db174",
+  "repo_name": "marshmallow-code/marshmallow",
+  "repo_url": "https://github.com/marshmallow-code/marshmallow.git",
+  "licence": "MIT License",
+  "initial_gap": 21,
+  "final_gap": 21,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 21,
+      "passed": 907,
+      "failed": 19,
+      "total": 926
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-26T15:24:38",
+  "batch": "rll_full_batch_12",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

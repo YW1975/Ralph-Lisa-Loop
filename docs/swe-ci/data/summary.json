@@ -1,16 +1,16 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 52,
+  "total_evaluated": 57,
   "solved": 52,
   "improving": 0,
   "stuck": 0,
-  "pending": 0,
+  "pending": 5,
   "total_completed": 52,
   "solve_rate": 100.0,
   "zero_regression_rate": 94.2,
   "zero_regression_count": 49,
-  "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9936,
+  "avg_fix_rate": 91.2,
+  "avg_evoscore": 0.9503,
   "avg_evoscore_completed": 0.9936,
   "batches": [
     {
@@ -149,6 +149,19 @@
       "tasks": [
         "lepture__mistune__ff8312__28e7d4",
         "marl__pysox__9b2b0d__f5671e"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_12",
+      "total": 5,
+      "solved": 0,
+      "avg_evoscore": 0.5,
+      "tasks": [
+        "marshmallow-code__marshmallow__3c7816__3db174",
+        "matoking__protontricks__42ba1e__ff2381",
+        "mayitzin__ahrs__503d4e__c83bd1",
+        "mdbloice__augmentor__c182f1__cab8b0",
+        "memmachine__memmachine__48ac32__7888ba"
       ]
     },
     {
@@ -734,9 +747,64 @@
       "evoscore": 0.9979,
       "status": "solved",
       "batch": "rll_full_batch_11"
+    },
+    {
+      "task_id": "marshmallow-code__marshmallow__3c7816__3db174",
+      "repo_name": "marshmallow-code/marshmallow",
+      "initial_gap": 21,
+      "final_gap": 21,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_12"
+    },
+    {
+      "task_id": "matoking__protontricks__42ba1e__ff2381",
+      "repo_name": "Matoking/protontricks",
+      "initial_gap": 15,
+      "final_gap": 15,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_12"
+    },
+    {
+      "task_id": "mayitzin__ahrs__503d4e__c83bd1",
+      "repo_name": "Mayitzin/ahrs",
+      "initial_gap": 39,
+      "final_gap": 39,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_12"
+    },
+    {
+      "task_id": "mdbloice__augmentor__c182f1__cab8b0",
+      "repo_name": "mdbloice/Augmentor",
+      "initial_gap": 11,
+      "final_gap": 11,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_12"
+    },
+    {
+      "task_id": "memmachine__memmachine__48ac32__7888ba",
+      "repo_name": "MemMachine/MemMachine",
+      "initial_gap": 29,
+      "final_gap": 29,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_12"
     }
   ],
-  "last_updated": "2026-03-26T11:39:43",
+  "last_updated": "2026-03-26T15:24:38",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
