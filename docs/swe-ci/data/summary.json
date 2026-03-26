@@ -1,15 +1,15 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 52,
-  "solved": 51,
-  "improving": 1,
+  "solved": 52,
+  "improving": 0,
   "stuck": 0,
   "pending": 0,
   "total_completed": 52,
-  "solve_rate": 98.1,
-  "zero_regression_rate": 96.2,
-  "zero_regression_count": 50,
-  "avg_fix_rate": 99.9,
+  "solve_rate": 100.0,
+  "zero_regression_rate": 94.2,
+  "zero_regression_count": 49,
+  "avg_fix_rate": 100.0,
   "avg_evoscore": 0.9936,
   "avg_evoscore_completed": 0.9936,
   "batches": [
@@ -144,7 +144,7 @@
     {
       "batch": "rll_full_batch_11",
       "total": 2,
-      "solved": 1,
+      "solved": 2,
       "avg_evoscore": 0.999,
       "tasks": [
         "lepture__mistune__ff8312__28e7d4",
@@ -728,15 +728,15 @@
       "task_id": "marl__pysox__9b2b0d__f5671e",
       "repo_name": "marl/pysox",
       "initial_gap": 19,
-      "final_gap": 1,
-      "num_epochs": 3,
-      "fix_rate": 94.7,
+      "final_gap": 0,
+      "num_epochs": 4,
+      "fix_rate": 100.0,
       "evoscore": 0.9979,
-      "status": "improving",
+      "status": "solved",
       "batch": "rll_full_batch_11"
     }
   ],
-  "last_updated": "2026-03-26T08:31:52",
+  "last_updated": "2026-03-26T09:49:30",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
