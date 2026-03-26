@@ -1,0 +1,49 @@
+{
+  "task_id": "httpie__http-prompt__6deb8d__eecb93",
+  "repo_name": "httpie/http-prompt",
+  "repo_url": "https://github.com/httpie/http-prompt.git",
+  "licence": "MIT License",
+  "initial_gap": 62,
+  "final_gap": 62,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 62,
+      "passed": 13,
+      "failed": 62,
+      "total": 75
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-03-26T02:58:16",
+  "batch": "rll_full_batch_10",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

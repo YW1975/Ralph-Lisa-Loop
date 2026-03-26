@@ -1,16 +1,16 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 45,
+  "total_evaluated": 50,
   "solved": 45,
   "improving": 0,
   "stuck": 0,
-  "pending": 0,
+  "pending": 5,
   "total_completed": 45,
   "solve_rate": 100.0,
   "zero_regression_rate": 95.6,
   "zero_regression_count": 43,
-  "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9927,
+  "avg_fix_rate": 90.0,
+  "avg_evoscore": 0.9434,
   "avg_evoscore_completed": 0.9927,
   "batches": [
     {
@@ -126,6 +126,19 @@
         "gh05tcrew__pentestagent__d191a0__fe51ae",
         "grahamdumpleton__wrapt__3125a5__d8803a",
         "home-assistant-libs__pytradfri__b63ebe__549764"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_10",
+      "total": 5,
+      "solved": 0,
+      "avg_evoscore": 0.5,
+      "tasks": [
+        "httpie__http-prompt__6deb8d__eecb93",
+        "igrek51__wat__ecddda__8efafa",
+        "jazzband__pip-tools__58e68e__e4ed0c",
+        "josegonzalez__python-github-backup__322026__1ec082",
+        "kinnay__nintendoclients__e2b673__72846c"
       ]
     },
     {
@@ -634,9 +647,64 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_09"
+    },
+    {
+      "task_id": "httpie__http-prompt__6deb8d__eecb93",
+      "repo_name": "httpie/http-prompt",
+      "initial_gap": 62,
+      "final_gap": 62,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_10"
+    },
+    {
+      "task_id": "igrek51__wat__ecddda__8efafa",
+      "repo_name": "igrek51/wat",
+      "initial_gap": 5,
+      "final_gap": 5,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_10"
+    },
+    {
+      "task_id": "jazzband__pip-tools__58e68e__e4ed0c",
+      "repo_name": "jazzband/pip-tools",
+      "initial_gap": 9,
+      "final_gap": 9,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_10"
+    },
+    {
+      "task_id": "josegonzalez__python-github-backup__322026__1ec082",
+      "repo_name": "josegonzalez/python-github-backup",
+      "initial_gap": 13,
+      "final_gap": 13,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_10"
+    },
+    {
+      "task_id": "kinnay__nintendoclients__e2b673__72846c",
+      "repo_name": "kinnay/NintendoClients",
+      "initial_gap": 7,
+      "final_gap": 7,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_10"
     }
   ],
-  "last_updated": "2026-03-26T00:11:52",
+  "last_updated": "2026-03-26T02:58:16",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

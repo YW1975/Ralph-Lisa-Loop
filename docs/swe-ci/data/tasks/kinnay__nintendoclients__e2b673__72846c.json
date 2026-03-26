@@ -1,0 +1,49 @@
+{
+  "task_id": "kinnay__nintendoclients__e2b673__72846c",
+  "repo_name": "kinnay/NintendoClients",
+  "repo_url": "https://github.com/kinnay/NintendoClients.git",
+  "licence": "MIT License",
+  "initial_gap": 7,
+  "final_gap": 7,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 7,
+      "passed": 104,
+      "failed": 10,
+      "total": 114
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-26T02:58:16",
+  "batch": "rll_full_batch_10",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}
