@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 42,
-  "solved": 39,
-  "improving": 1,
-  "stuck": 0,
-  "pending": 2,
-  "total_completed": 40,
-  "solve_rate": 97.5,
-  "zero_regression_rate": 95.0,
-  "zero_regression_count": 38,
-  "avg_fix_rate": 95.0,
-  "avg_evoscore": 0.9633,
-  "avg_evoscore_completed": 0.9864,
+  "solved": 40,
+  "improving": 0,
+  "stuck": 1,
+  "pending": 1,
+  "total_completed": 41,
+  "solve_rate": 97.6,
+  "zero_regression_rate": 95.1,
+  "zero_regression_count": 39,
+  "avg_fix_rate": 95.2,
+  "avg_evoscore": 0.9686,
+  "avg_evoscore_completed": 0.98,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -107,8 +107,8 @@
     {
       "batch": "rll_full_batch_08",
       "total": 5,
-      "solved": 2,
-      "avg_evoscore": 0.753,
+      "solved": 3,
+      "avg_evoscore": 0.7978,
       "tasks": [
         "ewels__rich-click__b91f51__f283ea",
         "eylles__pywal16__49af6c__6fafdf",
@@ -562,11 +562,11 @@
       "task_id": "ezyang__codemcp__50630e__ce8ab6",
       "repo_name": "ezyang/codemcp",
       "initial_gap": 12,
-      "final_gap": 1,
-      "num_epochs": 2,
-      "fix_rate": 91.7,
-      "evoscore": 0.775,
-      "status": "improving",
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9992,
+      "status": "solved",
       "batch": "rll_full_batch_08"
     },
     {
@@ -574,10 +574,10 @@
       "repo_name": "falconry/falcon",
       "initial_gap": 10,
       "final_gap": 10,
-      "num_epochs": 1,
+      "num_epochs": 2,
       "fix_rate": 0.0,
       "evoscore": 0.5,
-      "status": "pending",
+      "status": "stuck",
       "batch": "rll_full_batch_08"
     },
     {
@@ -592,7 +592,7 @@
       "batch": "rll_full_batch_08"
     }
   ],
-  "last_updated": "2026-03-25T20:59:18",
+  "last_updated": "2026-03-25T22:37:09",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

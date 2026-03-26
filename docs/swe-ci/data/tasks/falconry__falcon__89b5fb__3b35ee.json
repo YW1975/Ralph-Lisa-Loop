@@ -5,8 +5,8 @@
   "licence": "Apache License 2.0",
   "initial_gap": 10,
   "final_gap": 10,
-  "num_epochs": 1,
-  "status": "pending",
+  "num_epochs": 2,
+  "status": "stuck",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,27 +14,80 @@
       "passed": 3422,
       "failed": 10,
       "total": 3678
+    },
+    {
+      "epoch": 1,
+      "gap": 10,
+      "passed": 3422,
+      "failed": 10,
+      "total": 3678,
+      "programmer_time": 602.9526870250702
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 3422,
+    "failed": 10,
+    "total": 3678
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-25-21-10-18",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "examples/recipes/output_csv_text_wsgi.py (new file),\n      examples/recipes/output_csv_text_asgi.py (new file),\n      examples/recipes/output_csv_stream_wsgi.py (new file),\n      examples/recipes/output_csv_stream_asgi.py (new file)",
+          "description": "The directory examples/recipes/ does not exist and none of the four CSV recipe\n      files are present. Tests in TestOutputCSV attempt to load these modules via\n      util.load_module() and fail with FileNotFoundError before any test logic runs.\n      Each file is expected to expose a top-level Report class whose on_get responder\n      returns CSV-formatted data with the appropriate content-type header.\n      The \"text\" variant returns a static fruit/quantity table; the \"stream\" variant\n      returns a Fibonacci sequence table streamed lazily.",
+          "contract": "Each of the four files must expose a class named Report with an on_get(self, req, resp)\n      responder that:\n\n      - Sets resp.content_type to 'text/csv'.\n      - For output_csv_text_{wsgi,asgi}.py: populates resp.text (or resp.data / resp.stream)\n        with CSV content whose first two lines are exactly:\n          \"fruit\",\"quantity\"\\r\\n\"apples\",13\\r\\n\n        (quoted strings for the header row; integer value for quantity; CRLF line endings).\n      - For output_csv_stream_{wsgi,asgi}.py: produces CSV content whose first three lines are:\n          \"n\",\"Fibonacci Fn\"\\r\\n0,0\\r\\n1,1\\r\\n\n        (quoted strings for the header; integer pairs; CRLF line endings; may be streamed).\n      - The wsgi variants must work with falcon.App (WSGI); the asgi variants must work with\n        falcon.asgi.App (ASGI). The on_get responder in asgi variants must be defined as\n        an async coroutine (async def on_get).\n      - No app-level object is required in these files; only the Report class is accessed\n        by the test (app = util.create_app(asgi); app.add_route('/report', module.Report())).",
+          "acceptance_tests": "tests/test_recipes.py::TestOutputCSV::test_csv_output[wsgi-simple]\n      tests/test_recipes.py::TestOutputCSV::test_csv_output[asgi-simple]\n      tests/test_recipes.py::TestOutputCSV::test_csv_output[wsgi-stream]\n      tests/test_recipes.py::TestOutputCSV::test_csv_output[asgi-stream]"
+        },
+        {
+          "id": "2",
+          "location": "examples/recipes/raw_url_path_wsgi.py (new file),\n      examples/recipes/raw_url_path_asgi.py (new file)",
+          "description": "Neither raw_url_path_wsgi.py nor raw_url_path_asgi.py exist in examples/recipes/.\n      Tests in TestRawURLPath load these modules and fail with FileNotFoundError.\n      The tests exercise a Falcon app that reads raw (percent-encoded) URL path segments\n      and returns either the decoded URL string or a cached-status indicator depending\n      on the route matched.",
+          "contract": "Each file must expose a module-level variable named app (a falcon.App for wsgi,\n      falcon.asgi.App for asgi).\n\n      The app must handle two URL patterns under /cache/:\n\n      1. Route /cache/{cached_url} (where cached_url may contain percent-encoded characters):\n         - GET request: decode the raw path segment for cached_url (use the raw path bytes\n           provided via WSGI environ or ASGI scope raw_path to reconstruct the original\n           percent-encoded value, then urllib.parse.unquote it).\n         - Respond with HTTP 200 and JSON body {\"url\": \"<decoded_url_string>\"}.\n         - Example: GET /cache/http%3A%2F%2Ffalconframework.org →\n           {\"url\": \"http://falconframework.org\"}\n\n      2. Route /cache/{cached_url}/status:\n         - GET request: respond with HTTP 200 and JSON body {\"cached\": true}.\n         - Example: GET /cache/http%3A%2F%2Ffalconframework.org/status →\n           {\"cached\": true}\n\n      The asgi variant's responders must be async coroutines.\n      The key behavioral requirement is that the app correctly preserves percent-encoded\n      path segments by reading raw_path (ASGI) or PATH_INFO from the un-decoded environ\n      (WSGI) rather than relying on Falcon's default URL-decoded routing parameters.",
+          "acceptance_tests": "tests/test_recipes.py::TestRawURLPath::test_raw_path[wsgi]\n      tests/test_recipes.py::TestRawURLPath::test_raw_path[asgi]"
+        },
+        {
+          "id": "3",
+          "location": "examples/things_advanced_asgi.py, line ~203-209 (app instantiation block)",
+          "description": "In examples/things_advanced_asgi.py the AuthMiddleware() instantiation is commented\n      out (line 205: # AuthMiddleware()). The app is therefore created without authentication\n      middleware. The test test_things_advanced[asgi] expects that a GET request to\n      /{user_id}/things without an Authorization header returns HTTP 401, but the current\n      code returns HTTP 200 because no middleware enforces the auth check.",
+          "contract": "The app instantiation in examples/things_advanced_asgi.py must include AuthMiddleware\n      as the first entry in the middleware list, so that every incoming request is subject\n      to the authentication check implemented in AuthMiddleware.process_request:\n\n      - A request without an Authorization header must result in HTTP 401 with title\n        \"Auth token required\".\n      - A request with a valid Authorization header (any non-None token value, since\n        _token_is_valid always returns True) must pass through and reach the resource,\n        returning HTTP 200 for a valid GET.\n\n      The AuthMiddleware class itself does not need to be changed; only its inclusion\n      in the middleware list needs to be restored.",
+          "acceptance_tests": "tests/test_examples.py::test_things_advanced[asgi]"
+        },
+        {
+          "id": "4",
+          "location": "falcon/util/sync.py, module level (lines 57-58: create_task and get_running_loop\n      bare aliases)",
+          "description": "falcon.util.create_task and falcon.util.get_running_loop are currently plain aliases\n      to asyncio.create_task and asyncio.get_running_loop respectively (sync.py lines 57-58).\n      The test test_sync_asyncio_aliases expects that calling either of these functions\n      emits a falcon.util.deprecation.DeprecatedWarning with a message matching\n      \"Call to deprecated function create_task\" and \"Call to deprecated function\n      get_running_loop\". Because the current aliases emit no warnings, pytest.warns()\n      fails with \"DID NOT WARN\".",
+          "contract": "Both create_task and get_running_loop in falcon/util/sync.py must be replaced with\n      wrapper functions (or decorated via falcon.util.deprecation.deprecated) that:\n\n      - Emit a DeprecatedWarning (falcon.util.deprecation.DeprecatedWarning) when called.\n      - The warning message for create_task must match the pattern\n        \"Call to deprecated function create_task\".\n      - The warning message for get_running_loop must match the pattern\n        \"Call to deprecated function get_running_loop\".\n      - After emitting the warning, each wrapper must delegate to the corresponding\n        asyncio function (asyncio.create_task or asyncio.get_running_loop) and return\n        its result unchanged.\n      - The wrappers must preserve the callable signature so that existing callers\n        passing arguments continue to work correctly.\n      - falcon/util/__init__.py already re-exports create_task and get_running_loop\n        from falcon.util.sync; no changes to __init__.py are needed provided the\n        names remain the same in sync.py.",
+          "acceptance_tests": "tests/asgi/test_sync.py::test_sync_asyncio_aliases"
+        },
+        {
+          "id": "5",
+          "location": "examples/recipes/pretty_json_main.py (new file)",
+          "description": "The file examples/recipes/pretty_json_main.py does not exist. The test\n      TestPrettyJSON::test_optional_indent loads this module and fails with\n      FileNotFoundError. The test expects the module to expose a CustomJSONHandler\n      class that acts as a Falcon media handler capable of serializing JSON with\n      an optional indentation level parsed from the response Content-Type header.",
+          "contract": "The file must expose a class named CustomJSONHandler compatible with Falcon's\n      media handler interface (i.e., usable as a value in resp_options.media_handlers).\n\n      Behavioral requirements:\n      - The handler must implement at minimum a serialize(media, content_type) method\n        (synchronous) that serializes the media object to JSON bytes/string.\n      - If the content_type string contains an \"indent\" parameter\n        (e.g., \"application/json; indent=4\"), the handler must parse the integer\n        value of that parameter and use it as the indentation level for json.dumps.\n      - If no indent parameter is present, the handler must serialize without\n        indentation (compact output).\n      - The serialized output must be valid JSON and match Python's json.dumps\n        behavior for the given indent value.\n      - Example: given media = {\"author\": \"Grace Hopper\", \"quote\": \"...\"},\n        content_type = \"application/json; indent=4\", the output must equal:\n          '{\\n    \"author\": \"Grace Hopper\",\\n    \"quote\": \"...\"\\n}'\n      - The handler does not need to implement deserialization for this test.",
+          "acceptance_tests": "tests/test_recipes.py::TestPrettyJSON::test_optional_indent"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "api_change",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
-      "refactor": 0,
-      "api_change": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
+      "refactor": 1,
+      "api_change": 5,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-25T20:59:18",
+  "last_updated": "2026-03-25T22:37:09",
   "batch": "rll_full_batch_08",
   "evoscore_detail": {
     "m1": 0.5,
