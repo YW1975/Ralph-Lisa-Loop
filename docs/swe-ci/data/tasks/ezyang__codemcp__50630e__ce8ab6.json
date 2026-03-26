@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/ezyang/codemcp.git",
   "licence": "Apache License 2.0",
   "initial_gap": 12,
-  "final_gap": 12,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 1,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,61 @@
       "passed": 53,
       "failed": 0,
       "total": 53
+    },
+    {
+      "epoch": 1,
+      "gap": 1,
+      "passed": 64,
+      "failed": 1,
+      "total": 65,
+      "programmer_time": 190.41381311416626
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 53,
+    "failed": 0,
+    "total": 53
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-25-20-53-22",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/codemcp/tools/edit_file.py — module level (new top-level function) and the\n      __all__ list at the top of the same file.",
+          "description": "The function `apply_edit_pure` does not exist anywhere in the codebase.\n      Every test in `tests/test_edit_file_string_matching.py` attempts to import it\n      from `codemcp.tools.edit_file`, causing an `ImportError` that prevents the\n      entire test module from being collected.  All 12 tests therefore fail at the\n      collection stage.\n\n      Additionally, the `__all__` list in `edit_file.py` currently exports only\n      `[\"edit_file_content\", \"find_similar_file\"]`; `apply_edit_pure` must be\n      added to it so that `from codemcp.tools.edit_file import apply_edit_pure`\n      resolves correctly.",
+          "contract": "Implement a synchronous, pure (no file I/O, no side effects) function with\n      the following signature:\n\n        def apply_edit_pure(\n            content: str,\n            old_string: str,\n            new_string: str,\n        ) -> tuple[list[dict[str, Any]], str, str | None]:\n\n      Return value: a 3-tuple (patch, updated_content, error).\n\n      ── patch ─────────────────────────────────────────────────────────────────\n      A list of patch-hunk dicts.  On failure the list MUST be empty ([]).\n      On success it MUST contain exactly one dict with the following keys:\n        • \"oldStart\"  – 1-based line number where the replacement begins in the\n                        original content (count newlines before old_string in\n                        content, then add 1).\n        • \"newStart\"  – same value as \"oldStart\" for a straightforward replacement.\n        • \"oldLines\"  – len(old_string.split(\"\\n\")); for the \"create new file\" case\n                        (content == \"\" and old_string == \"\") this is 0.\n        • \"newLines\"  – len(new_string.split(\"\\n\")).\n        • \"lines\"     – a flat list of strings: first the lines of old_string each\n                        prefixed with \"-\", then the lines of new_string each\n                        prefixed with \"+\".  Split on \"\\n\" (do not strip any\n                        trailing newline before splitting).\n\n      ── updated_content ───────────────────────────────────────────────────────\n      The full resulting string after the replacement.\n      On failure, return the original `content` unchanged.\n\n      ── error ─────────────────────────────────────────────────────────────────\n      None on success; a non-None string on any failure.\n\n      ── Behavioral cases ──────────────────────────────────────────────────────\n      1. Create-new-file  (content == \"\" AND old_string == \"\"):\n         • error = None\n         • updated_content = new_string\n         • patch[0][\"oldLines\"] = 0, patch[0][\"newLines\"] = len(new_string.split(\"\\n\"))\n         • patch[0][\"oldStart\"] = 1, patch[0][\"newStart\"] = 1\n\n      2. Exact-match, single occurrence  (old_string found exactly once in content):\n         • Replace the first (and only) occurrence of old_string with new_string.\n         • error = None\n         • Return the correct patch hunk as described above.\n\n      3. No match  (old_string is non-empty but not present in content):\n         • error = \"String to replace not found in file.\"\n         • patch = []\n         • updated_content = content (unchanged)\n\n      4. Multiple matches  (content.count(old_string) > 1):\n         • error must contain the substring \"Found N matches\" where N is the\n           actual count (e.g. \"Found 2 matches\").\n         • patch = []\n         • updated_content = content (unchanged)\n\n      5. No advanced matching: this function MUST NOT attempt whitespace-flexible\n         matching, dotdotdot expansion, or fuzzy/edit-distance matching.  If\n         old_string is not an exact substring of content, return the no-match\n         error unconditionally.\n\n      ── __all__ ───────────────────────────────────────────────────────────────\n      Add \"apply_edit_pure\" to the __all__ list in edit_file.py so that the\n      name is publicly importable.",
+          "acceptance_tests": "All 12 tests in\n      tests/test_edit_file_string_matching.py::TestEditFileStringMatching\n      must pass without modification to the test file:\n\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_exact_match\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_no_match\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_trailing_whitespace\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_whitespace_match\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_dotdotdots\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_fuzzy_match\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_direct_replacement\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_create_new_file\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_no_match_found\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_multiline_replacement\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_patch_format\n        tests/test_edit_file_string_matching.py::TestEditFileStringMatching::test_multiple_matches\n\n      Additionally:\n        • `from codemcp.tools.edit_file import apply_edit_pure` resolves without\n          ImportError.\n        • The existing public interface (`edit_file_content`, `find_similar_file`)\n          is unaffected."
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 1,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 1,
+      "new_feature": 1,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 1,
       "test_fix": 0,
       "config": 0
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-25T20:29:13",
+  "last_updated": "2026-03-25T20:56:45",
   "batch": "rll_full_batch_08",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.9583,
+    "m2": 0.9167,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.775
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.775,
+  "fix_rate": 91.7
 }

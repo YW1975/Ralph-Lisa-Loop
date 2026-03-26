@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 40,
-  "solved": 37,
-  "improving": 0,
+  "total_evaluated": 42,
+  "solved": 38,
+  "improving": 1,
   "stuck": 0,
   "pending": 3,
-  "total_completed": 37,
-  "solve_rate": 100.0,
-  "zero_regression_rate": 94.6,
-  "zero_regression_count": 35,
-  "avg_fix_rate": 92.5,
-  "avg_evoscore": 0.9548,
-  "avg_evoscore_completed": 0.9917,
+  "total_completed": 39,
+  "solve_rate": 97.4,
+  "zero_regression_rate": 94.9,
+  "zero_regression_count": 37,
+  "avg_fix_rate": 92.7,
+  "avg_evoscore": 0.9514,
+  "avg_evoscore_completed": 0.9861,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -106,13 +106,15 @@
     },
     {
       "batch": "rll_full_batch_08",
-      "total": 3,
-      "solved": 0,
-      "avg_evoscore": 0.5,
+      "total": 5,
+      "solved": 1,
+      "avg_evoscore": 0.653,
       "tasks": [
         "ewels__rich-click__b91f51__f283ea",
         "eylles__pywal16__49af6c__6fafdf",
-        "ezyang__codemcp__50630e__ce8ab6"
+        "ezyang__codemcp__50630e__ce8ab6",
+        "falconry__falcon__89b5fb__3b35ee",
+        "falconry__falcon__a12995__60ecec"
       ]
     },
     {
@@ -549,7 +551,29 @@
       "task_id": "eylles__pywal16__49af6c__6fafdf",
       "repo_name": "eylles/pywal16",
       "initial_gap": 6,
-      "final_gap": 6,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.99,
+      "status": "solved",
+      "batch": "rll_full_batch_08"
+    },
+    {
+      "task_id": "ezyang__codemcp__50630e__ce8ab6",
+      "repo_name": "ezyang/codemcp",
+      "initial_gap": 12,
+      "final_gap": 1,
+      "num_epochs": 2,
+      "fix_rate": 91.7,
+      "evoscore": 0.775,
+      "status": "improving",
+      "batch": "rll_full_batch_08"
+    },
+    {
+      "task_id": "falconry__falcon__89b5fb__3b35ee",
+      "repo_name": "falconry/falcon",
+      "initial_gap": 10,
+      "final_gap": 10,
       "num_epochs": 1,
       "fix_rate": 0.0,
       "evoscore": 0.5,
@@ -557,10 +581,10 @@
       "batch": "rll_full_batch_08"
     },
     {
-      "task_id": "ezyang__codemcp__50630e__ce8ab6",
-      "repo_name": "ezyang/codemcp",
-      "initial_gap": 12,
-      "final_gap": 12,
+      "task_id": "falconry__falcon__a12995__60ecec",
+      "repo_name": "falconry/falcon",
+      "initial_gap": 60,
+      "final_gap": 60,
       "num_epochs": 1,
       "fix_rate": 0.0,
       "evoscore": 0.5,
@@ -568,7 +592,7 @@
       "batch": "rll_full_batch_08"
     }
   ],
-  "last_updated": "2026-03-25T20:29:13",
+  "last_updated": "2026-03-25T20:56:45",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

@@ -1,19 +1,19 @@
 {
-  "task_id": "ewels__rich-click__b91f51__f283ea",
-  "repo_name": "ewels/rich-click",
-  "repo_url": "https://github.com/ewels/rich-click.git",
-  "licence": "MIT License",
-  "initial_gap": 9,
-  "final_gap": 9,
+  "task_id": "falconry__falcon__a12995__60ecec",
+  "repo_name": "falconry/falcon",
+  "repo_url": "https://github.com/falconry/falcon.git",
+  "licence": "Apache License 2.0",
+  "initial_gap": 60,
+  "final_gap": 60,
   "num_epochs": 1,
   "status": "pending",
   "gap_curve": [
     {
       "epoch": 0,
-      "gap": 9,
-      "passed": 80,
-      "failed": 3,
-      "total": 103
+      "gap": 60,
+      "passed": 3576,
+      "failed": 60,
+      "total": 4096
     }
   ],
   "dialogue": "",
@@ -32,7 +32,7 @@
       "test_fix": 0,
       "config": 0
     },
-    "complexity": "low"
+    "complexity": "high"
   },
   "last_updated": "2026-03-25T20:56:45",
   "batch": "rll_full_batch_08",
