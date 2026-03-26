@@ -501,18 +501,19 @@
             }[m.tag] || "tag-plan";
 
             // Truncate long messages
-            const MAX_LEN = 800;
+            const MAX_LEN = 2000;
             const isLong = m.body.length > MAX_LEN;
-            const displayBody = isLong ? m.body.substring(0, MAX_LEN) + "..." : m.body;
-            const escaped = escapeHtml(displayBody);
+            const shortBody = isLong ? m.body.substring(0, MAX_LEN) + "\n\n... (click Show more)" : m.body;
+            const shortHtml = escapeHtml(shortBody);
+            const fullHtml = escapeHtml(m.body);
 
             return `<div class="msg ${cls}">
                 <div class="msg-header">
                     <span>${name} <span class="msg-tag ${tagCls}">${m.tag}</span></span>
                     <span class="msg-time">${m.time}</span>
                 </div>
-                <div class="msg-body" id="msg-body-${i}">${escaped}</div>
-                ${isLong ? `<div class="msg-toggle" onclick="toggleMsg(${i}, ${JSON.stringify(escapeHtml(m.body)).replace(/"/g, '&quot;')})">Show more</div>` : ''}
+                <div class="msg-body" id="msg-body-${i}" data-full="${btoa(unescape(encodeURIComponent(fullHtml)))}" data-short="${btoa(unescape(encodeURIComponent(shortHtml)))}">${shortHtml}</div>
+                ${isLong ? `<div class="msg-toggle" id="msg-toggle-${i}" onclick="toggleMsg(${i})">Show more</div>` : ''}
             </div>`;
         }).join("");
     }
@@ -529,15 +530,15 @@
             });
     }
 
-    function toggleMsg(i, fullHtml) {
+    function toggleMsg(i) {
         const el = document.getElementById("msg-body-" + i);
-        const toggle = el.parentElement.querySelector(".msg-toggle");
+        const toggle = document.getElementById("msg-toggle-" + i);
         if (toggle.textContent === "Show more") {
-            el.innerHTML = fullHtml;
+            el.innerHTML = decodeURIComponent(escape(atob(el.dataset.full)));
             toggle.textContent = "Show less";
         } else {
-            // re-render truncated
-            loadTask(); // simplest: just reload
+            el.innerHTML = decodeURIComponent(escape(atob(el.dataset.short)));
+            toggle.textContent = "Show more";
         }
     }
 
