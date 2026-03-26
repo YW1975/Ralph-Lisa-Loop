@@ -280,6 +280,9 @@
 
         <div class="dialogue-section">
             <h2>Ralph-Lisa Dialogue</h2>
+            <div id="dialogue-note" style="display:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; color:var(--text-muted);">
+                Showing dialogue from the final epoch. For complete test data and full dialogue history across all epochs, contact us at <a href="mailto:rll@skylenage.com">rll@skylenage.com</a>.
+            </div>
             <div class="dialogue" id="dialogue"></div>
         </div>
 
@@ -516,21 +519,10 @@
             return;
         }
 
-        // Parse history.md into messages grouped by epoch
+        // Parse history.md into messages
         const sections = md.split(/\n---\n/);
-        const epochs = []; // [{label, msgs}]
-        let currentEpoch = { label: "Epoch 1", msgs: [] };
-
+        const msgs = [];
         for (const section of sections) {
-            // Check for epoch header
-            const epochMatch = section.match(/# Epoch (\d+)/);
-            if (epochMatch) {
-                if (currentEpoch.msgs.length > 0) {
-                    epochs.push(currentEpoch);
-                }
-                currentEpoch = { label: `Epoch ${epochMatch[1]}`, msgs: [] };
-            }
-
             const headerMatch = section.match(/## \[(Ralph|Lisa)\] \[([^\]]+)\]/);
             if (!headerMatch) continue;
             const who = headerMatch[1].toLowerCase();
@@ -542,26 +534,15 @@
             if (summaryIdx >= 0) {
                 body = section.substring(summaryIdx + "**Summary**:".length).trim();
             }
-            currentEpoch.msgs.push({ who, tag, time, body });
+            msgs.push({ who, tag, time, body });
         }
-        if (currentEpoch.msgs.length > 0) {
-            epochs.push(currentEpoch);
-        }
+
+        // Show note for multi-epoch tasks
+        const noteEl = document.getElementById("dialogue-note");
+        if (noteEl) noteEl.style.display = "block";
 
         const container = document.getElementById("dialogue");
-        let allHtml = "";
-        let globalIdx = 0;
-
-        for (const epoch of epochs) {
-            if (epochs.length > 1) {
-                allHtml += `<div style="text-align:center; margin: 24px 0 12px;">
-                    <span style="background:var(--surface); border:1px solid var(--border); padding:6px 16px; border-radius:16px; font-size:13px; font-weight:600; color:var(--accent);">
-                        ${epoch.label}
-                    </span>
-                </div>`;
-            }
-            allHtml += epoch.msgs.map(m => {
-                const i = globalIdx++;
+        container.innerHTML = msgs.map((m, i) => {
             const cls = m.who === "ralph" ? "msg-ralph" : "msg-lisa";
             const name = m.who === "ralph" ? "Ralph (Developer)" : "Lisa (Reviewer)";
             const tagCls = {
@@ -586,9 +567,7 @@
                 <div class="msg-body" id="msg-body-${i}" data-full="${btoa(unescape(encodeURIComponent(fullHtml)))}" data-short="${btoa(unescape(encodeURIComponent(shortHtml)))}">${shortHtml}</div>
                 ${isLong ? `<div class="msg-toggle" id="msg-toggle-${i}" onclick="toggleMsg(${i})">Show more</div>` : ''}
             </div>`;
-            }).join("");
-        }
-        container.innerHTML = allHtml;
+        }).join("");
     }
 
     function escapeHtml(text) {
