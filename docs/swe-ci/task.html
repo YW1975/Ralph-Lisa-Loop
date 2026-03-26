@@ -516,27 +516,52 @@
             return;
         }
 
-        // Parse history.md into messages
-        const sections = md.split(/\n---\n/).slice(1); // skip header
-        const msgs = [];
+        // Parse history.md into messages grouped by epoch
+        const sections = md.split(/\n---\n/);
+        const epochs = []; // [{label, msgs}]
+        let currentEpoch = { label: "Epoch 1", msgs: [] };
+
         for (const section of sections) {
+            // Check for epoch header
+            const epochMatch = section.match(/# Epoch (\d+)/);
+            if (epochMatch) {
+                if (currentEpoch.msgs.length > 0) {
+                    epochs.push(currentEpoch);
+                }
+                currentEpoch = { label: `Epoch ${epochMatch[1]}`, msgs: [] };
+            }
+
             const headerMatch = section.match(/## \[(Ralph|Lisa)\] \[([^\]]+)\]/);
             if (!headerMatch) continue;
             const who = headerMatch[1].toLowerCase();
             const tag = headerMatch[2];
             const timeMatch = section.match(/\*\*Time\*\*: (.+)/);
             const time = timeMatch ? timeMatch[1] : "";
-            // Get content after Summary line
             const summaryIdx = section.indexOf("**Summary**:");
             let body = "";
             if (summaryIdx >= 0) {
                 body = section.substring(summaryIdx + "**Summary**:".length).trim();
             }
-            msgs.push({ who, tag, time, body });
+            currentEpoch.msgs.push({ who, tag, time, body });
+        }
+        if (currentEpoch.msgs.length > 0) {
+            epochs.push(currentEpoch);
         }
 
         const container = document.getElementById("dialogue");
-        container.innerHTML = msgs.map((m, i) => {
+        let allHtml = "";
+        let globalIdx = 0;
+
+        for (const epoch of epochs) {
+            if (epochs.length > 1) {
+                allHtml += `<div style="text-align:center; margin: 24px 0 12px;">
+                    <span style="background:var(--surface); border:1px solid var(--border); padding:6px 16px; border-radius:16px; font-size:13px; font-weight:600; color:var(--accent);">
+                        ${epoch.label}
+                    </span>
+                </div>`;
+            }
+            allHtml += epoch.msgs.map(m => {
+                const i = globalIdx++;
             const cls = m.who === "ralph" ? "msg-ralph" : "msg-lisa";
             const name = m.who === "ralph" ? "Ralph (Developer)" : "Lisa (Reviewer)";
             const tagCls = {
@@ -561,7 +586,9 @@
                 <div class="msg-body" id="msg-body-${i}" data-full="${btoa(unescape(encodeURIComponent(fullHtml)))}" data-short="${btoa(unescape(encodeURIComponent(shortHtml)))}">${shortHtml}</div>
                 ${isLong ? `<div class="msg-toggle" id="msg-toggle-${i}" onclick="toggleMsg(${i})">Show more</div>` : ''}
             </div>`;
-        }).join("");
+            }).join("");
+        }
+        container.innerHTML = allHtml;
     }
 
     function escapeHtml(text) {
