@@ -302,8 +302,16 @@
     </div>
 
     <script>
-    const taskId = new URLSearchParams(location.search).get("id");
-    if (!taskId) { location.href = "index.html"; }
+    // Support both ?id=xxx (legacy) and tasks/xxx.html (SEO-friendly)
+    let taskId = new URLSearchParams(location.search).get("id");
+    if (!taskId) {
+        const match = location.pathname.match(/\/tasks\/(.+)\.html$/);
+        if (match) {
+            taskId = match[1];
+        } else {
+            location.href = "index.html";
+        }
+    }
 
     async function loadTask() {
         try {
