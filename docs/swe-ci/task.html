@@ -272,6 +272,12 @@
             <div id="requirements-list"></div>
         </div>
 
+        <div class="chart-section" id="diff-section" style="display:none">
+            <h2>Code Changes</h2>
+            <div id="diff-stats" style="font-size:13px; color:var(--text-muted); margin-bottom:12px;"></div>
+            <pre id="code-diff" style="background:rgba(0,0,0,0.3); padding:12px; border-radius:6px; overflow-x:auto; font-size:12px; line-height:1.5; max-height:600px; overflow-y:auto;"></pre>
+        </div>
+
         <div class="dialogue-section">
             <h2>Ralph-Lisa Dialogue</h2>
             <div class="dialogue" id="dialogue"></div>
@@ -403,6 +409,9 @@
         // Architect requirements
         renderRequirements(t.requirements || []);
 
+        // Code diff
+        renderCodeDiff(t.code_diff, t.diff_summary);
+
         // Dialogue replay
         renderDialogue(t.dialogue);
     }
@@ -434,6 +443,43 @@
             <p><strong>Architect Requirements:</strong> ${analysis.total_requirements || 0} items</p>
             <p><strong>Task Categories:</strong> ${catTags || '<span style="color:var(--text-muted)">-</span>'}</p>
         `;
+        section.style.display = "block";
+    }
+
+    function renderCodeDiff(diff, summary) {
+        if (!diff) return;
+        const section = document.getElementById("diff-section");
+        const statsEl = document.getElementById("diff-stats");
+        const diffEl = document.getElementById("code-diff");
+
+        // Count files changed, lines added/removed
+        const lines = diff.split("\n");
+        let added = 0, removed = 0, files = new Set();
+        for (const line of lines) {
+            if (line.startsWith("+++ ")) files.add(line);
+            else if (line.startsWith("+") && !line.startsWith("+++")) added++;
+            else if (line.startsWith("-") && !line.startsWith("---")) removed++;
+        }
+
+        statsEl.innerHTML = `${files.size} files changed, <span style="color:var(--green)">+${added}</span> <span style="color:var(--red)">-${removed}</span>`;
+
+        // Syntax highlight diff
+        const highlighted = lines.map(line => {
+            const escaped = line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+            if (line.startsWith("+++") || line.startsWith("---"))
+                return `<span style="color:var(--accent);font-weight:600">${escaped}</span>`;
+            if (line.startsWith("@@"))
+                return `<span style="color:var(--yellow)">${escaped}</span>`;
+            if (line.startsWith("+"))
+                return `<span style="color:var(--green)">${escaped}</span>`;
+            if (line.startsWith("-"))
+                return `<span style="color:var(--red)">${escaped}</span>`;
+            if (line.startsWith("diff "))
+                return `<span style="color:var(--accent);font-weight:700">${escaped}</span>`;
+            return escaped;
+        }).join("\n");
+
+        diffEl.innerHTML = highlighted;
         section.style.display = "block";
     }
 
