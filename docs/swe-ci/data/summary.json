@@ -1,16 +1,16 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 50,
+  "total_evaluated": 52,
   "solved": 50,
   "improving": 0,
   "stuck": 0,
-  "pending": 0,
+  "pending": 2,
   "total_completed": 50,
   "solve_rate": 100.0,
   "zero_regression_rate": 96.0,
   "zero_regression_count": 48,
-  "avg_fix_rate": 100.0,
-  "avg_evoscore": 0.9934,
+  "avg_fix_rate": 96.2,
+  "avg_evoscore": 0.9744,
   "avg_evoscore_completed": 0.9934,
   "batches": [
     {
@@ -139,6 +139,16 @@
         "jazzband__pip-tools__58e68e__e4ed0c",
         "josegonzalez__python-github-backup__322026__1ec082",
         "kinnay__nintendoclients__e2b673__72846c"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_11",
+      "total": 2,
+      "solved": 0,
+      "avg_evoscore": 0.5,
+      "tasks": [
+        "lepture__mistune__ff8312__28e7d4",
+        "marl__pysox__9b2b0d__f5671e"
       ]
     },
     {
@@ -702,9 +712,31 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_10"
+    },
+    {
+      "task_id": "lepture__mistune__ff8312__28e7d4",
+      "repo_name": "lepture/mistune",
+      "initial_gap": 14,
+      "final_gap": 14,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_11"
+    },
+    {
+      "task_id": "marl__pysox__9b2b0d__f5671e",
+      "repo_name": "marl/pysox",
+      "initial_gap": 19,
+      "final_gap": 19,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_11"
     }
   ],
-  "last_updated": "2026-03-26T05:16:08",
+  "last_updated": "2026-03-26T06:42:16",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
