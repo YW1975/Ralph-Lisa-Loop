@@ -212,11 +212,14 @@
 
     <!-- RLL intro + How it works -->
     <div class="how-it-works">
-        <div class="intro-box" style="margin-bottom: 24px;">
-            <strong>RLL (Ralph-Lisa Loop)</strong> is a cross-provider dual-agent system for autonomous software maintenance.
-            <strong>Ralph</strong> (Claude Sonnet 4.6) writes code and runs tests.
-            <strong>Lisa</strong> (Codex GPT-5.4) reviews every change, catches regressions, and ensures quality — like a built-in CI code reviewer.
-            This page tracks RLL's live progress on the <a href="https://arxiv.org/abs/2603.03823" target="_blank">SWE-CI benchmark</a> (137 real-world coding tasks).
+        <div class="intro-box" style="margin-bottom: 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+            <img src="rll_cat.png" alt="Ralph and Lisa" style="width: 100px; height: 100px; border-radius: 12px; flex-shrink: 0;">
+            <div>
+                <strong>RLL (Ralph-Lisa Loop)</strong> is a cross-provider dual-agent system for autonomous software maintenance.
+                <strong>Ralph</strong> (Claude Sonnet 4.6) writes code and runs tests.
+                <strong>Lisa</strong> (Codex GPT-5.4) reviews every change, catches regressions, and ensures quality — like a built-in CI code reviewer.
+                This page tracks RLL's live progress on the <a href="https://arxiv.org/abs/2603.03823" target="_blank">SWE-CI benchmark</a> (137 real-world coding tasks).
+            </div>
         </div>
         <h2>How RLL Works</h2>
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
