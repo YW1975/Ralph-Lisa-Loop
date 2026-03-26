@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/falconry/falcon.git",
   "licence": "Apache License 2.0",
   "initial_gap": 60,
-  "final_gap": 60,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 3,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,82 @@
       "passed": 3576,
       "failed": 60,
       "total": 4096
+    },
+    {
+      "epoch": 1,
+      "gap": 3,
+      "passed": 3633,
+      "failed": 3,
+      "total": 4096,
+      "programmer_time": 5475.333985090256
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 3576,
+    "failed": 60,
+    "total": 4096
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-25-22-40-08",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "<file>code/falcon/util/misc.py</file>\n      <scope>Function: secure_filename (line ~339)</scope>",
+          "description": "The function secure_filename(filename: str) currently accepts only one positional\n      argument. Tests call it with two positional arguments — filename and max_length —\n      causing TypeError: secure_filename() takes 1 positional argument but 2 were given.\n      Additionally, there is no logic to truncate the sanitized filename to a maximum\n      character length, and no validation of a negative max_length value.",
+          "contract": "The updated function signature must be:\n        secure_filename(filename: str, max_length: Optional[int] = None) -> str\n\n      Behavioral rules for max_length:\n      - If max_length is None or 0: no truncation is applied; behavior is identical to\n        the current implementation.\n      - If max_length is negative (e.g., -11): raise ValueError immediately, before any\n        sanitization is performed.\n      - If max_length is a positive integer and the sanitized filename length exceeds it:\n        attempt to preserve the file extension.\n          * Determine the extension via os.path.splitext(sanitized_filename). The\n            extension includes the leading dot (e.g., '.txt', '.jpeg').\n          * If max_length > len(extension): return stem[:max_length - len(extension)] + extension\n          * Otherwise (extension alone would not fit): return sanitized_filename[:max_length]\n      - The truncation is applied after the existing sanitization (NFKD normalization,\n        leading-dot handling, and unsafe-character substitution).\n      - The existing ValueError for an empty filename input remains unchanged.\n\n      Example behaviors (sanitization then truncation):\n        secure_filename('hello.txt', None)  -> 'hello.txt'\n        secure_filename('hello.txt', 0)     -> 'hello.txt'\n        secure_filename('hello.txt', 8)     -> 'hell.txt'  (stem truncated, ext preserved)\n        secure_filename('hello.txt', 5)     -> 'h.txt'     (stem truncated to 1 char)\n        secure_filename('hello.txt', 4)     -> 'hell'      (ext does not fit, no ext)\n        secure_filename('Document.pdf', -11) -> raises ValueError",
+          "acceptance_tests": "tests/test_utils.py::TestFalconUtils::test_secure_filename[hello.txt-None-hello.txt]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[hello.txt-5-h.txt]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[hello.txt-8-hell.txt]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[hello.txt-4-hell]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[.-None-_]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[..-None-_.]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[/etc/shadow-None-_etc_shadow]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[C:\\\\Windows\\\\kernel32.dll-None-C__Windows_kernel32.dll]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[.emacs.d/init.el-11-_emacs.d.el]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[~/.emacs.d/init.el-11-__.emacs.el]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[. ⬅ a dot-None-____a_dot]\n      tests/test_utils.py::TestFalconUtils::test_secure_filename[. ⬅ a dot-10-____a_dot]\n      All parametrized test_secure_filename and test_secure_filename_invalid_max_length cases\n      in tests/test_utils.py (17 cases total)."
+        },
+        {
+          "id": "2",
+          "location": "<file>code/falcon/media/multipart.py</file>\n      <scope>Class: MultipartParseOptions (line ~558), Property: BodyPart.secure_filename (line ~224)</scope>",
+          "description": "MultipartParseOptions.__slots__ does not include 'max_secure_filename_length', so\n      setting this attribute on a parse_options instance raises AttributeError. Tests\n      configure this option via:\n        setattr(multipart_handler.parse_options, 'max_secure_filename_length', value)\n      and then verify that BodyPart.secure_filename returns a truncated name. The option\n      is never passed to misc.secure_filename() when building the secure filename.",
+          "contract": "1. MultipartParseOptions must expose a max_secure_filename_length attribute:\n         - Add 'max_secure_filename_length' to __slots__.\n         - Add a class-level type annotation: max_secure_filename_length: Optional[int]\n         - Initialize it to None in __init__ (meaning no limit by default).\n\n      2. BodyPart.secure_filename property must forward the option to misc.secure_filename():\n         - The options object is accessible on the BodyPart instance (e.g., self._parse_options\n           or however the options reference is stored).\n         - Call misc.secure_filename(self.filename or '', self._parse_options.max_secure_filename_length)\n           so that the max_length constraint is applied.\n         - The ValueError-to-MultipartParseError translation logic must remain intact.\n\n      The semantics of max_secure_filename_length mirror those of the max_length parameter\n      in Requirement 1: None or 0 means no limit; positive integers truncate; negative\n      values are not expected at this level (the underlying function raises ValueError).",
+          "acceptance_tests": "tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-None-__Arrow.txt]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-0-__Arrow.txt]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-4-__Ar]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-5-_.txt]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-7-__A.txt]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-10-__Arro.txt]\n      tests/test_media_multipart.py::test_max_secure_filename_length[wsgi-64-__Arrow.txt]\n      And the corresponding asgi variants (14 cases total)."
+        },
+        {
+          "id": "3",
+          "location": "<file>code/falcon/response.py</file>\n      <scope>Method: Response.unset_cookie (line ~563)</scope>",
+          "description": "The current unset_cookie() signature is:\n        def unset_cookie(self, name, samesite='Lax', domain=None, path=None)\n\n      Test resources call it with the keyword argument same_site (underscore form), e.g.:\n        resp.unset_cookie('foo', same_site='Strict')\n        resp.unset_cookie('baz', same_site='')\n        resp.unset_cookie('barfoo', same_site='none', path='/foo', domain='www.example.com')\n\n      These calls raise TypeError because the parameter is named samesite (no underscore),\n      causing the resource to throw a 500 Internal Server Error.\n\n      Additionally, test_unset_cookie_deprecation_warning expects that calling\n      unset_cookie() with the old samesite keyword argument emits a DeprecatedWarning\n      with the message matching 'The \"samesite\" parameter is deprecated', while calling\n      it with same_site must not emit any warning.",
+          "contract": "The updated signature must be:\n        def unset_cookie(\n            self,\n            name: str,\n            same_site: str = 'Lax',\n            domain: Optional[str] = None,\n            path: Optional[str] = None,\n            *,\n            samesite: Optional[str] = None,\n        ) -> None\n\n      Behavioral rules:\n      - When samesite (the deprecated keyword-only argument) is provided (not None):\n          * Emit warnings.warn(..., DeprecatedWarning, stacklevel=2) with a message\n            containing 'The \"samesite\" parameter is deprecated' and directing users to\n            use same_site instead.\n          * Use the value of samesite (ignoring same_site) as the actual SameSite value.\n      - When only same_site is provided (samesite is None):\n          * Use same_site directly; no warning is emitted.\n      - The same_site value (after the above resolution) is written to\n        self._cookies[name]['samesite']. An empty string means no SameSite attribute\n        is set (i.e., skip assigning when the resolved value is empty or falsy, or assign\n        as-is to match the test expectation that same_site='' results in samesite=None\n        in the cookie).\n      - domain and path behavior is unchanged from the current implementation.\n      - The deprecation warning class must be falcon.util.DeprecatedWarning (or its alias).",
+          "acceptance_tests": "tests/test_cookies.py::test_unset_cookies[wsgi]\n      tests/test_cookies.py::test_unset_cookies[asgi]\n      tests/test_cookies.py::test_unset_cookies_samesite[wsgi]\n      tests/test_cookies.py::test_unset_cookies_samesite[asgi]\n      tests/test_cookies.py::test_unset_cookie_deprecation_warning"
+        },
+        {
+          "id": "4",
+          "location": "<file>code/falcon/routing/static.py</file>\n      <scope>\n        Module-level function: _open_range (line ~20),\n        New module-level function: _set_range (to be added),\n        Method: StaticRoute.__call__ (line ~183)\n      </scope>",
+          "description": "StaticRoute.__call__() does not set ETag or Last-Modified response headers, so\n      tests accessing resp.headers['ETag'] and resp.headers['Last-Modified'] raise KeyError.\n      It also does not evaluate If-None-Match or If-Modified-Since request headers, so\n      cacheable responses always return 200 instead of 304.\n\n      Additionally:\n      - test_set_range_error patches falcon.routing.static._set_range, which does not\n        exist as a named symbol, causing AttributeError during mock.patch().\n      - test_fstat_error patches os.fstat to raise IOError; when this occurs inside\n        _open_range, the opened file handle is never closed (file handle leak), but the\n        test asserts patch_open.current_file.closed is True.",
+          "contract": "1. ETag and Last-Modified headers:\n         - After successfully opening the file and obtaining its stat (mtime and size),\n           StaticRoute.__call__() must set:\n             * ETag: a strong ETag of the form '\"{int(mtime):x}-{size:x}\"'\n               where mtime = st_mtime (float) truncated to int, size = file size in bytes.\n             * Last-Modified: the file's mtime formatted as an HTTP date string\n               (e.g., 'Sat, 11 Jan 2025 17:52:14 GMT').\n\n      2. Conditional GET support:\n         - If-None-Match: evaluate before sending the file body.\n             * If the request header value is '*', respond 304 (always matches any ETag).\n             * If the header contains ETag values (comma-separated, possibly with W/ prefix),\n               strip the W/ prefix and quotes for comparison. If the computed ETag (without\n               quotes) matches any of the listed values, respond 304.\n             * If-None-Match takes precedence over If-Modified-Since (RFC 7232 §6).\n         - If-Modified-Since: evaluate only when If-None-Match is absent.\n             * Parse the header as an HTTP date. If the file's mtime <= the parsed date,\n               respond 304.\n         - A 304 response must have an empty body and must not include Content-Length\n           or Content-Range headers (resp.set_stream must not be called for 304 responses,\n           and the opened file must be closed).\n\n      3. _set_range module-level function:\n         - Extract the range-setting logic from __call__ into a module-level function named\n           _set_range(resp, content_range) that applies content_range metadata to the\n           response (sets status to 206 and resp.content_range).\n         - StaticRoute.__call__() must call _set_range() after successfully opening the file.\n         - When _set_range() raises an IOError (as tested via mock), the file handle must\n           be closed and the handler must raise falcon.HTTPNotFound().\n\n      4. File handle closure on fstat failure:\n         - In _open_range(), if os.fstat() raises IOError, the file handle must be closed\n           before the exception propagates. The caller (StaticRoute.__call__) already\n           catches IOError and raises HTTPNotFound, but relies on the file being cleaned up.",
+          "acceptance_tests": "tests/test_static.py::test_etag[wsgi]\n      tests/test_static.py::test_etag[asgi]\n      tests/test_static.py::test_last_modified[wsgi]\n      tests/test_static.py::test_last_modified[asgi]\n      tests/test_static.py::test_if_modified_since[wsgi]\n      tests/test_static.py::test_if_modified_since[asgi]\n      tests/test_static.py::test_if_none_match[wsgi-*-True]\n      tests/test_static.py::test_if_none_match[wsgi-\"6782afce-9\"-True]\n      tests/test_static.py::test_if_none_match[wsgi-\"6782afce-9\", \"foo\"-True]\n      tests/test_static.py::test_if_none_match[wsgi-W/\"6782afce-9\"-True]\n      tests/test_static.py::test_if_none_match[asgi-*-True]\n      tests/test_static.py::test_if_none_match[asgi-\"6782afce-9\"-True]\n      tests/test_static.py::test_if_none_match[asgi-\"6782afce-9\", \"foo\"-True]\n      tests/test_static.py::test_if_none_match[asgi-W/\"6782afce-9\"-True]\n      tests/test_static.py::test_if_none_match_precedence[wsgi]\n      tests/test_static.py::test_if_none_match_precedence[asgi]\n      tests/test_static.py::test_fstat_error[wsgi]\n      tests/test_static.py::test_fstat_error[asgi]\n      tests/test_static.py::test_set_range_error[wsgi]\n      tests/test_static.py::test_set_range_error[asgi]"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 4,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
-      "refactor": 0,
-      "api_change": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
+      "refactor": 2,
+      "api_change": 4,
       "test_fix": 0,
-      "config": 0
+      "config": 4
     },
     "complexity": "high"
   },
-  "last_updated": "2026-03-25T22:37:09",
+  "last_updated": "2026-03-25T23:07:13",
   "batch": "rll_full_batch_08",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.975,
+    "m2": 0.95,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.785
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.785,
+  "fix_rate": 95.0
 }
