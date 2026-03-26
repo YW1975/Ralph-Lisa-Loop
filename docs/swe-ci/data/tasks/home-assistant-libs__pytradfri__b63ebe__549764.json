@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/home-assistant-libs/pytradfri.git",
   "licence": "MIT License",
   "initial_gap": 5,
-  "final_gap": 5,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 0,
+  "num_epochs": 2,
+  "status": "solved",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,87 @@
       "passed": 167,
       "failed": 5,
       "total": 172
+    },
+    {
+      "epoch": 1,
+      "gap": 0,
+      "passed": 172,
+      "failed": 0,
+      "total": 172,
+      "programmer_time": 744.0495059490204
     }
   ],
-  "dialogue": "",
-  "diff_summary": [],
-  "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "dialogue": "**Task**: Read <workspace>/ENVIRONMENT.md first — it explains the test setup and how to run tests. Then read <workspace>/requirement.xml and implement the requirements. Work only in <workspace>/code/. Run tests with: docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q\n**Started**: 2026-03-25 23:35:38\n\n---\n\n## [Ralph] [PLAN] Round 1 | Step: planning\n**Time**: 2026-03-25 23:37:32\n**Summary**: \n\n[PLAN]\n\n## Task Understanding\n\nAdd air purifier support to the pytradfri library by creating constants, a data class (`AirPurifier`), a control class (`AirPurifierControl`), and wiring them into the `Device` class. All 5 failing tests in `tests/test_air_purifiers.py` must pass.\n\n## Proposed Approach\n\n**Req 1 — Constants** (`pytradfri/const.py`):\nAdd 6 constants at the end of the file, following the existing naming pattern:\n- `ATTR_AIR_PURIFIER_CONTROL = \"15025\"`\n- `ATTR_AIR_PURIFIER_MODE = \"5900\"`\n- `ATTR_AIR_PURIFIER_AIR_QUALITY = \"5907\"`\n- `ATTR_AIR_PURIFIER_FAN_SPEED = \"5908\"`\n- `ATTR_AIR_PURIFIER_CONTROLS_LOCKED = \"5905\"`\n- `ATTR_AIR_PURIFIER_LEDS_OFF = \"5906\"`\n\n**Req 2 — AirPurifier data class** (`pytradfri/device/air_purifier.py`, new file):\nFollow the `Blind` class pattern (`blind.py`). Constructor takes `(device, index)`. Properties:\n- `raw` → `device.raw[ATTR_AIR_PURIFIER_CONTROL][index]`\n- `mode` → `raw[ATTR_AIR_PURIFIER_MODE]` (int)\n- `air_quality` → `raw[ATTR_AIR_PURIFIER_AIR_QUALITY]` (int)\n- `fan_speed` → `raw[ATTR_AIR_PURIFIER_FAN_SPEED]` (int)\n- `controls_locked` → `bool(raw[ATTR_AIR_PURIFIER_CONTROLS_LOCKED])` (bool)\n- `leds_off` → `bool(raw[ATTR_AIR_PURIFIER_LEDS_OFF])` (bool)\n\n**Req 3 — AirPurifierControl** (`pytradfri/device/air_purifier_control.py`, new file):\nFollow the `BlindControl` pattern. Properties:\n- `raw` → `device.raw[ATTR_AIR_PURIFIER_CONTROL]`\n- `air_purifiers` → list of `AirPurifier` instances\n\n**Req 4 — Device integration** (`pytradfri/device/__init__.py`):\nAdd imports for `AirPurifierControl` and `ATTR_AIR_PURIFIER_CONTROL`. Add two properties following the `blind_control` pattern:\n- `has_air_purifier_control` → checks `ATTR_AIR_PURIFIER_CONTROL in self.raw` with length > 0\n- `air_purifier_control` → returns `AirPurifierControl(self)` or `None`\n\n## Expected Deliverables\n- Modified: `pytradfri/const.py`, `pytradfri/device/__init__.py`\n- New: `pytradfri/device/air_purifier.py`, `pytradfri/device/air_purifier_control.py`\n\n## Test Plan\n- **Test command**: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- **Expected**: All tests pass, including the 5 air purifier tests (`test_mode`, `test_air_quality`, `test_fan_speed`, `test_controls_locked`, `test_leds_off`) plus `test_device_info_properties`\n- **Regression**: All existing tests continue to pass\n\n## Quality Gate Commands\n- `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n\n## Verified\n- Fixture data at `tests/devices.py:259-290` confirms key mappings match requirement constants\n- `blind.py` and `blind_control.py` confirm the architectural pattern to follow\n- `pytradfri/device/__init__.py` confirms `has_blind_control`/`blind_control` pattern to mirror\n\n\n---\n\n## [Lisa] [NEEDS_WORK] Round 1 | Step: planning\n**Time**: 2026-03-25 23:44:23\n**Summary**: \n\n[NEEDS_WORK]\n\nDirection is aligned with the task, but there is no implementation submitted yet, so this round is not reviewable as code.\n\nEvidence:\n- `pytradfri/device/__init__.py:22` through `pytradfri/device/__init__.py:93` defines `Device` properties for light, socket, blind, and signal repeater controls, but there is still no `has_air_purifier_control` or `air_purifier_control`, which matches the current failure in `tests/test_air_purifiers.py:28`.\n- `pytradfri/const.py:1` through `pytradfri/const.py:150` does not define the required air-purifier constants from requirement 1.\n- `pytradfri/device/air_purifier.py` is missing.\n- `pytradfri/device/air_purifier_control.py` is missing.\n\nVerification:\n- Re-ran the required test command on the current tree:\n  `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Result: exit code 1, `5 failed, 167 passed`.\n- All 5 failures are the expected `AttributeError: 'Device' object has no attribute 'air_purifier_control'` from `tests/test_air_purifiers.py:28`, `:35`, `:42`, `:49`, and `:56`.\n\nPlease resubmit with a `[CODE]` or `[FIX]` round containing the actual file changes and test results.\n\n\n---\n\n## [Ralph] [FIX] Round 2 | Step: planning\n**Time**: 2026-03-25 23:45:44\n**Summary**: \n\n[FIX]\n\nLisa is right — the plan round needed the actual implementation. Here are the code changes:\n\n## Changes Made\n\n**1. `pytradfri/const.py`** — Added 6 air purifier constants before SUPPORT_* block:\n- `ATTR_AIR_PURIFIER_CONTROL = \"15025\"`\n- `ATTR_AIR_PURIFIER_MODE = \"5900\"`\n- `ATTR_AIR_PURIFIER_AIR_QUALITY = \"5907\"`\n- `ATTR_AIR_PURIFIER_FAN_SPEED = \"5908\"`\n- `ATTR_AIR_PURIFIER_CONTROLS_LOCKED = \"5905\"`\n- `ATTR_AIR_PURIFIER_LEDS_OFF = \"5906\"`\n\n**2. `pytradfri/device/air_purifier.py`** (new) — `AirPurifier` data class following `Blind` pattern. Properties: `raw`, `mode`, `air_quality`, `fan_speed`, `controls_locked` (bool), `leds_off` (bool).\n\n**3. `pytradfri/device/air_purifier_control.py`** (new) — `AirPurifierControl` class following `BlindControl` pattern. Properties: `raw`, `air_purifiers` (list of `AirPurifier`).\n\n**4. `pytradfri/device/__init__.py`** — Added imports for `ATTR_AIR_PURIFIER_CONTROL` and `AirPurifierControl`. Added `has_air_purifier_control` and `air_purifier_control` properties following the `blind_control` pattern.\n\n### Test Results\n- Test command: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Exit code: 0\n- Regression: 172/172 passed (previously 167 passed, 5 failed — all 5 failures now fixed)\n- New tests: 0 (tests were pre-existing in `tests/test_air_purifiers.py`, not modified)\n\n\n---\n\n## [Lisa] [PASS] Round 2 | Step: planning\n**Time**: 2026-03-25 23:47:29\n**Summary**: \n\n[PASS]\n\nThe implementation is aligned with the task and satisfies all four requirements.\n\nReasons:\n- `pytradfri/const.py:146` adds the full required air-purifier constant set through `pytradfri/const.py:151`, matching the exact keys from requirement 1.\n- `pytradfri/device/air_purifier.py:20` implements the required raw accessor, and `pytradfri/device/air_purifier.py:25`, `pytradfri/device/air_purifier.py:30`, `pytradfri/device/air_purifier.py:35`, `pytradfri/device/air_purifier.py:40`, and `pytradfri/device/air_purifier.py:45` expose the five required properties with the correct boolean conversions.\n- `pytradfri/device/air_purifier_control.py:13` exposes the raw list at `ATTR_AIR_PURIFIER_CONTROL`, and `pytradfri/device/air_purifier_control.py:18` returns one `AirPurifier` per entry as required.\n- `pytradfri/device/__init__.py:86` adds `has_air_purifier_control`, and `pytradfri/device/__init__.py:94` adds `air_purifier_control`, matching the existing control-pattern used elsewhere in `Device`.\n\nVerification:\n- Re-ran the required command: `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Result: exit code 0, `172 passed in 0.29s`\n\nI found no functional regressions in the submitted change set.\n\n\n---\n\n## [Ralph] [CONSENSUS] Round 3 | Step: planning\n**Time**: 2026-03-25 23:47:53\n**Summary**: \n\n[CONSENSUS]\n\nLisa's review is substantive — she verified all four requirements with specific file:line references and independently confirmed 172/172 tests passing. Implementation is complete.\n\n",
+  "diff_summary": [
+    "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests pytradfri/const.py pytradfri/const.py",
+    "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests pytradfri/device/__init__.py pytradfri/device/__init__.py",
+    "Only in pytradfri/device: air_purifier.py",
+    "Only in pytradfri/device: air_purifier_control.py"
+  ],
+  "code_diff": "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests pytradfri/const.py pytradfri/const.py\n--- pytradfri/const.py\t2026-03-25 23:19:45\n+++ pytradfri/const.py\t2026-03-25 23:44:54\n@@ -143,6 +143,13 @@\n RANGE_Y = (0, 65535)\n \n \n+ATTR_AIR_PURIFIER_CONTROL = \"15025\"\n+ATTR_AIR_PURIFIER_MODE = \"5900\"\n+ATTR_AIR_PURIFIER_AIR_QUALITY = \"5907\"\n+ATTR_AIR_PURIFIER_FAN_SPEED = \"5908\"\n+ATTR_AIR_PURIFIER_CONTROLS_LOCKED = \"5905\"\n+ATTR_AIR_PURIFIER_LEDS_OFF = \"5906\"\n+\n SUPPORT_BRIGHTNESS = 1\n SUPPORT_COLOR_TEMP = 2\n SUPPORT_HEX_COLOR = 4\ndiff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests pytradfri/device/__init__.py pytradfri/device/__init__.py\n--- pytradfri/device/__init__.py\t2026-03-25 23:19:45\n+++ pytradfri/device/__init__.py\t2026-03-25 23:45:19\n@@ -2,6 +2,7 @@\n from datetime import datetime\n \n from pytradfri.const import (\n+    ATTR_AIR_PURIFIER_CONTROL,\n     ATTR_APPLICATION_TYPE,\n     ATTR_DEVICE_INFO,\n     ATTR_LAST_SEEN,\n@@ -12,6 +13,7 @@\n     ROOT_DEVICES,\n     ROOT_SIGNAL_REPEATER,\n )\n+from pytradfri.device.air_purifier_control import AirPurifierControl\n from pytradfri.device.blind_control import BlindControl\n from pytradfri.device.light_control import LightControl\n from pytradfri.device.signal_repeater_control import SignalRepeaterControl\n@@ -80,6 +82,20 @@\n         \"\"\"Return blind_control.\"\"\"\n         if self.has_blind_control:\n             return BlindControl(self)\n+\n+    @property\n+    def has_air_purifier_control(self):\n+        \"\"\"Check if air_purifier_control is present.\"\"\"\n+        return (\n+            self.raw is not None\n+            and len(self.raw.get(ATTR_AIR_PURIFIER_CONTROL, \"\")) > 0\n+        )\n+\n+    @property\n+    def air_purifier_control(self):\n+        \"\"\"Return air_purifier_control.\"\"\"\n+        if self.has_air_purifier_control:\n+            return AirPurifierControl(self)\n \n     @property\n     def has_signal_repeater_control(self):\nOnly in pytradfri/device: air_purifier.py\nOnly in pytradfri/device: air_purifier_control.py\n",
+  "test_results": {
+    "passed": 172,
+    "failed": 0,
+    "total": 172
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-25-23-48-01",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/pytradfri/const.py — module-level constants",
+          "description": "The constants file does not define any identifiers for the air purifier\n      device resource or its attribute keys. All five failing tests ultimately\n      rely on reading air-purifier data from the raw device dict under key\n      \"15025\", and from attribute keys within that list (mode \"5900\",\n      air_quality \"5907\", fan_speed \"5908\", controls_locked \"5905\",\n      leds_off \"5906\"). Without named constants for these keys, both the\n      control class and the data class cannot be implemented cleanly or\n      consistently with the rest of the codebase.",
+          "contract": "Add the following named constants (exact string values shown):\n        ATTR_AIR_PURIFIER_CONTROL = \"15025\"   (the top-level list key in the device dict)\n        ATTR_AIR_PURIFIER_MODE = \"5900\"\n        ATTR_AIR_PURIFIER_AIR_QUALITY = \"5907\"\n        ATTR_AIR_PURIFIER_FAN_SPEED = \"5908\"\n        ATTR_AIR_PURIFIER_CONTROLS_LOCKED = \"5905\"\n        ATTR_AIR_PURIFIER_LEDS_OFF = \"5906\"\n      The names must be importable from pytradfri.const.",
+          "acceptance_tests": "The six constants are importable via:\n        from pytradfri.const import (\n            ATTR_AIR_PURIFIER_CONTROL,\n            ATTR_AIR_PURIFIER_MODE,\n            ATTR_AIR_PURIFIER_AIR_QUALITY,\n            ATTR_AIR_PURIFIER_FAN_SPEED,\n            ATTR_AIR_PURIFIER_CONTROLS_LOCKED,\n            ATTR_AIR_PURIFIER_LEDS_OFF,\n        )\n      without ImportError."
+        },
+        {
+          "id": "2",
+          "location": "code/pytradfri/device/air_purifier.py — new file, class AirPurifier",
+          "description": "There is no AirPurifier data class. The tests access individual air\n      purifier state by indexing into device.air_purifier_control.air_purifiers\n      and reading properties mode, air_quality, fan_speed, controls_locked,\n      and leds_off. These properties must be backed by the raw data found\n      inside the \"15025\" list of the device dict.",
+          "contract": "Create class AirPurifier with the following interface:\n\n        class AirPurifier:\n            def __init__(self, device, index: int): ...\n\n            @property\n            def raw(self) -> dict:\n                \"\"\"Return the dict at ATTR_AIR_PURIFIER_CONTROL[index].\"\"\"\n\n            @property\n            def mode(self) -> int:\n                \"\"\"Return value of ATTR_AIR_PURIFIER_MODE (\"5900\").\"\"\"\n\n            @property\n            def air_quality(self) -> int:\n                \"\"\"Return value of ATTR_AIR_PURIFIER_AIR_QUALITY (\"5907\").\"\"\"\n\n            @property\n            def fan_speed(self) -> int:\n                \"\"\"Return value of ATTR_AIR_PURIFIER_FAN_SPEED (\"5908\").\"\"\"\n\n            @property\n            def controls_locked(self) -> bool:\n                \"\"\"Return True when ATTR_AIR_PURIFIER_CONTROLS_LOCKED (\"5905\") is non-zero.\"\"\"\n\n            @property\n            def leds_off(self) -> bool:\n                \"\"\"Return True when ATTR_AIR_PURIFIER_LEDS_OFF (\"5906\") is non-zero.\"\"\"\n\n      For the AIR_PURIFIER fixture:\n        raw[\"15025\"][0][\"5900\"] == 1  → mode == 1\n        raw[\"15025\"][0][\"5907\"] == 5  → air_quality == 5\n        raw[\"15025\"][0][\"5908\"] == 10 → fan_speed == 10\n        raw[\"15025\"][0][\"5905\"] == 0  → controls_locked == False\n        raw[\"15025\"][0][\"5906\"] == 0  → leds_off == False",
+          "acceptance_tests": "tests/test_air_purifiers.py::test_mode\n      tests/test_air_purifiers.py::test_air_quality\n      tests/test_air_purifiers.py::test_fan_speed\n      tests/test_air_purifiers.py::test_controls_locked\n      tests/test_air_purifiers.py::test_leds_off"
+        },
+        {
+          "id": "3",
+          "location": "code/pytradfri/device/air_purifier_control.py — new file, class AirPurifierControl",
+          "description": "There is no AirPurifierControl class. The tests access air purifier\n      state through device.air_purifier_control.air_purifiers[0]. The control\n      class must wrap the device and expose the list of AirPurifier instances.\n      Its structure should follow the existing BlindControl pattern.",
+          "contract": "Create class AirPurifierControl with the following interface:\n\n        class AirPurifierControl:\n            def __init__(self, device): ...\n\n            @property\n            def raw(self) -> list:\n                \"\"\"Return device.raw[ATTR_AIR_PURIFIER_CONTROL].\"\"\"\n\n            @property\n            def air_purifiers(self) -> list[AirPurifier]:\n                \"\"\"Return one AirPurifier instance per entry in raw.\"\"\"",
+          "acceptance_tests": "device.air_purifier_control.air_purifiers returns a non-empty list and\n      indexing [0] yields an AirPurifier instance.\n      Transitively: all five tests in tests/test_air_purifiers.py pass."
+        },
+        {
+          "id": "4",
+          "location": "code/pytradfri/device/__init__.py — class Device",
+          "description": "The Device class does not expose an air_purifier_control property.\n      All five failing tests fail with AttributeError because\n      device.air_purifier_control does not exist. The Device class must be\n      extended to provide this property, mirroring the existing pattern used\n      for blind_control and socket_control.",
+          "contract": "Import AirPurifierControl from pytradfri.device.air_purifier_control\n      and ATTR_AIR_PURIFIER_CONTROL from pytradfri.const.\n\n      Add two properties to Device:\n\n        @property\n        def has_air_purifier_control(self) -> bool:\n            \"\"\"Return True when the device raw dict contains a non-empty\n            ATTR_AIR_PURIFIER_CONTROL (\"15025\") list.\"\"\"\n\n        @property\n        def air_purifier_control(self) -> AirPurifierControl | None:\n            \"\"\"Return AirPurifierControl if has_air_purifier_control,\n            else None.\"\"\"\n\n      For the AIR_PURIFIER fixture (which contains \"15025\" with one entry),\n      has_air_purifier_control must be True and air_purifier_control must\n      return an AirPurifierControl instance (not None).",
+          "acceptance_tests": "device = Device(AIR_PURIFIER)\n      assert device.has_air_purifier_control is True\n      assert device.air_purifier_control is not None\n      Transitively: all five tests in tests/test_air_purifiers.py pass."
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 4,
+    "primary_category": "new_feature",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
-      "refactor": 0,
-      "api_change": 0,
+      "bug_fix": 3,
+      "new_feature": 4,
+      "refactor": 1,
+      "api_change": 4,
       "test_fix": 0,
       "config": 0
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-25T23:37:20",
+  "last_updated": "2026-03-26T00:11:52",
   "batch": "rll_full_batch_09",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 1.0,
+    "m2": 1.0,
     "m3": 1.0,
-    "m4": 0.0,
+    "m4": 1.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 1.0
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 1.0,
+  "fix_rate": 100.0
 }
