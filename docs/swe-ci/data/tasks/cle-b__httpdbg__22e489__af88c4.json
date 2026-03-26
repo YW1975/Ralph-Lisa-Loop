@@ -2,6 +2,7 @@
   "task_id": "cle-b__httpdbg__22e489__af88c4",
   "repo_name": "cle-b/httpdbg",
   "repo_url": "https://github.com/cle-b/httpdbg.git",
+  "licence": "Apache License 2.0",
   "initial_gap": 5,
   "final_gap": 0,
   "num_epochs": 2,
@@ -59,7 +60,48 @@
     "failed": 0,
     "total": 131
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-09-28-15",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "httpdbg/records.py — class HTTPRecords",
+          "description": "The HTTPRecords class is missing a _print_for_debug() method. Several test assertions\n      use this method as the failure message (e.g., `assert condition, records._print_for_debug()`).\n      When an assertion fails, Python evaluates the second argument of `assert`, causing an\n      AttributeError because the method does not exist. This turns a meaningful AssertionError\n      into an uninformative AttributeError and prevents test_flask_internal_server_error from\n      ever passing.",
+          "contract": "Add a public instance method _print_for_debug(self) -> str to the HTTPRecords class.\n      The method must return a human-readable string suitable for use as an assertion failure\n      message. The string must include enough diagnostic information about the current state of\n      the records to allow a developer to understand what was captured. At a minimum it should\n      list each recorded HTTPRecord (url, status code, is_client flag) and each Group (id, label,\n      full_label). The method must not raise any exception regardless of the internal state of\n      the object.",
+          "acceptance_tests": "- tests/test_server_hook_flask.py::test_flask_internal_server_error no longer raises\n        AttributeError at line 140 (the assertion now raises AssertionError with a debug string,\n        or passes if other requirements are also implemented).\n      - tests/test_server_hook_fastapi.py::test_fastapi_endpoint no longer raises AttributeError\n        at line 42 when len(records) != 1."
+        },
+        {
+          "id": "2",
+          "location": "httpdbg/hooks/flask.py (new file) — context manager hook_flask;\n      httpdbg/hooks/all.py — httprecord() context manager (integration point)",
+          "description": "When httprecord(server=True) is active and Flask handles an incoming HTTP request, the\n      Group object associated with the server-side HTTPRecord for that request has the wrong\n      label. The label is currently set to the client-side initiator instruction (e.g.,\n      'requests.get(f\"http://localhost:{httpdbg_port}/\")') because os.environ[HTTPDBG_CURRENT_GROUP]\n      is written by the client-side hook in the test thread and is then read by the server-side\n      socket hook in the Flask worker thread (environment variables are shared across threads).\n      The server-side record's group_id is assigned at HTTPRecord construction time (inside\n      recv_into), before Flask's wsgi_app is called, so the group already exists with the wrong\n      label when Flask later dispatches the request.\n\n      The fix requires a Flask-specific hook that, after Flask has dispatched the request to a\n      handler, mutates the label and full_label of the Group that the server-side record already\n      points to.",
+          "contract": "Implement a context manager hook_flask(records: HTTPRecords) in httpdbg/hooks/flask.py that:\n\n      1. If Flask is not installed, yields immediately (no-op, no ImportError propagated).\n\n      2. Patches flask.Flask.wsgi_app (or an equivalent per-request dispatch entry point) so\n         that for each incoming request handled by any Flask app while the hook is active, after\n         the request has been dispatched:\n\n         a. Retrieve the current group from records.groups using the HTTPDBG_CURRENT_GROUP\n            environment variable. If no such group exists, do nothing.\n\n         b. Determine the group label from the matched Flask routing information:\n            - For a successfully matched route: '@app.route(\"{rule}\")' where {rule} is the URL\n              rule pattern (e.g., '@app.route(\"/\")', '@app.route(\"/hello/<xxxx>/<yyyy>\")').\n            - For a matched error handler (e.g., 404): '@app.errorhandler({code})' where {code}\n              is the integer HTTP status code (e.g., '@app.errorhandler(404)').\n            - For an unhandled exception that causes Flask to invoke its exception handling\n              logic: a label that contains the substring \"handle_exception\" (e.g. derived from\n              the name of Flask's internal exception handler method or function).\n\n         c. Determine the group full_label from the actual handler call:\n            - For a route handler: a string that contains the function name and its actual bound\n              argument values, in the style \"{funcname}({arg}={val}, ...)\" or equivalent. The\n              full_label value must satisfy the assertions in the tests, e.g.:\n                * \"hello_world()\" is a substring of full_label for the @app.route(\"/\") handler.\n                * 'hello_custom(xxxx=\"Salut\",yyyy=\"toi\",)' (whitespace-stripped) is a substring\n                  for the route with path parameters.\n                * \"not_found(e=\" is a substring for the @app.errorhandler(404) handler.\n                * \"division by zero\" is a substring of full_label for the internal server error case.\n            - For exception cases where the handler function and args cannot be determined,\n              full_label may contain the exception traceback or message as a fallback.\n\n         d. Mutate group.label and group.full_label in-place with the values determined above.\n\n      3. Does not break the existing passing behaviour of test_flask_client_request_in_endpoint,\n         which expects records[0].group_id == records[1].group_id == records[2].group_id when\n         httprecord(client=True, server=True) is used.\n\n      Integrate hook_flask into the httprecord() context manager in httpdbg/hooks/all.py,\n      wrapping (or being wrapped by) the existing hooks in the same style as hook_requests,\n      hook_socket, etc.",
+          "acceptance_tests": "- tests/test_server_hook_flask.py::test_flask_endpoint passes:\n          group.label == '@app.route(\"/\")'\n          \"hello_world()\" in group.full_label\n      - tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters passes:\n          group.label == '@app.route(\"/hello/<xxxx>/<yyyy>\")'\n          'hello_custom(xxxx=\"Salut\",yyyy=\"toi\",)' in full_label (whitespace removed)\n      - tests/test_server_hook_flask.py::test_flask_not_found passes:\n          group.label == \"@app.errorhandler(404)\"\n          \"not_found(e=\" in full_label (whitespace removed)\n      - tests/test_server_hook_flask.py::test_flask_internal_server_error passes:\n          \"def handle_exception\" in group.label\n          \"division by zero\" in group.full_label\n      - tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint continues to pass\n        (no regression on group_id sharing)."
+        },
+        {
+          "id": "3",
+          "location": "httpdbg/hooks/fastapi.py (new file) — context manager hook_fastapi;\n      httpdbg/hooks/all.py — httprecord() context manager (integration point)",
+          "description": "When httprecord(server=True) is active and FastAPI (via uvicorn/starlette) handles an\n      incoming HTTP request, the Group object associated with the server-side HTTPRecord has the\n      same wrong-label problem as described in requirement 2. The server-side record's group_id\n      points to a group with label 'requests.get(...)' instead of the FastAPI route decorator\n      string (e.g., '@app.get(\"/\")').\n\n      The fix is structurally identical to the Flask hook: after FastAPI has dispatched the\n      request to its route handler, mutate the label and full_label of the Group that the\n      server-side record points to.",
+          "contract": "Implement a context manager hook_fastapi(records: HTTPRecords) in httpdbg/hooks/fastapi.py\n      that:\n\n      1. If FastAPI/starlette is not installed, yields immediately (no-op).\n\n      2. Patches the appropriate FastAPI or starlette dispatch entry point (e.g.,\n         fastapi.routing.get_request_handler or starlette's routing dispatch) so that for each\n         incoming request handled while the hook is active:\n\n         a. After the request handler has been called, retrieve the current group from\n            records.groups using HTTPDBG_CURRENT_GROUP. If no such group exists, do nothing.\n\n         b. Determine the group label:\n            - For a matched route: '@app.{method}(\"{path}\")' where {method} is the lowercase\n              HTTP method (get, post, put, etc.) and {path} is the route path pattern as\n              declared in the FastAPI app (e.g., '@app.get(\"/\")', '@app.get(\"/items/{item_id}\")').\n            - For HTTP exception responses (e.g., HTTPException with custom status code 456),\n              the label should still reflect the matched route, not the exception type.\n\n         c. Determine the group full_label:\n            - A string containing the handler function name and its actual bound argument values.\n              Must satisfy:\n                * \"hello_world()\" in full_label for @app.get(\"/\")\n                * \"get_item(item_id=123,q=None,)\" in full_label (whitespace removed) for\n                  @app.get(\"/items/{item_id}\") called with item_id=123\n\n         d. Mutate group.label and group.full_label in-place.\n\n      3. Does not break the existing passing behaviour of test_fastapi_client_request_in_endpoint.\n\n      Integrate hook_fastapi into the httprecord() context manager in httpdbg/hooks/all.py.",
+          "acceptance_tests": "- tests/test_server_hook_fastapi.py::test_fastapi_endpoint passes all three sub-assertions:\n          * group.label == '@app.get(\"/\")' and \"hello_world()\" in group.full_label\n          * group.label == '@app.get(\"/items/{item_id}\")' and \"get_item(item_id=123,q=None,)\"\n            in full_label (whitespace removed)\n          * group.label == '@app.get(\"/items/{item_id}\")' for the HTTPException (456) case\n            and \"get_item(item_id=456,q=None,)\" in full_label (whitespace removed)\n      - tests/test_server_hook_fastapi.py::test_fastapi_client_request_in_endpoint continues\n        to pass (no regression)."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 3,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 3,
+      "new_feature": 3,
+      "refactor": 1,
+      "api_change": 3,
+      "test_fix": 0,
+      "config": 2
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_05",
   "evoscore_detail": {
     "m1": 1.0,

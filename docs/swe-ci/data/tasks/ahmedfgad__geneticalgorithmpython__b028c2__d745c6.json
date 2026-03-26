@@ -2,6 +2,7 @@
   "task_id": "ahmedfgad__geneticalgorithmpython__b028c2__d745c6",
   "repo_name": "ahmedfgad/GeneticAlgorithmPython",
   "repo_url": "https://github.com/ahmedfgad/GeneticAlgorithmPython.git",
+  "licence": "BSD 3-Clause \"New\" or \"Revised\" License",
   "initial_gap": 10,
   "final_gap": 0,
   "num_epochs": 2,
@@ -64,7 +65,41 @@
     "failed": 0,
     "total": 124
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-05-47-48",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/pygad/utils/mutation.py — method `adaptive_mutation_population_fitness`\n      (lines 412–445)",
+          "description": "The method currently evaluates fitness one solution at a time by calling\n      `self.fitness_func(self, temp_population[idx], None)` in a plain for-loop\n      (line 442).  When `self.fitness_batch_size` is greater than 1 the GA is\n      configured with a *batch* fitness function that expects a 2-D array of\n      solutions and must return a 1-D array of scalar fitness values.  Calling it\n      with a single solution row returns a numpy array instead of a scalar, and the\n      assignment `fitness[idx] = &lt;array&gt;` raises:\n        \"ValueError: setting an array element with a sequence.\"\n      This is the root cause of all 9 failing `test_adaptive_mutation_fitness_batch_size_*`\n      tests (batch sizes 2–10).",
+          "contract": "The method must honour `self.fitness_batch_size` when re-evaluating offspring\n      fitness:\n\n      • When `self.fitness_batch_size` is `None` or `1` (single-solution mode):\n        keep the existing per-solution call:\n          fitness[idx] = self.fitness_func(self, temp_population[idx], None)\n\n      • When `self.fitness_batch_size` is an integer greater than 1 (batch mode):\n        collect the indices of solutions that need re-evaluation\n        (i.e., `range(len(parents_to_keep), fitness.shape[0])`), split them into\n        consecutive batches of size `self.fitness_batch_size`, and for each batch\n        call the fitness function once:\n          batch_fitness = self.fitness_func(self, batch_solutions, batch_indices)\n        where `batch_solutions` is a 2-D ndarray of the batch rows from\n        `temp_population` and `batch_indices` is the corresponding index array.\n        The returned `batch_fitness` (list / tuple / ndarray) must then be\n        scattered back into the `fitness` array element-by-element.\n\n      The return signature of `adaptive_mutation_population_fitness` does not\n      change: it still returns `(average_fitness, fitness[len(parents_to_keep):])`.\n      The batch splitting logic should mirror the pattern already used in\n      `pygad.py`'s `cal_pop_fitness` (lines 1626–1653).",
+          "acceptance_tests": "tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_2\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_3\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_4\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_5\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_6\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_7\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_8\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_9\n      tests/test_adaptive_mutation.py::test_adaptive_mutation_fitness_batch_size_10\n\n      All nine tests must pass without modifying any test file.\n      The previously passing test `test_adaptive_mutation_fitness_batch_size_1`\n      must continue to pass (regression guard)."
+        },
+        {
+          "id": "2",
+          "location": "1. code/pygad/pygad.py — `GA.__init__`, parameter validation block for\n         `random_mutation_min_val` / `random_mutation_max_val` (lines 294–308).\n      2. code/pygad/utils/mutation.py — `mutation_randomly` method\n         (around lines 250–302), specifically wherever\n         `numpy.random.uniform(low=self.random_mutation_min_val,\n                               high=self.random_mutation_max_val, ...)` is called\n         within a per-gene loop that has a `gene_idx` variable available.",
+          "description": "`GA.__init__` currently rejects any non-numeric value for\n      `random_mutation_min_val` with:\n        \"TypeError: The expected type of the 'random_mutation_min_val' parameter\n         is numeric but &lt;class 'list'&gt; found.\"\n      The test `test_random_mutation_manual_call4` passes a list of 10 values\n      (`[888]*10` / `[999]*10`) to specify per-gene mutation bounds, which is a\n      legitimate use-case the library should support.  Two problems exist:\n        (a) The constructor validation unconditionally rejects list/tuple/ndarray\n            input for these two parameters.\n        (b) The `mutation_randomly` method calls\n            `numpy.random.uniform(low=self.random_mutation_min_val, …)[0]`\n            without indexing into the list by gene, so even if validation were\n            fixed the wrong bound would be used.",
+          "contract": "(a) Constructor validation (`pygad.py`):\n          Accept list, tuple, and numpy.ndarray (in addition to the already-accepted\n          numeric scalars) for both `random_mutation_min_val` and\n          `random_mutation_max_val`.  When a sequence is provided, validate that:\n            • its length equals `num_genes` (when `num_genes` is known at init time), or\n              equals the number of genes inferred from `initial_population`; and\n            • each element is a numeric type in `GA.supported_int_float_types`.\n          If the two parameters are of mixed types (one scalar, one list), raise a\n          `TypeError` with a clear message.  Store the validated values as\n          `self.random_mutation_min_val` and `self.random_mutation_max_val` without\n          further conversion (preserve list/array type for downstream use).\n\n      (b) `mutation_randomly` method (`mutation.py`):\n          Inside the per-gene loop (`for gene_idx in mutation_indices:`), before\n          calling `numpy.random.uniform`, determine the effective lower and upper\n          bounds for the current gene:\n            • If `self.random_mutation_min_val` is a list/tuple/ndarray:\n                min_val = self.random_mutation_min_val[gene_idx]\n                max_val = self.random_mutation_max_val[gene_idx]\n            • Otherwise (scalar):\n                min_val = self.random_mutation_min_val\n                max_val = self.random_mutation_max_val\n          Use these per-gene `min_val` / `max_val` in the `numpy.random.uniform`\n          call and, if `allow_duplicate_genes == False`, also pass them to\n          `solve_duplicate_genes_randomly`.\n\n      Behavioral contract for the test scenario:\n          When `random_mutation_min_val=[888]*10`, `random_mutation_max_val=[999]*10`,\n          and `mutation_by_replacement=True`, every mutated gene value must fall in\n          the half-open interval [888, 999).",
+          "acceptance_tests": "tests/test_crossover_mutation.py::test_random_mutation_manual_call4\n\n      The test must pass end-to-end: `pygad.GA(…)` construction must succeed,\n      `ga_instance.run()` must complete, `random_mutation()` must return values\n      exclusively in `range(888, 999)`.\n      Previously passing `test_crossover_mutation.py` tests must not regress."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 2,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 2,
+      "new_feature": 1,
+      "refactor": 0,
+      "api_change": 2,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_01",
   "evoscore_detail": {
     "m1": 1.0,

@@ -2,6 +2,7 @@
   "task_id": "ebodshojaei__bake__cbb2b0__144d85",
   "repo_name": "EbodShojaei/bake",
   "repo_url": "https://github.com/EbodShojaei/bake.git",
+  "licence": "MIT License",
   "initial_gap": 12,
   "final_gap": 0,
   "num_epochs": 3,
@@ -65,7 +66,67 @@
     "failed": 0,
     "total": 84
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-12-05-21",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "<file>bake/plugins/base.py</file>\n      <scope>FormatResult dataclass</scope>",
+          "description": "The FormatResult dataclass currently has four fields: lines, changed, errors, and\n      warnings. The FinalNewlineRule (requirement 2) needs to communicate check-mode\n      diagnostic messages through the same FormatResult object. Tests access\n      result.check_messages on the value returned by FinalNewlineRule.format(), but\n      this field does not exist, causing AttributeError. This is a prerequisite for\n      requirement 2.",
+          "contract": "Add a fifth field check_messages: list[str] to FormatResult with a default value\n      of an empty list (using field(default_factory=list) so all existing instantiations\n      that omit the argument remain valid). The field must be accessible as an attribute\n      on every FormatResult instance. No other existing field or behavior may change.",
+          "acceptance_tests": "After this change, code that creates FormatResult(lines=..., changed=...,\n      errors=..., warnings=...) without providing check_messages still runs without\n      error and yields result.check_messages == []. Code that passes\n      check_messages=[...] stores and returns those strings correctly."
+        },
+        {
+          "id": "2",
+          "location": "<file>bake/core/rules/final_newline.py</file>\n      <scope>new module — FinalNewlineRule class</scope>",
+          "description": "The module bake.core.rules.final_newline does not exist. Three tests import\n      FinalNewlineRule from it and fail with ModuleNotFoundError:\n        tests/test_bake.py::TestFinalNewlineRule::test_detects_missing_final_newline\n        tests/test_bake.py::TestFinalNewlineRule::test_skips_when_disabled\n        tests/test_bake.py::TestFinalNewlineRule::test_skips_when_original_has_newline",
+          "contract": "Create bake/core/rules/final_newline.py containing FinalNewlineRule, a subclass\n      of FormatterPlugin (from bake.plugins.base), with the following behavioral\n      contract:\n\n      Constructor:\n        FinalNewlineRule() — sets name=\"final_newline\" and an appropriate priority\n        (suggest 70, after DuplicateTargetRule at 60, so it runs last among rules).\n\n      Method signature:\n        format(self, lines: list[str], config: dict,\n               check_mode: bool = False,\n               original_content_ends_with_newline: bool = False) -> FormatResult\n\n      Behavior:\n        1. If config[\"ensure_final_newline\"] is False (or absent/falsy): return\n           FormatResult with changed=False, check_messages=[], errors=[], warnings=[],\n           lines=lines unchanged. The rule is a no-op.\n\n        2. If config[\"ensure_final_newline\"] is True AND\n           original_content_ends_with_newline is True: the original content already\n           ends with a newline; return FormatResult with changed=False,\n           check_messages=[], errors=[], warnings=[], lines=lines unchanged.\n\n        3. If config[\"ensure_final_newline\"] is True AND\n           original_content_ends_with_newline is False: the original content is\n           missing a final newline.\n           - Set changed=True.\n           - If check_mode is True: populate check_messages with exactly one entry.\n             The entry must be a string of the form \"{N}: Error: Missing final newline\"\n             where N is the 1-based index of the last line in lines (i.e., len(lines)).\n             The GNU error prefix (\"N: Error:\") is always used when reporting this\n             message (the rule may consult config.get(\"_global\", {}).get\n             (\"gnu_error_format\", True) for format selection, but all tests that check\n             this message supply gnu_error_format=True).\n           - lines are returned unchanged (the rule reports but does not modify in\n             check mode). In non-check mode, lines may be returned unchanged as well\n             since the newline is appended at the file level by the formatter.\n           - errors and warnings remain empty (diagnostic goes into check_messages).\n\n      Registration (required for integration in requirement 3):\n        Export FinalNewlineRule from bake/core/rules/__init__.py by adding it to the\n        import list and to __all__. This is needed so the formatter can import and\n        instantiate it.",
+          "acceptance_tests": "tests/test_bake.py::TestFinalNewlineRule::test_detects_missing_final_newline\n      tests/test_bake.py::TestFinalNewlineRule::test_skips_when_disabled\n      tests/test_bake.py::TestFinalNewlineRule::test_skips_when_original_has_newline"
+        },
+        {
+          "id": "3",
+          "location": "<file>bake/core/formatter.py</file>\n      <scope>MakefileFormatter.format_lines()</scope>",
+          "description": "MakefileFormatter.format_lines() currently has the signature:\n        format_lines(self, lines, check_only=False) -> tuple[list[str], list[str]]\n      Five tests in tests/test_gnu_error_format.py call it with the keyword argument\n      original_content=... and fail immediately with:\n        TypeError: MakefileFormatter.format_lines() got an unexpected keyword argument\n        'original_content'\n      The original_content string is needed to determine whether the source file ends\n      with a newline, which is required to drive the FinalNewlineRule check.",
+          "contract": "Extend format_lines() to accept an optional third parameter:\n        original_content: str = \"\"\n\n      When original_content is provided (non-empty string):\n        - Compute original_content_ends_with_newline = original_content.endswith(\"\\n\").\n      When original_content is empty string (the default):\n        - Treat original_content_ends_with_newline = True (no missing-newline error\n          reported when caller did not supply original content, preserving backward\n          compatibility).\n\n      After all existing formatting rules have been applied, invoke FinalNewlineRule\n      (imported from bake.core.rules.final_newline) with:\n        - the current formatted_lines\n        - config_dict (already constructed in format_lines)\n        - check_mode=check_only\n        - original_content_ends_with_newline as computed above\n\n      Collect the check_messages from the FinalNewlineRule result and extend\n      all_errors with them. If the rule reports changed=True (missing newline), also\n      update formatted_lines if needed (since FinalNewlineRule does not modify lines\n      directly, the existing final-newline logic in format_file/format() handles\n      actual content appending).\n\n      The returned tuple signature (list[str], list[str]) must not change. The second\n      element of the tuple (all_errors) must include any missing-final-newline\n      check_messages collected from FinalNewlineRule.\n\n      All existing callers of format_lines(lines) and format_lines(lines,\n      check_only=True) must continue to work without modification (original_content\n      defaults to \"\" which is backward-compatible).",
+          "acceptance_tests": "tests/test_gnu_error_format.py::TestGNUErrorFormat::test_final_newline_error_format\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_combined_errors_line_numbers\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_real_world_input_mk_scenario\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_phony_insertion_check_messages\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_phony_detection_check_messages"
+        },
+        {
+          "id": "4",
+          "location": "<file>bake/core/rules/duplicate_targets.py</file>\n      <scope>DuplicateTargetRule.format()</scope>",
+          "description": "DuplicateTargetRule currently has two problems:\n\n      Problem A — Error message format:\n        When a real duplicate target is detected, the rule appends errors in the form:\n          \"Duplicate target '{name}' defined at lines {first} and {second}. Second\n           definition will override the first.\"\n        The formatter's error-processing pipeline in format_lines() applies GNU-format\n        prefixing (\"N: Error:\") only to errors whose first token is a digit (i.e.,\n        errors already prefixed with a line number). Because the duplicate-target\n        message does not start with a digit, it is passed through unformatted. Tests\n        expect the final error to contain \"5: Error: Duplicate target 'default'\" but\n        receive the raw message without the GNU prefix.\n\n      Problem B — False positives inside conditional blocks:\n        Targets that appear in mutually exclusive conditional branches (ifeq/ifneq/\n        else/endif) are flagged as duplicates even though only one branch executes at\n        build time. The fixture tests/fixtures/duplicate_targets_conditional/input.mk\n        defines \"default\" in both branches of an ifneq block and \"build\" and \"test\"\n        similarly inside conditionals. The rule currently flags all of these as\n        duplicates and returns 5 errors, but only the unconditional duplicate \"install\"\n        at the bottom of the file should be reported (expected: 1 error).",
+          "contract": "Fix A — Prefix errors with line number:\n        When appending an error for a duplicate target, emit the message with a\n        line-number prefix so the formatter's existing pipeline can apply consistent\n        GNU/non-GNU formatting. The error string appended to the errors list must\n        begin with \"{second_line_num}: Error: \" followed by the duplicate description.\n        The existing formatter pipeline will then normalise the prefix when gnu_error_\n        format is True or False, so the rule itself does not need to check\n        gnu_error_format. The final error exposed to callers must satisfy:\n          - Contains \"{second_line_num}: Error: Duplicate target '{name}'\"\n          - Contains \"lines {first_line_num} and {second_line_num}\"\n        where line numbers are 1-based.\n\n      Fix B — Conditional block awareness:\n        Track the current conditional nesting depth while iterating through lines.\n        Increment depth on lines that start a conditional directive (ifeq, ifneq,\n        ifdef, ifndef). Decrement depth on lines that start with \"endif\".\n        Do not flag a target as a duplicate if the current definition or the\n        previously seen definition of the same name was encountered inside a\n        conditional block (i.e., at nesting depth > 0 at the time of its definition).\n        Only flag duplicates when both definitions appear at nesting depth == 0 (i.e.,\n        unconditional scope).\n\n      Both fixes must be applied together in DuplicateTargetRule.format(). No other\n      rule, formatter method, or test file may be modified.",
+          "acceptance_tests": "tests/test_gnu_error_format.py::TestGNUErrorFormat::test_duplicate_target_error_format\n        — errors[0] must contain \"5: Error: Duplicate target 'default'\" and\n          \"lines 2 and 5\"\n\n      tests/test_comprehensive.py::TestDuplicateTargetsConditional::test_duplicate_targets_conditional_fixture\n        — exactly 1 duplicate error, and it references \"install\"\n\n      Regression: test_gnu_error_format.py::TestGNUErrorFormat::test_gnu_error_format_disabled\n        — still passes; the error must still contain \"Duplicate target 'default'\" and\n          \"lines 2 and 5\" regardless of gnu_error_format setting (the formatter\n          pipeline handles format selection)"
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-25-12-32-01",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/bake/core/rules/tabs.py — class TabsRule, method format",
+          "description": "The TabsRule.format method incorrectly normalises recipe lines that use\n      space-only indentation to multiple tabs. For example, a line with 8\n      leading spaces is converted to 2 tabs (\\t\\t) when using the default\n      tab_width=4, because the formula `num_tabs = max(1, total_spaces //\n      tab_width)` maps every 4 spaces to one additional tab level. In\n      Makefile syntax, however, the leading whitespace of a recipe line\n      carries no semantic nesting information — any recipe line regardless of\n      how many spaces prefix it must start with exactly one tab. The current\n      behaviour produces output that diverges from the expected fixtures in\n      both `tests/fixtures/edge_cases_and_quirks/expected.mk` (index 27,\n      '\\t\\tcp $&lt; $@' vs expected '\\tcp $&lt; $@') and\n      `tests/fixtures/comments_and_documentation/expected.mk` (index 40,\n      '\\t\\tcp main /usr/local/bin/#Copy binary' vs expected '\\tcp main\n      /usr/local/bin/#Copy binary').",
+          "contract": "When formatting a recipe line whose original indentation consists\n      entirely of spaces (no tab characters), the rule MUST replace all\n      leading spaces with exactly one tab (\\t), regardless of the number of\n      spaces present.\n\n      When the original indentation already contains one or more tab\n      characters (with or without additional leading spaces), the existing\n      logic for preserving relative tab-based indentation may be retained as\n      long as it continues to pass the currently-passing tests.\n\n      Post-condition: every recipe line emitted by TabsRule begins with\n      exactly the correct number of tabs determined by the original\n      tab-character indentation, and never accumulates extra tabs due to the\n      presence of leading spaces alone.\n\n      The tab_width config value must not influence the number of tabs\n      produced for space-only-indented recipe lines; it may still be used for\n      other purposes (e.g. remaining-spaces calculation when mixing tabs and\n      spaces).",
+          "acceptance_tests": "tests/test_comprehensive.py::TestEdgeCasesAndQuirks::test_edge_cases_and_quirks_fixture\n      tests/test_comprehensive.py::TestCommentsAndDocumentation::test_comments_and_documentation_fixture\n\n      Additionally, all tests that were passing before this change must\n      continue to pass (no regression)."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 4
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_06",
   "evoscore_detail": {
     "m1": 0.9917,

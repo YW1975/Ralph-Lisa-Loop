@@ -2,6 +2,7 @@
   "task_id": "almarklein__timetagger__f48db7__4899dd",
   "repo_name": "almarklein/timetagger",
   "repo_url": "https://github.com/almarklein/timetagger.git",
+  "licence": "GNU General Public License v3.0",
   "initial_gap": 14,
   "final_gap": 0,
   "num_epochs": 2,
@@ -51,7 +52,55 @@
     "failed": 1,
     "total": 43
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-08-40-29",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/timetagger/_config.py — class Config, Config._ITEMS, set_config support",
+          "description": "The Config class is missing two configuration fields: `path_prefix` and `app_redirect`.\n      Any access to `config.path_prefix` or `config.app_redirect` currently raises\n      AttributeError because neither field exists in Config._ITEMS or Config.__slots__.\n      This is a base-level defect that causes 9 non-passed tests to fail immediately.",
+          "contract": "1. Add `path_prefix` to Config._ITEMS with type `str` and default value `\"/timetagger/\"`.\n         The stored value must always be a normalized path:\n         - Always starts with `/`.\n         - Always ends with `/`, UNLESS the entire path is exactly `/`.\n         - Examples of normalization: `\"custom\"` → `\"/custom/\"`, `\"/custom\"` → `\"/custom/\"`,\n           `\"custom/\"` → `\"/custom/\"`, `\"/custom/\"` → `\"/custom/\"`,\n           `\"custom/path\"` → `\"/custom/path/\"`, `\"/\"` → `\"/\"`.\n         The normalization must be applied both when loading from CLI argv\n         (`--path_prefix=VALUE`) and from the environment variable\n         `TIMETAGGER_PATH_PREFIX`.\n\n      2. Add `app_redirect` to Config._ITEMS with type `bool` (using the existing `to_bool`\n         converter) and default value `False`. It is set via `--app_redirect=VALUE` and\n         `TIMETAGGER_APP_REDIRECT`. Truthy string values (true, yes, on, 1) must produce\n         `True`; falsy values (false, no, off, 0) must produce `False`.\n\n      3. Both new fields must appear in Config.__slots__ so that attribute access works.\n\n      4. After `set_config([], {})`, `config.path_prefix == \"/timetagger/\"` and\n         `config.app_redirect is False`.",
+          "acceptance_tests": "tests/test_config.py::test_config — specifically the \"Test path_prefix configuration\"\n      block (lines 53–69) and the \"Test app_redirect configuration\" block (lines 71–89)."
+        },
+        {
+          "id": "2",
+          "location": "code/timetagger/__main__.py — async function main_handler",
+          "description": "The `main_handler` function is hardcoded to route all traffic under the path\n      `/timetagger/`. It does not read `config.path_prefix` or `config.app_redirect` at\n      request time, so changing the config has no effect on routing. All mainhandler tests\n      fail as a result.",
+          "contract": "The `main_handler` must read `config.path_prefix` and `config.app_redirect`\n      dynamically for every incoming request (or at least be re-created when the config\n      changes, as the tests forcibly delete the cached module and reimport it).\n\n      Routing rules, given a prefix P = config.path_prefix:\n\n      1. Request path is `\"/\"`:\n         - If `config.app_redirect` is True → 307 redirect to `P + \"app/\"`.\n           (Exception: if P is `\"/\"`, redirect to `\"/app/\"`, not `\"//app/\"`)\n         - If `config.app_redirect` is False and P != `\"/\"` → 307 redirect to P.\n         - If `config.app_redirect` is False and P == `\"/\"` → implementation-defined\n           (known edge case, not required to redirect; serving web assets is acceptable).\n\n      2. Request path starts with P:\n         - `P + \"status\"` (exact) → 200 `\"ok\"`.\n         - Path starts with `P + \"api/v2/\"` → strip the `P + \"api/v2/\"` prefix, pass\n           remaining sub-path to `api_handler`.\n         - Path starts with `P + \"app/\"` → strip the `P + \"app/\"` prefix, pass remaining\n           sub-path to `app_asset_handler`.\n         - Any other path under P → strip the P prefix, pass remaining sub-path to\n           `web_asset_handler`.\n\n      3. Request path does not start with P and is not `\"/\"`:\n         → 404, body contains the text `\"only serving at \" + P`.\n\n      The path arithmetic for stripping the prefix must correctly handle any valid P value\n      (including `\"/\"`), avoiding double slashes or off-by-one errors.",
+          "acceptance_tests": "tests/test_server_mainhandler.py::test_path_prefix_default\n      tests/test_server_mainhandler.py::test_path_prefix_custom\n      tests/test_server_mainhandler.py::test_path_prefix_root\n      tests/test_server_mainhandler.py::test_path_prefix_normalization\n      tests/test_server_mainhandler.py::test_app_redirect_default_prefix\n      tests/test_server_mainhandler.py::test_app_redirect_custom_prefix\n      tests/test_server_mainhandler.py::test_app_redirect_root_prefix\n      tests/test_server_mainhandler.py::test_combined_features"
+        },
+        {
+          "id": "3",
+          "location": "code/timetagger/server/_apiserver.py — async function get_records",
+          "description": "The `get_records` function only supports a `timerange` query parameter. Three new\n      optional filter parameters are expected — `running`, `hidden`, and `tag` — but they\n      are entirely absent from the implementation. Four tests that exercise these filters\n      currently all fail because the filtering is silently ignored and all records are\n      returned.",
+          "contract": "After collecting records from the database (using the existing timerange query),\n      apply the following post-fetch filters if the corresponding query parameters are\n      present and non-empty:\n\n      `running` parameter (optional, string):\n        - A record is \"running\" when its `t1` field equals its `t2` field.\n        - If the parameter value is truthy (case-insensitive: true, yes, on, 1, y, or any\n          other non-falsy string) → keep only records where `t1 == t2`.\n        - If the parameter value is falsy (case-insensitive: false, no, off, 0, n) →\n          keep only records where `t1 != t2`.\n        - If the parameter is absent or empty string → no filter applied.\n        - Any unrecognised value (not in the falsy list) is treated as truthy.\n\n      `hidden` parameter (optional, string):\n        - A record is \"hidden\" when its `ds` field starts with the literal string\n          `\"HIDDEN \"` (uppercase, followed by a space).\n        - Same truthy/falsy/absent semantics as the `running` parameter.\n        - Truthy → keep only records where `ds.startswith(\"HIDDEN \")`.\n        - Falsy → keep only records where `not ds.startswith(\"HIDDEN \")`.\n        - Absent or empty → no filter applied.\n\n      `tag` parameter (optional, string):\n        - Value is a comma-separated list of tag names (without the leading `#`).\n          e.g., `tag=work,urgent` means filter by both `#work` AND `#urgent`.\n        - A record matches a tag when the tag name (prefixed with `#`) appears as a\n          whole token in the `ds` field (i.e., `#tagname` is present in `ds`).\n          Matching must not conflate `#work` with `#workplace`; only exact tag tokens\n          should match.\n        - When multiple tags are given, a record must contain ALL of them (AND logic).\n        - If the parameter is absent or empty → no filter applied.\n\n      Filters are independent and may be combined: a record must satisfy all present\n      filters to be included in the result.\n\n      The response structure remains `{\"records\": [...]}` with HTTP 200.",
+          "acceptance_tests": "tests/test_server_apiserver.py::test_records_get_running_filter\n      tests/test_server_apiserver.py::test_records_get_hidden_filter\n      tests/test_server_apiserver.py::test_records_get_tag_filter\n      tests/test_server_apiserver.py::test_records_get_combined_filters"
+        },
+        {
+          "id": "4",
+          "location": "code/timetagger/server/_apiserver.py — async function api_handler_triage",
+          "description": "The `api_handler_triage` function does not handle the path `\"version\"`. Any GET\n      request to `/api/v2/version` falls through to the catch-all `else` branch and\n      returns 404 `\"not found: /version is not a valid API path\"`.",
+          "contract": "Add a `version` endpoint to `api_handler_triage`:\n      - Path: `\"version\"` (exact match, i.e., `path == \"version\"`).\n      - Allowed method: GET only. PUT and POST must return 405 with an appropriate\n        \"method not allowed\" message.\n      - GET response: HTTP 200, JSON body `{\"version\": &lt;timetagger.__version__&gt;}` where\n        the value is the string from `timetagger.__version__`.\n      - No authentication is required for this endpoint (it is publicly accessible, like\n        the root endpoint).\n      - The response body must be JSON-serialisable and the key must be exactly\n        `\"version\"`.",
+          "acceptance_tests": "tests/test_server_apiserver.py::test_version"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 4,
+    "primary_category": "new_feature",
+    "categories": {
+      "bug_fix": 3,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 4,
+      "test_fix": 0,
+      "config": 3
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_02",
   "evoscore_detail": {
     "m1": 1.0,

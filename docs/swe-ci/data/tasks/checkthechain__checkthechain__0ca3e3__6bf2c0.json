@@ -2,6 +2,7 @@
   "task_id": "checkthechain__checkthechain__0ca3e3__6bf2c0",
   "repo_name": "checkthechain/checkthechain",
   "repo_url": "https://github.com/checkthechain/checkthechain.git",
+  "licence": "MIT License",
   "initial_gap": 13,
   "final_gap": 0,
   "num_epochs": 3,
@@ -81,7 +82,95 @@
     "failed": 129,
     "total": 827
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-04-45-14",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/ctc/protocols/yearn_utils/yearn_spec.py\n      (file does not exist yet; must be created as a new module within the yearn_utils package)",
+          "description": "The file src/ctc/protocols/yearn_utils/__init__.py line 2 contains `from .yearn_spec import *`,\n      but the module `ctc.protocols.yearn_utils.yearn_spec` does not exist. This causes a\n      ModuleNotFoundError whenever any code attempts to import `ctc.protocols.yearn_utils` (or any\n      submodule of yearn_utils), which is the root blocker for all failing tests.",
+          "contract": "- The file must exist at `src/ctc/protocols/yearn_utils/yearn_spec.py`.\n      - It must begin with `from __future__ import annotations` (required by the project-wide\n        `test_code_imports_future_annotations` convention).\n      - It must be importable without errors; i.e., all symbols it references must be available.\n      - It may expose zero or more public symbols via its module namespace (star-export via `__all__`\n        is acceptable). At minimum, an empty-but-valid module satisfies this contract.\n      - It must not introduce any new import-time side effects that could break existing tests.",
+          "acceptance_tests": "- tests/ctc/test_code.py::test_function_names\n      - tests/ctc/test_code.py::test_max_positional_args\n      - `import ctc.protocols.yearn_utils` succeeds without ModuleNotFoundError."
+        },
+        {
+          "id": "2",
+          "location": "src/ctc/protocols/yearn_utils/cli/yearn_command.py\n      (file does not exist yet; must be created under the existing cli/ sub-package)",
+          "description": "Tests parametrized over `cli_run.command_index.values()` reference the module path\n      `ctc.protocols.yearn_utils.cli.yearn_command`, but this module does not exist and is not\n      registered in the command index. Consequently the corresponding parametrized test cases are\n      never collected, even though they are expected to pass.",
+          "contract": "- The file must exist at `src/ctc/protocols/yearn_utils/cli/yearn_command.py`.\n      - It must begin with `from __future__ import annotations`.\n      - It must expose a `get_command_spec()` function that returns a `toolcli.CommandSpec` dict.\n      - The returned spec must include:\n          * `'f'`: the async command handler function.\n          * `'help'`: a non-None, non-empty string describing the command purpose.\n          * `'examples'`: a non-None, non-empty list or dict of usage examples.\n          * `'args'` (optional): a list of arg-spec dicts. Each arg-spec dict must have a `'help'`\n            key with a non-None value. Long option names (starting with `--`) must use dashes, not\n            underscores (e.g. `--min-tvl` is correct; `--min_tvl` is not). If a `--verbose` option\n            is included, its `'name'` must be the list `['--verbose', '-v']` (both forms together),\n            not the single string `'--verbose'`.\n          * All keys in the returned dict must be valid keys of `toolcli.CommandSpec`.\n      - The async handler function must accept its parameters as keyword-only arguments.",
+          "acceptance_tests": "- tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_spec[ctc.protocols.yearn_utils.cli.yearn_command]\n      - tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_help[ctc.protocols.yearn_utils.cli.yearn_command]\n      - tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_examples[ctc.protocols.yearn_utils.cli.yearn_command]\n      - tests/ctc/cli/test_cli_args.py::test_subcommand_options_use_dashes_not_underscores[ctc.protocols.yearn_utils.cli.yearn_command]\n      - tests/ctc/cli/test_cli_args.py::test_subcommands_verbose_can_use_single_v[ctc.protocols.yearn_utils.cli.yearn_command]"
+        },
+        {
+          "id": "3",
+          "location": "src/ctc/protocols/yearn_utils/cli/yearn_addresses_command.py\n      (file does not exist yet; must be created under the existing cli/ sub-package)",
+          "description": "Tests parametrized over `cli_run.command_index.values()` also reference\n      `ctc.protocols.yearn_utils.cli.yearn_addresses_command`, which does not exist and is not\n      registered in the command index. The corresponding parametrized test cases are never collected,\n      even though they are expected to pass.",
+          "contract": "- The file must exist at `src/ctc/protocols/yearn_utils/cli/yearn_addresses_command.py`.\n      - It must begin with `from __future__ import annotations`.\n      - It must expose a `get_command_spec()` function that returns a `toolcli.CommandSpec` dict.\n      - The returned spec must meet the same structural requirements as in Requirement 2:\n          * `'f'`: the async command handler.\n          * `'help'`: a non-None, non-empty string.\n          * `'examples'`: a non-None, non-empty list or dict.\n          * `'args'` (if present): each entry has a non-None `'help'`; long options use dashes;\n            if `--verbose` is present its name must be `['--verbose', '-v']`.\n          * All keys must be valid `toolcli.CommandSpec` keys.\n      - The command's purpose is to display yearn-related contract addresses.",
+          "acceptance_tests": "- tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_spec[ctc.protocols.yearn_utils.cli.yearn_addresses_command]\n      - tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_help[ctc.protocols.yearn_utils.cli.yearn_addresses_command]\n      - tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_examples[ctc.protocols.yearn_utils.cli.yearn_addresses_command]\n      - tests/ctc/cli/test_cli_args.py::test_subcommand_options_use_dashes_not_underscores[ctc.protocols.yearn_utils.cli.yearn_addresses_command]\n      - tests/ctc/cli/test_cli_args.py::test_subcommands_verbose_can_use_single_v[ctc.protocols.yearn_utils.cli.yearn_addresses_command]"
+        },
+        {
+          "id": "4",
+          "location": "src/ctc/cli/cli_run.py — `command_index_by_category` dict, `'protocol'` sub-dict\n      (existing file; modify the protocol command index entries for yearn)",
+          "description": "The `command_index_by_category['protocol']` dict currently maps `('yearn',)` to\n      `'ctc.protocols.yearn_utils.cli.yearn_pools_command'`. The new `yearn_command` and\n      `yearn_addresses_command` modules (created in Requirements 2 and 3) must be registered here\n      so that they appear in `cli_run.command_index.values()`. Without registration, the\n      parametrized CLI tests will never collect test cases for these modules.\n      Additionally, `test_subcommand_examples[subcommand_spec88]` depends on the resulting\n      parametrization index matching the expected item (the yearn subcommand entry).",
+          "contract": "- The `('yearn',)` key must be re-mapped from `yearn_pools_command` to\n        `'ctc.protocols.yearn_utils.cli.yearn_command'`.\n      - A new entry `('yearn', 'addresses')` must be added, mapped to\n        `'ctc.protocols.yearn_utils.cli.yearn_addresses_command'`.\n      - The existing `yearn_pools_command` module may remain as an additional entry under a\n        different subcommand tuple (e.g., `('yearn', 'pools')`), or may be removed, depending on\n        whether other tests rely on it — confirm by checking that no currently-passing test\n        references the `yearn_pools_command` path directly by name before removing it.\n      - All other entries in `command_index_by_category` must remain unchanged.",
+          "acceptance_tests": "- All parametrized test cases for `ctc.protocols.yearn_utils.cli.yearn_command` and\n        `ctc.protocols.yearn_utils.cli.yearn_addresses_command` are collected (i.e., these module\n        paths appear in `cli_run.command_index.values()`).\n      - tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[subcommand_spec88]\n      - No previously-passing CLI tests regress due to the change."
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-25-05-32-12",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/ctc/protocols/yearn_utils/yearn_spec.py\n      Module scope (top-level TypedDict definitions)",
+          "description": "The file currently contains only a bare `from __future__ import annotations`\n      import and no type definitions. The downstream modules (yearn_web_api.py,\n      yearn_vaults.py) need a concrete typed structure for Yearn vault API\n      responses. Without this, type contracts for the API layer cannot be\n      established and the refactored web API module cannot import `ApiVault`.",
+          "contract": "Define a `TypedDict` named `ApiVault` (under `if typing.TYPE_CHECKING`)\n      that captures the fields returned by the Yearn Finance v1 vaults API.\n      Required fields include at minimum:\n        - address: str\n        - inception: int\n        - symbol: str\n        - name: str\n        - display_name: str\n        - icon: str\n        - token: Mapping[str, Any]  (contains name, symbol, address, decimals, display_name, icon)\n        - tvl: Mapping[str, Any]    (contains total_assets, price, tvl)\n        - apy: Mapping[str, Any]    (contains type, gross_apr, net_apy, fees, points, composite)\n        - strategies: Sequence[Mapping[str, str]]  (each with address and name)\n        - endorsed: bool\n        - version: str\n        - decimals: int\n        - type: str\n        - emergency_shutdown: bool\n        - updated: int\n      The module must import `typing` and `from ctc import spec` as needed.",
+          "acceptance_tests": "`from ctc.protocols.yearn_utils.yearn_spec import ApiVault` succeeds without error.\n      The `ApiVault` TypedDict is accessible at runtime (under TYPE_CHECKING guard is acceptable)."
+        },
+        {
+          "id": "2",
+          "location": "code/src/ctc/protocols/yearn_utils/yearn_web_api.py\n      Functions: async_get_yearn_api_vaults, async_get_yearn_api_vault\n      (replacing: async_request_yearn_api_v1_data)",
+          "description": "The current module exposes a single function `async_request_yearn_api_v1_data()`\n      that hardcodes chain_id 1 and returns an untyped sequence. This function\n      lacks network parameterization and does not support vault lookup by query.\n      The module needs to be refactored to expose two network-aware functions:\n      one for fetching all vaults for a given network, and one for looking up\n      a specific vault by address, name, or symbol.",
+          "contract": "1. Replace `async_request_yearn_api_v1_data()` with:\n         `async_get_yearn_api_vaults(network: spec.NetworkReference) -> Sequence[ApiVault]`\n         - Resolves the `network` argument to a chain_id via `evm.get_network_chain_id(network)`\n         - Builds the URL by formatting the endpoint template\n           `'https://api.yearn.finance/v1/chains/{chain_id}/vaults/all'`\n           with the resolved chain_id\n         - Fetches and returns the JSON response as a typed sequence of ApiVault\n\n      2. Add:\n         `async_get_yearn_api_vault(query: str, network: spec.NetworkReference, *, api_vaults: Sequence[Any] | None = None) -> ApiVault`\n         - If `api_vaults` is None, fetches them via `async_get_yearn_api_vaults(network)`\n         - Matches `query` (case-insensitive) in this priority order:\n             a. Exact match on vault `address` (when `evm.is_address_str(query)` is True)\n             b. Exact match on vault `name`\n             c. Exact match on vault `symbol` (if multiple match, return the one that sorts last by name)\n         - Raises `Exception('vault could not be found')` if no match found\n\n      The module must import `from ctc import evm`, `from ctc import spec`, and\n      `from . import yearn_spec`.",
+          "acceptance_tests": "- `from ctc.protocols.yearn_utils import yearn_web_api` imports without error.\n      - `yearn_web_api.async_get_yearn_api_vaults` and\n        `yearn_web_api.async_get_yearn_api_vault` are callable.\n      - `async_request_yearn_api_v1_data` is removed (callers should be updated separately)."
+        },
+        {
+          "id": "3",
+          "location": "code/src/ctc/protocols/yearn_utils/yearn_vaults.py  (new file)\n      Functions: async_summarize_vaults, async_summarize_vault",
+          "description": "The current `yearn_pools.py` provides `async_summarize_pools()` which calls\n      the deprecated `async_request_yearn_api_v1_data()` and has no network parameter.\n      A new `yearn_vaults.py` module is needed that uses the updated `yearn_web_api`\n      functions and accepts a `network` parameter, enabling support for multiple chains.",
+          "contract": "Create `code/src/ctc/protocols/yearn_utils/yearn_vaults.py` containing:\n\n      1. `async_summarize_vaults(*, network: spec.NetworkReference, sort_by: str | None = None, min_tvl: int | float | None = None, min_apy: int | float | None = None, min_apr: int | float | None = None, n: int | None = 20, verbose: bool = False) -> None`\n         - Calls `yearn_web_api.async_get_yearn_api_vaults(network=network)` to fetch vault data\n         - Filters vaults by min_tvl, min_apy, min_apr when those arguments are provided\n         - Default sort_by is `'gross APR'`\n         - Builds a table with columns: name, TVL, net APY, gross APR (plus address when verbose=True)\n         - Sorts rows by sort_by column descending\n         - Clips to top `n` rows when n is set, appending a `...` row if clipped\n         - Appends a blank row and a TOTAL row showing summed TVL\n         - Prints a text box \"Yearn Pool Summary\", a data source comment, optional filter summary,\n           and the formatted table using toolstr utilities\n\n      2. `async_summarize_vault(query: str, network: spec.NetworkReference, *, verbose: bool = False, show_harvests: int | bool | None = None) -> None`\n         - Calls `yearn_web_api.async_get_yearn_api_vault(query, network=network)` to fetch one vault\n         - Displays vault address info, metadata (name, symbol, version, type, decimals, inception age),\n           vault state (TVL, gross APR, net APY), and optionally fee info (when verbose=True)\n         - When show_harvests is not None/False, displays a recent harvests table via\n           yearn_strategies.async_get_harvests (handle exceptions gracefully if unavailable)\n\n      Both functions use `cli_run.get_cli_styles()` for styling.",
+          "acceptance_tests": "- `from ctc.protocols.yearn_utils import yearn_vaults` imports without error.\n      - `yearn_vaults.async_summarize_vaults` and `yearn_vaults.async_summarize_vault`\n        are callable attributes of the module."
+        },
+        {
+          "id": "4",
+          "location": "code/src/ctc/protocols/yearn_utils/cli/yearn_command.py\n      Function: get_command_spec, async_yearn_vaults_command",
+          "description": "The current `yearn_command.py` defines a minimal command (`async_yearn_command`)\n      that calls `async_summarize_pools()` with no parameters and provides only two\n      examples (`''`, `'--verbose'`). It does not support vault-specific queries or\n      network parameterization. It must be updated to become the primary entry point\n      for both the pool listing view and individual vault inspection, replacing the\n      now-removed `yearn_pools_command`.",
+          "contract": "Update `yearn_command.py` to:\n\n      1. Define command spec with help `'display summary of Yearn vaults'` and these args:\n         - `query` (positional, nargs='?'): address or name of vault to show details of\n         - `--sort`: vault field to sort by\n         - `-n` (int, default 20): number of vaults to display\n         - `--min-apy` (float): filter by minimum APY\n         - `--min-apr` (float): filter by minimum APR\n         - `--min-tvl` (float): filter by minimum TVL\n         - `-v` / `--verbose` (store_true): output additional information\n         - `--harvests` (store_true): show harvests when viewing individual vault\n         Examples must include at minimum: `''`, `'--min-tvl 1000000'`, `'--sort TVL'`\n\n      2. Implement `async_yearn_vaults_command(*, query, sort, n, min_apy, min_apr, min_tvl, verbose, harvests) -> None`:\n         - When `query` is not None: call `yearn_utils.async_summarize_vault(query=query, verbose=verbose, network='mainnet', show_harvests=harvests)`\n         - When `query` is None: call `yearn_utils.async_summarize_vaults(sort_by=sort, min_tvl=min_tvl, min_apy=min_apy, min_apr=min_apr, n=n, verbose=verbose, network='mainnet')`",
+          "acceptance_tests": "- `python -m ctc yearn` (empty example) exits with code 0.\n      - The `get_command_spec()` for `('yearn',)` contains both `help` and `examples` fields."
+        },
+        {
+          "id": "5",
+          "location": "code/src/ctc/cli/cli_run.py\n      Section: `command_index_by_category['protocol']` dictionary",
+          "description": "The `('yearn', 'pools')` entry in `command_index_by_category['protocol']`\n      maps to `'ctc.protocols.yearn_utils.cli.yearn_pools_command'`. Running\n      `python -m ctc yearn pools` executes the example from that command spec,\n      which calls `async_request_yearn_api_v1_data()` — a function making an\n      SSL connection to `api.yearn.finance` that fails in the test environment,\n      causing exit code 1 and test failure. The `yearn pools` sub-command is\n      superseded by the updated `yearn_command` which covers all vault listing\n      and querying functionality.",
+          "contract": "Remove the entry `('yearn', 'pools'): 'ctc.protocols.yearn_utils.cli.yearn_pools_command'`\n      from the `'protocol'` sub-dictionary inside `command_index_by_category` in\n      `cli_run.py`. No other entries in the dictionary should be modified.\n\n      Additionally, update `__init__.py` in `yearn_utils` package to export from\n      the new `yearn_vaults` module instead of (or in addition to) the old\n      `yearn_pools` module, ensuring `yearn_utils.async_summarize_vaults` and\n      `yearn_utils.async_summarize_vault` are accessible at the package level.",
+          "acceptance_tests": "- `tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[subcommand_spec87]`\n        no longer exists as a test case (because `('yearn', 'pools')` is absent from\n        `command_index`), OR all previously-passing `test_subcommand_examples` tests\n        continue to pass.\n      - `python -m ctc yearn` executes without import errors.\n      - `('yearn', 'pools')` is no longer a key in `cli_run.command_index`."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 9,
+    "primary_category": "new_feature",
+    "categories": {
+      "bug_fix": 4,
+      "new_feature": 8,
+      "refactor": 6,
+      "api_change": 7,
+      "test_fix": 0,
+      "config": 4
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_04",
   "evoscore_detail": {
     "m1": 1.0,

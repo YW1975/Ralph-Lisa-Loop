@@ -2,6 +2,7 @@
   "task_id": "ebodshojaei__bake__8de354__a3736b",
   "repo_name": "EbodShojaei/bake",
   "repo_url": "https://github.com/EbodShojaei/bake.git",
+  "licence": "MIT License",
   "initial_gap": 12,
   "final_gap": 0,
   "num_epochs": 2,
@@ -51,7 +52,62 @@
     "failed": 0,
     "total": 173
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-11-49-44",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/mbake/core/rules/continuation.py — ContinuationRule._format_continuation_block",
+          "description": "The method currently preserves the original indentation of every line in a\n      continuation block, including lines at index 2 and beyond that diverge from the\n      indentation established by the second line (index 1). This causes inconsistent\n      indentation in multi-line variable assignments and recipe continuations. For\n      example, a block whose second line uses 4 spaces will leave a third line that has\n      8 spaces or a tab unchanged, producing output that does not match the expected\n      normalized form.\n\n      The last line of the block (no trailing backslash, at line 89 in the current\n      implementation) is explicitly left un-normalized with the comment \"preserve\n      original indentation\". It must also be normalized.",
+          "contract": "_format_continuation_block(lines) must normalize the indentation of all lines\n      from index 2 onwards (including the final line without a trailing backslash) to\n      match exactly the leading whitespace of the line at index 1 (the first\n      continuation line, i.e. the second line of the block). The line at index 0 (the\n      opening line) and the line at index 1 are left unchanged. If the first\n      continuation line (index 1) begins with tabs, all subsequent lines must use those\n      same tabs; if it begins with spaces, all subsequent lines must use those same\n      spaces. The rest of each line's content (after the leading whitespace) must be\n      preserved exactly.",
+          "acceptance_tests": "tests/test_comprehensive.py::TestVariableAssignments::test_variable_assignments_fixture\n      tests/test_comprehensive.py::TestLineContinuations::test_line_continuations_fixture\n      tests/test_comprehensive.py::TestMultilineVariables::test_multiline_variables_fixture\n      tests/test_comprehensive.py::TestFunctionCalls::test_function_calls_fixture\n      tests/test_comprehensive.py::TestComplexFormatting::test_complex_fixture"
+        },
+        {
+          "id": "2",
+          "location": "code/mbake/core/rules/duplicate_targets.py — DuplicateTargetRule._format_error_message\n      code/mbake/core/formatter.py — MakefileFormatter.format_lines (error collection loop)",
+          "description": "Two coupled bugs produce a wrong error format for duplicate-target errors:\n\n      (a) DuplicateTargetRule._format_error_message reads the GNU-format flag from the\n          top-level key config[\"gnu_error_format\"], but the config dict passed to rules\n          stores it under config[\"_global\"][\"gnu_error_format\"]. When GNU format is\n          active the rule therefore always falls into the else-branch and emits\n          \"Line {N}: ...\" instead of the GNU form.\n\n      (b) formatter.py re-wraps every rule error through _format_error(..., line_num=0,\n          ...) after the rule has already applied its own formatting. This double-wrap\n          prepends \"0: Error: \" to the already-formatted string, producing output such\n          as \"0: Error: Line 5: Duplicate target ...\" instead of\n          \"5: Error: Duplicate target ...\".",
+          "contract": "(a) DuplicateTargetRule._format_error_message must read the GNU-format flag as\n          config.get(\"_global\", {}).get(\"gnu_error_format\", False).\n          When True, the method must return a string of the form:\n            \"{line_num}: Error: Duplicate target '{name}' defined at lines {prev} and {line_num}. Second definition will override the first.\"\n          When False, the method must return a string that contains the same detail\n          without the leading \"{line_num}: Error:\" GNU prefix (existing non-GNU wording\n          is acceptable provided it contains the target name and both line numbers).\n\n      (b) format_lines must not re-wrap errors that are already emitted by rules with\n          their own formatting. The call to self._format_error(error, 0, config_dict)\n          inside the error-collection loop must be removed; rule errors must be appended\n          to all_errors directly.",
+          "acceptance_tests": "tests/test_gnu_error_format.py::TestGNUErrorFormat::test_duplicate_target_error_format\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_combined_errors_line_numbers\n      tests/test_gnu_error_format.py::TestGNUErrorFormat::test_real_world_input_mk_scenario"
+        },
+        {
+          "id": "3",
+          "location": "code/mbake/core/formatter.py — MakefileFormatter.format_file",
+          "description": "format_file currently returns a 2-tuple (changed: bool, errors: list[str]).\n      Tests unpack three values: changed, errors, warnings = formatter.format_file(...).\n      Attempting to unpack three values from a 2-tuple raises\n      \"ValueError: not enough values to unpack (expected 3, got 2)\".\n\n      There are multiple return sites inside format_file that all need updating:\n      the early-exit on missing file (line ~105), the check_only early return\n      (line ~155), the normal return (line ~168), and the exception handler\n      return (line ~173).",
+          "contract": "format_file(file_path, check_only=False) must return a 3-tuple:\n        (changed: bool, errors: list[str], warnings: list[str])\n      All four return sites inside the method must be updated to include the\n      warnings list as the third element. The warnings list must be populated\n      from the warnings collected by format_lines (which already returns them\n      as its third element).",
+          "acceptance_tests": "tests/test_bake.py::TestMakefileFormatter::test_check_only_mode\n      tests/test_bake.py::TestMakefileFormatter::test_handles_file_formatting"
+        },
+        {
+          "id": "4",
+          "location": "code/mbake/core/rules/final_newline.py — FinalNewlineRule.format",
+          "description": "The rule has two bugs when generating check messages for a missing final newline:\n\n      (a) It reads the GNU-format flag from config.get(\"gnu_error_format\", False),\n          but the config dict stores this flag under config[\"_global\"][\"gnu_error_format\"].\n          As a result the GNU branch is never reached during normal formatter use and\n          the \"Makefile:{N}: Error: ...\" form is never produced through the correct path.\n\n      (b) The expected message format (as asserted by tests) is\n          \"{line_count}: Warning: Missing final newline\", using severity \"Warning\" and\n          no \"Makefile:\" file-name prefix. The current code emits \"Error\" (not\n          \"Warning\") and includes \"Makefile:\" in the GNU branch.",
+          "contract": "When check_mode is True and the file is missing a final newline, format must\n      append exactly one entry to check_messages. The entry must have the form:\n        \"{line_count}: Warning: Missing final newline\"\n      where line_count is len(formatted_lines), regardless of whether GNU format is\n      enabled or not. The severity must be \"Warning\", not \"Error\". The \"Makefile:\"\n      file-name prefix must not appear. The flag must be read from\n      config.get(\"_global\", {}).get(\"gnu_error_format\", False).",
+          "acceptance_tests": "tests/test_bake.py::TestFinalNewlineRule::test_detects_missing_final_newline"
+        },
+        {
+          "id": "5",
+          "location": "code/mbake/core/rules/phony.py — PhonyRule.format",
+          "description": "When consolidating multiple .PHONY declarations into a single declaration, the\n      rule collects targets into a Python set() and then calls sorted() on it\n      (line ~54: \"sorted_targets = sorted(phony_targets)\"). This produces alphabetical\n      order. The test requires that the consolidated .PHONY declaration preserves the\n      order in which targets first appear in the file (declaration order), not\n      alphabetical order.",
+          "contract": "The consolidated .PHONY line must list targets in the order of their first\n      appearance across all .PHONY lines and target definitions encountered while\n      iterating lines top-to-bottom. Duplicate targets must be deduplicated (each\n      target appears only once), keeping the first occurrence. The implementation\n      must NOT sort the collected targets.",
+          "acceptance_tests": "tests/test_auto_phony_insertion.py::TestAutoPhonyInsertion::test_consolidate_multiple_phony_declarations"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 3,
+      "new_feature": 3,
+      "refactor": 1,
+      "api_change": 3,
+      "test_fix": 0,
+      "config": 2
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_06",
   "evoscore_detail": {
     "m1": 1.0,

@@ -2,6 +2,7 @@
   "task_id": "dbrattli__expression__8a6e63__3981fd",
   "repo_name": "dbrattli/Expression",
   "repo_url": "https://github.com/dbrattli/Expression.git",
+  "licence": "MIT License",
   "initial_gap": 43,
   "final_gap": 0,
   "num_epochs": 2,
@@ -47,7 +48,62 @@
     "failed": 0,
     "total": 470
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-11-16-03",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "expression/core/result.py — Result class;\n      expression/core/option.py — Option class",
+          "description": "The Result and Option types currently lack __await__ methods.\n      Tests for async builders use constructs such as `yield await Ok(42)`,\n      `yield await Error(\"err\")`, and `yield await Nothing`. Without\n      __await__, these expressions raise TypeError at runtime, making all\n      async builder tests that use await-based unwrapping fail.\n      This is a prerequisite for requirements 2 and 3.",
+          "contract": "Result.__await__ must implement the coroutine protocol (return a\n      generator-based iterator usable by `await`):\n        - For Ok(value): the await expression evaluates to `value` (the\n          unwrapped inner value).\n        - For Error(e): the await expression raises EffectError wrapping\n          the Error instance, signalling short-circuit to the enclosing\n          async builder.\n\n      Option.__await__ must implement the coroutine protocol:\n        - For Some(value): the await expression evaluates to `value`.\n        - For Nothing: the await expression raises EffectError wrapping\n          Nothing, signalling short-circuit to the enclosing async builder.\n\n      Signature hint (return type is the inner value type for Ok/Some,\n      never returns normally for Error/Nothing):\n        def __await__(self) -> Generator[Any, None, _TSourceOut]: ...\n\n      The EffectError used here is the same class already present in\n      expression/core/error.py.",
+          "acceptance_tests": "After this change, expressions such as `await Ok(42)` in an async\n      context return 42, and `await Error(\"e\")` raises EffectError.\n      This is verified indirectly by all passing tests in\n      tests/test_async_result_builder.py and\n      tests/test_async_option_builder.py that use `yield await Ok(...)`,\n      `yield await Error(...)`, or `yield await Nothing`."
+        },
+        {
+          "id": "2",
+          "location": "expression/effect/async_result.py — new file (AsyncResultBuilder class);\n      expression/effect/__init__.py — export as async_result",
+          "description": "The module expression.effect has no async_result attribute, causing\n      AttributeError in all 20 tests in tests/test_async_result_builder.py.\n      An AsyncResultBuilder that wraps async generator functions to produce\n      coroutines returning Result values must be created.",
+          "contract": "AsyncResultBuilder[_TSource, _TError] is a class whose instances are\n      callable as a decorator factory. Its use pattern is:\n\n        @effect.async_result[T, E]()\n        async def fn(...) -> AsyncGenerator[T, T]:\n            ...\n\n      When called as `await fn(...)`, the decorated function returns a\n      coroutine that resolves to Result[T, E].\n\n      Behavioral contract of the async builder:\n        - The decorated body is an async generator function. The builder\n          drives the async generator by repeatedly calling asend().\n        - Each value yielded by the generator is treated as the inner\n          (unwrapped) value; the builder sends that same value back as the\n          result of the yield expression (i.e. the yield is transparent to\n          the generator body).\n        - If the generator body raises EffectError(result_value), the builder\n          catches it, treats result_value as a Result[T, E], and short-circuits\n          (returns that result immediately without continuing the generator).\n        - The final Result returned by the coroutine is Ok(last_yielded_value).\n        - If the generator raises EffectError before any yield, or if the body\n          raises EffectError mid-way, the builder returns the wrapped result from\n          the EffectError.\n        - If the generator produces no yield at all (empty body or early exit\n          without yield), zero() is returned, which is Ok(None).\n        - If the generator raises any other exception (non-EffectError), it\n          propagates to the caller of `await fn(...)`.\n\n      The class must be exported from expression/effect/__init__.py as:\n        from .async_result import AsyncResultBuilder as async_result\n\n      and added to __all__ in that module.",
+          "acceptance_tests": "All 20 tests in tests/test_async_result_builder.py must pass,\n      including but not limited to:\n        tests/test_async_result_builder.py::test_async_result_builder_evaluation_order\n        tests/test_async_result_builder.py::test_async_result_builder_short_circuit\n        tests/test_async_result_builder.py::test_async_result_builder_zero\n        tests/test_async_result_builder.py::test_async_result_builder_yield_ok\n        tests/test_async_result_builder.py::test_async_result_builder_yield_error\n        tests/test_async_result_builder.py::test_async_result_builder_throws\n        tests/test_async_result_builder.py::test_async_result_builder_nested\n        tests/test_async_result_builder.py::test_async_result_builder_with_async_functions\n        tests/test_async_result_builder.py::test_async_result_builder_with_async_result_functions"
+        },
+        {
+          "id": "3",
+          "location": "expression/effect/async_option.py — new file (AsyncOptionBuilder class);\n      expression/effect/__init__.py — export as async_option",
+          "description": "The module expression.effect has no async_option attribute, causing\n      AttributeError in all 16 tests in tests/test_async_option_builder.py.\n      An AsyncOptionBuilder that wraps async generator functions to produce\n      coroutines returning Option values must be created.",
+          "contract": "AsyncOptionBuilder[_TSource] is a class whose instances are callable\n      as a decorator factory. Its use pattern is:\n\n        @effect.async_option[T]()\n        async def fn(...) -> AsyncGenerator[T, T]:\n            ...\n\n      When called as `await fn(...)`, the decorated function returns a\n      coroutine that resolves to Option[T].\n\n      Behavioral contract of the async builder:\n        - Mirrors AsyncResultBuilder but wraps results in Option[T]:\n        - Each value yielded by the generator is treated as the inner\n          (unwrapped) value; the builder sends that same value back to the\n          generator as the result of the yield expression.\n        - If the generator body raises EffectError(option_value), the builder\n          short-circuits and returns option_value (expected to be Nothing or\n          Some) as the final Option result.\n        - The final Option returned by the coroutine is Some(last_yielded_value).\n        - If the generator produces no yield at all, zero() is returned,\n          which is Nothing.\n        - Non-EffectError exceptions propagate to the caller.\n\n      The class must be exported from expression/effect/__init__.py as:\n        from .async_option import AsyncOptionBuilder as async_option\n\n      and added to __all__ in that module.",
+          "acceptance_tests": "All 16 tests in tests/test_async_option_builder.py must pass,\n      including but not limited to:\n        tests/test_async_option_builder.py::test_async_option_builder_evaluation_order\n        tests/test_async_option_builder.py::test_async_option_builder_short_circuit\n        tests/test_async_option_builder.py::test_async_option_builder_zero\n        tests/test_async_option_builder.py::test_async_option_builder_yield_some\n        tests/test_async_option_builder.py::test_async_option_builder_yield_nothing\n        tests/test_async_option_builder.py::test_async_option_builder_throws\n        tests/test_async_option_builder.py::test_async_option_builder_nested\n        tests/test_async_option_builder.py::test_async_option_builder_with_async_functions"
+        },
+        {
+          "id": "4",
+          "location": "expression/effect/seq.py — SeqBuilder class, __call__ method (override)",
+          "description": "SeqBuilder inherits __call__ from Builder, which drives the generator\n      using gen.send(value). When the generator body contains `yield from\n      &lt;plain_iterable&gt;` (e.g., `yield from Seq([43, 44, 45])` or\n      `yield from inner(x)` where inner() returns a list/Seq), Python's\n      generator protocol attempts to forward send() to the sub-iterator.\n      Plain list iterators and Seq iterators do not implement .send(),\n      causing AttributeError: 'list_iterator' object has no attribute 'send'.\n\n      The three affected tests are:\n        tests/test_seq_builder.py::test_seq_builder_combine\n        tests/test_seq_builder.py::test_seq_builder_nested\n        tests/test_seq_builder.py::test_seq_builder_projection_int_str",
+          "contract": "SeqBuilder must override __call__ to implement a generator-traversal\n      strategy that is compatible with `yield from &lt;iterable&gt;` usage.\n\n      Expected behavior of the seq effect builder:\n        - The decorated generator function may use plain `yield value` and\n          `yield from &lt;iterable&gt;` freely.\n        - The builder collects all values yielded during the generator's\n          execution (in the order they are produced) into the output sequence.\n        - On StopIteration with a non-None value (i.e., an explicit `return\n          value` in the generator body), that return value is appended as the\n          last element of the output sequence.\n        - On StopIteration with None value (no return or `return None`), the\n          zero() value (empty sequence) contributes nothing extra to the output.\n        - Exceptions other than StopIteration propagate to the caller.\n        - The final result is an Iterable containing all collected values\n          in order.\n\n      Signature of the overridden method:\n        def __call__(self, fn: Callable[_P, Generator[...]]) -> Callable[_P, Iterable[_TSource]]\n\n      The implementation strategy must avoid calling gen.send(value) in a\n      way that forwards to a sub-iterator that does not support .send().",
+          "acceptance_tests": "tests/test_seq_builder.py::test_seq_builder_combine\n      tests/test_seq_builder.py::test_seq_builder_nested\n      tests/test_seq_builder.py::test_seq_builder_projection_int_str\n\n      Additionally, all previously passing seq builder tests must continue\n      to pass (no regression)."
+        },
+        {
+          "id": "5",
+          "location": "expression/effect/result.py — ResultBuilder.zero() method",
+          "description": "ResultBuilder.zero() currently raises NotImplementedError. When a\n      result builder decorated function has no yield statements (e.g., the\n      body never yields due to a conditional branch), the Builder.__call__\n      implementation calls zero(). The test test_result_builder_zero expects\n      this to return Ok(None) rather than raise.",
+          "contract": "ResultBuilder.zero() must return Ok(None) instead of raising\n      NotImplementedError.\n\n      Signature and return value:\n        def zero(self) -> Result[Any, _TError]:\n            return Ok(None)\n\n      This matches the async variant's zero contract (which also returns\n      Ok(None) per test_async_result_builder_zero).",
+          "acceptance_tests": "tests/test_result_builder.py::test_result_builder_zero\n      (asserts computation == Ok(None) after calling fn() where fn has no yield)"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 5,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 2
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_06",
   "evoscore_detail": {
     "m1": 1.0,

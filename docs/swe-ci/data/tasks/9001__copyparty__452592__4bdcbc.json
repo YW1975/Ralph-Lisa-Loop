@@ -2,6 +2,7 @@
   "task_id": "9001__copyparty__452592__4bdcbc",
   "repo_name": "9001/copyparty",
   "repo_url": "https://github.com/9001/copyparty.git",
+  "licence": "MIT License",
   "initial_gap": 16,
   "final_gap": 0,
   "num_epochs": 2,
@@ -152,7 +153,41 @@
     "failed": 0,
     "total": 22
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-04-59-06",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "copyparty/authsrv.py — function _reload (around line 1749)",
+          "description": "The loop `for ga, vf in vf_bmap().items(): if getattr(self.args, ga): ...` at line 1750\n      uses bare `getattr(self.args, ga)` with no default value. When the args namespace does not\n      contain a key present in `vf_bmap()` (e.g. `\"never_symlink\"`), Python raises\n      `AttributeError: 'Cfg' object has no attribute 'never_symlink'`. This causes all tests that\n      construct an `AuthSrv` instance with a `Cfg()` helper to fail at the call stage.\n\n      The root cause is that `vf_bmap()` (in cfg.py) now includes `\"never_symlink\"` but the\n      `getattr` call provides no fallback, making it fragile against any args namespace that\n      does not declare every key in the map.",
+          "contract": "The `_reload` method MUST tolerate an args namespace that is missing one or more keys\n      present in `vf_bmap()`. Specifically:\n\n      - For every `(ga, vf)` pair yielded by `vf_bmap()`, retrieving the value of `ga` from\n        `self.args` MUST NOT raise `AttributeError`; a missing key MUST be treated as a falsy\n        value (i.e. equivalent to `False` / `0` / `None`).\n      - When the retrieved value is falsy, no entry is written to `vol.flags[vf]` (existing\n        behavior preserved).\n      - When the retrieved value is truthy, `vol.flags[vf] = True` is set (existing behavior\n        preserved).\n      - Production behavior is unchanged: in normal execution the full argparse namespace always\n        contains all keys, so the semantic outcome is identical to before this fix.",
+          "acceptance_tests": "tests/test_vfs.py::TestVFS::test\n      tests/test_dedup.py::TestDedup::test\n      tests/test_dedup.py::TestDedup::test_a\n      tests/test_idp.py::TestVFS::test_1\n      tests/test_idp.py::TestVFS::test_2\n      tests/test_idp.py::TestVFS::test_3\n      tests/test_idp.py::TestVFS::test_4\n      tests/test_idp.py::TestVFS::test_5\n      tests/test_idp.py::TestVFS::test_6\n      tests/test_dots.py::TestDots::test_dk_fk\n      tests/test_dots.py::TestDots::test_dots\n      tests/test_hooks.py::TestHooks::test\n      tests/test_httpcli.py::TestHttpCli::test\n      tests/test_metrics.py::TestMetrics::test\n      tests/test_mv.py::TestDedup::test\n\n      All 15 tests listed above MUST pass after the fix. The fix MUST NOT introduce any\n      regressions in existing passing tests."
+        },
+        {
+          "id": "2",
+          "location": "copyparty/util.py — module level, near the existing `_quotep3` function (around line 2043)",
+          "description": "The test `tests/test_utils.py::TestUtils::test_quotep` imports the name `_quotep3b` from\n      `copyparty.util`, but that name does not exist in the module. The import fails with:\n        `ImportError: cannot import name '_quotep3b' from 'copyparty.util'`\n      The existing module provides `_quotep2`, `_quotep3`, and the public alias `quotep`, but\n      is missing a `_quotep3b` variant.",
+          "contract": "A new public module-level function `_quotep3b(txt: str) -> str` MUST be added to\n      `copyparty/util.py`. Its behavioral contract is:\n\n      - Accepts a single `str` argument `txt`.\n      - Returns a `str` that is the URL percent-encoded form of `txt`, where space characters\n        are encoded as `+` and the forward-slash character `/` is left unencoded (safe).\n      - For every possible input string `txt`, `_quotep3b(txt)` MUST return exactly the same\n        value as `_quotep3(txt)`. The test verifies this property over 8 192 bytes of random\n        data decoded as a surrogate-escape string.\n      - The function MUST be importable directly:\n          `from copyparty.util import _quotep3b`",
+          "acceptance_tests": "tests/test_utils.py::TestUtils::test_quotep\n\n      The test MUST pass without errors. Because the test asserts output equality between\n      `_quotep3` and `_quotep3b` on random input, both functions MUST produce byte-for-byte\n      identical results for all valid `str` inputs."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 2,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 2,
+      "new_feature": 1,
+      "refactor": 0,
+      "api_change": 2,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_01",
   "evoscore_detail": {
     "m1": 1.0,

@@ -2,6 +2,7 @@
   "task_id": "2captcha__2captcha-python__cb1d76__5a231d",
   "repo_name": "2captcha/2captcha-python",
   "repo_url": "https://github.com/2captcha/2captcha-python.git",
+  "licence": "MIT License",
   "initial_gap": 23,
   "final_gap": 0,
   "num_epochs": 2,
@@ -66,7 +67,48 @@
     "failed": 15,
     "total": 45
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-23-20-20-21",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/twocaptcha/solver.py — TwoCaptcha.__init__ and TwoCaptcha.default_params",
+          "description": "The TwoCaptcha constructor accepts softId=None as its default, and\n      default_params only includes softId in the outgoing API request when the\n      value is truthy (if soft_id: params.update(...)). As a result, no SDK\n      partner ID is ever sent when the caller omits softId, but every test in\n      the suite asserts that soft_id=4580 appears in every API call. This is\n      the single root cause that makes all 15 non-AttributeError tests fail.",
+          "contract": "When no softId argument is supplied by the caller, the TwoCaptcha instance\n      must use a hardcoded default SDK partner value of 4580. This default must\n      be applied at construction time (i.e., self.soft_id should be 4580 when\n      softId is None or omitted), so that default_params automatically includes\n      soft_id=4580 in every outgoing request. When the caller explicitly passes\n      softId=None the default should still apply; when the caller passes a\n      non-None integer or string the supplied value must be used instead.\n      No other behaviour of the constructor or default_params should change.",
+          "acceptance_tests": "The following tests must pass after this change alone (i.e., independently\n      of the other requirements):\n        tests/test_normal.py::NormalTest::test_base64\n        tests/test_text.py::TextTest::test_only_text\n        tests/test_text.py::TextTest::test_all_params\n        tests/test_capy.py::CapyTest::test_all_params\n        tests/test_geetest.py::GeeTest::test_all_params\n        tests/test_hcaptcha.py::HcaptchaTest::test_all_params\n        tests/test_keycaptcha.py::KeyCaptchaTest::test_all_params\n        tests/test_grid.py::GridTest::test_base64_param\n        tests/test_coordinates.py::CoordinatesTest::test_base64_param\n        tests/canvas_test.py::CanvasTest::test_base64_param\n        tests/test_canvas.py::CanvasTest::test_base64_param\n        tests/test_funcaptcha.py::FuncaptchaTest::test_all_params\n        tests/test_recaptcha.py::RecaptchaTest::test_v3"
+        },
+        {
+          "id": "2",
+          "location": "code/twocaptcha/solver.py — TwoCaptcha class (new methods to be added)",
+          "description": "Nine captcha-type methods are completely absent from the TwoCaptcha class,\n      causing AttributeError when the tests call them:\n        tencent, cutcaptcha, geetest_v4, atb_captcha, friendly_captcha,\n        turnstile, lemin, amazon_waf, mtcaptcha.\n      Each test passes typed keyword arguments and asserts that the resulting\n      API call contains specific renamed/transformed keys, so the methods must\n      not merely forward **kwargs blindly but must set the correct method string\n      and apply any necessary parameter renaming before delegating to self.solve.",
+          "contract": "Each method must accept the parameters listed below and call self.solve\n      with the exact outgoing keys shown. The url parameter in all methods must\n      be passed to self.solve as the keyword url (which rename_params already\n      converts to pageurl). Optional extra keyword arguments (**kwargs) must be\n      forwarded unchanged.\n\n      tencent(self, app_id, url, **kwargs)\n        → solve(method='tencent', app_id=app_id, url=url, **kwargs)\n\n      turnstile(self, sitekey, url, **kwargs)\n        → solve(method='turnstile', sitekey=sitekey, url=url, **kwargs)\n\n      friendly_captcha(self, sitekey, url, **kwargs)\n        → solve(method='friendly_captcha', sitekey=sitekey, url=url, **kwargs)\n\n      geetest_v4(self, captcha_id, url, **kwargs)\n        → solve(method='geetest_v4', captcha_id=captcha_id, url=url, **kwargs)\n\n      mtcaptcha(self, sitekey, url, **kwargs)\n        → solve(method='mt_captcha', sitekey=sitekey, url=url, **kwargs)\n\n      atb_captcha(self, app_id, api_server, url, **kwargs)\n        → solve(method='atb_captcha', app_id=app_id, api_server=api_server,\n                url=url, **kwargs)\n\n      lemin(self, captcha_id, div_id, api_server, url, **kwargs)\n        → solve(method='lemin', captcha_id=captcha_id, div_id=div_id,\n                api_server=api_server, url=url, **kwargs)\n\n      amazon_waf(self, sitekey, url, **kwargs)\n        → solve(method='amazon_waf', sitekey=sitekey, url=url, **kwargs)\n\n      cutcaptcha(self, misery_key, apikey, url, **kwargs)\n        → solve(method='cutcaptcha', misery_key=misery_key, api_key=apikey,\n                url=url, **kwargs)\n        Note: the caller passes the argument as apikey but the API requires the\n        key api_key; the method must perform this single rename.\n\n      All methods must return the result of self.solve.",
+          "acceptance_tests": "Combined with requirement 1, the following tests must pass:\n        tests/test_tencent.py::TencentTest::test_all_params\n        tests/test_turnstile.py::TurnstileTest::test_all_params\n        tests/test_friendly_captcha.py::FriendlyCaptchaTest::test_all_params\n        tests/test_geetest_v4.py::GeeTest_V4::test_all_params\n        tests/test_mtcaptcha.py::MTCaptchaTest::test_all_params\n        tests/test_atb_captcha.py::AtbCaptchaTest::test_all_params\n        tests/test_lemin.py::LeminTest::test_all_params\n        tests/test_amazon_waf.py::AmazonWAFTest::test_all_params\n        tests/test_cutcaptcha.py::CutcaptchaTest::test_all_params"
+        },
+        {
+          "id": "3",
+          "location": "code/twocaptcha/solver.py — TwoCaptcha.rename_params (the replace dict)",
+          "description": "The rename_params method maintains a replace mapping of camelCase/alias\n      parameter names to the API field names. The recaptcha v2 test passes a\n      parameter named datas (a Google reCAPTCHA data-s token), but the current\n      replace dict has no entry for it. The API expects the field name data-s,\n      so the value is forwarded under the wrong name datas, causing the\n      assertion mismatch in test_recaptcha.py::RecaptchaTest::test_v2.",
+          "contract": "The replace mapping inside rename_params must include an entry that\n      converts the caller-facing key datas to the outgoing API key data-s.\n      All other entries in the mapping must remain unchanged.",
+          "acceptance_tests": "Combined with requirement 1, the following test must pass:\n        tests/test_recaptcha.py::RecaptchaTest::test_v2"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 3,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 3,
+      "new_feature": 0,
+      "refactor": 2,
+      "api_change": 3,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_host_v3_mini",
   "evoscore_detail": {
     "m1": 1.0,

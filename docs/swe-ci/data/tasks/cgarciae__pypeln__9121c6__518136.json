@@ -2,6 +2,7 @@
   "task_id": "cgarciae__pypeln__9121c6__518136",
   "repo_name": "cgarciae/pypeln",
   "repo_url": "https://github.com/cgarciae/pypeln.git",
+  "licence": "MIT License",
   "initial_gap": 18,
   "final_gap": 0,
   "num_epochs": 2,
@@ -43,7 +44,41 @@
     "failed": 20,
     "total": 73
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-04-03-30",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/pypeln/sync/ (new subpackage directory)\n      Files to create:\n        - code/pypeln/sync/__init__.py\n        - code/pypeln/sync/utils.py\n        - code/pypeln/sync/stage.py\n        - code/pypeln/sync/api.py",
+          "description": "The pypeln package currently has no `sync` submodule. All 18 tests in\n      tests/test_sync.py fail with \"AttributeError: module 'pypeln' has no\n      attribute 'sync'\" because `pypeln/__init__.py` only imports `thread`,\n      `process`, and `task`. A new `pypeln.sync` submodule must be created that\n      provides a synchronous (single-process, single-thread) pipeline API that\n      mirrors the interface of `pypeln.thread`.",
+          "contract": "The `pypeln.sync` submodule must expose the following public names:\n\n      1. get_namespace() -> Namespace\n         Returns a plain mutable namespace object (attribute-accessible). Backed\n         by pypeln.utils.Namespace.\n\n      2. WorkerInfo (namedtuple)\n         Fields: index (int). Passed to on_start callbacks that declare a\n         `worker_info` parameter.\n\n      3. StageStatus\n         Attributes:\n           - active_workers (int): number of workers still running at the time\n             on_done is called for a given worker.\n           - done (bool): True when active_workers == 0.\n         Passed to on_done callbacks that declare a `stage_status` parameter.\n\n      4. Stage\n         A lazy pipeline stage that is also an iterable. Must support:\n           - __iter__: iterates and yields all output elements synchronously.\n           - __or__(self, f): enables the pipe operator so that\n             `stage | f` calls `f(stage)`.\n         Execution is purely synchronous: no background threads or processes.\n         The pipeline graph is traversed and executed in the calling thread when\n         iteration begins.\n\n      5. from_iterable(iterable=UNDEFINED, maxsize=None) -> Stage | Partial\n         When `iterable` is provided: wraps the iterable as a source Stage.\n         When `iterable` is omitted: returns a pypeln.utils.Partial so the\n         pipe operator `iterable | pl.sync.from_iterable()` works correctly.\n\n      6. map(f, stage=UNDEFINED, workers=1, maxsize=0,\n             on_start=None, on_done=None) -> Stage | Partial\n         Applies `f(x, **kwargs) -> y` to each element x, yielding each result.\n         `kwargs` is the dict returned by on_start (if any).\n         When `stage` is omitted, returns a Partial for pipe usage.\n         Supports on_start and on_done lifecycle callbacks (see below).\n         Supports the `workers` parameter (each worker processes a share of\n         elements; on_start and on_done are called once per worker).\n\n      7. flat_map(f, stage=UNDEFINED, workers=1, maxsize=0,\n                  on_start=None, on_done=None) -> Stage | Partial\n         Applies `f(x, **kwargs) -> Iterable` to each element, then yields\n         each element of the resulting iterable.\n         Supports the same parameter contract as map.\n\n      8. filter(f, stage=UNDEFINED, workers=1, maxsize=0,\n                on_start=None, on_done=None) -> Stage | Partial\n         Yields only those elements x for which `f(x, **kwargs)` is truthy.\n         Supports the same parameter contract as map.\n\n      9. concat(stages: List[Stage | Iterable], maxsize=0) -> Stage\n         Merges multiple stages/iterables into a single stage by consuming\n         them in sequence (or interleaved), yielding all their elements.\n\n      Lifecycle callback contracts (same as pypeln.thread):\n        - on_start(worker_info?) -> dict | None\n            Called once per worker before processing begins.\n            If on_start declares a `worker_info` argument, a WorkerInfo(index=i)\n            object is passed, where i is the 0-based worker index.\n            The return value (a dict or None) is merged into kwargs passed to f\n            and on_done.\n        - on_done(stage_status?, **kwargs)\n            Called once per worker after that worker finishes processing.\n            If on_done declares a `stage_status` argument, a StageStatus is\n            passed reflecting the state at the time this worker completes.\n            When the last worker calls on_done, stage_status.done must be True\n            and stage_status.active_workers must be 0.\n\n      Error handling:\n        - Any exception raised inside `f` (or on_start/on_done) must propagate\n          to the caller of list(stage) without being wrapped or swallowed.\n          Specifically, `list(pl.sync.map(raise_error, data))` must raise the\n          original exception class (e.g., MyError), not a generic wrapper.\n\n      Pipe operator support:\n        - All functions that accept `stage` must return a pypeln.utils.Partial\n          when `stage` is omitted, so that `data | pl.sync.map(f) | list`\n          syntax works correctly.\n        - Stage.__or__ must delegate to `f(self)` so that\n          `stage | pl.sync.flat_map(g) | list` chains correctly.",
+          "acceptance_tests": "All 18 tests in tests/test_sync.py must pass. Key tests per feature:\n\n      get_namespace / basic namespace:\n        tests/test_sync.py::test_kwargs\n        tests/test_sync.py::test_map_square_event_start\n        tests/test_sync.py::test_map_square_event_end\n\n      from_iterable:\n        tests/test_sync.py::test_from_to_iterable_simple\n        tests/test_sync.py::test_from_to_iterable_pipe\n        tests/test_sync.py::test_from_to_iterable\n\n      map (basic, workers, pipe):\n        tests/test_sync.py::test_map_id\n        tests/test_sync.py::test_map_id_pipe\n        tests/test_sync.py::test_map_square\n        tests/test_sync.py::test_map_square_workers\n\n      on_start with worker_info:\n        tests/test_sync.py::test_worker_info\n\n      on_done with stage_status:\n        tests/test_sync.py::test_map_square_event_end\n\n      flat_map:\n        tests/test_sync.py::test_flat_map_square\n        tests/test_sync.py::test_flat_map_square_workers\n\n      filter:\n        tests/test_sync.py::test_flat_map_square_filter_workers\n        tests/test_sync.py::test_flat_map_square_filter_workers_pipe\n\n      concat:\n        tests/test_sync.py::test_concat_basic\n        tests/test_sync.py::test_concat_multiple\n\n      error propagation:\n        tests/test_sync.py::test_error_handling"
+        },
+        {
+          "id": "2",
+          "location": "code/pypeln/__init__.py (existing file, lines 149-153)",
+          "description": "The top-level `pypeln/__init__.py` currently imports only `thread`,\n      `process`, and `task`. It must also import the new `sync` submodule so\n      that `import pypeln as pl; pl.sync` resolves correctly.",
+          "contract": "Add `from . import sync` to the imports in `pypeln/__init__.py`.\n      Add `\"sync\"` to the `__all__` list.\n      After this change, `import pypeln as pl; pl.sync` must not raise\n      AttributeError.",
+          "acceptance_tests": "Any test in tests/test_sync.py that previously failed with\n      \"AttributeError: module 'pypeln' has no attribute 'sync'\" must no longer\n      raise that error.\n\n      Specifically, the attribute-error failures listed below must be resolved:\n        tests/test_sync.py::test_kwargs\n        tests/test_sync.py::test_error_handling\n        tests/test_sync.py::test_worker_info"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 2,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 2,
+      "new_feature": 2,
+      "refactor": 0,
+      "api_change": 1,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_04",
   "evoscore_detail": {
     "m1": 1.0,

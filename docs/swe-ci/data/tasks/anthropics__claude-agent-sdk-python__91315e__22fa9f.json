@@ -2,6 +2,7 @@
   "task_id": "anthropics__claude-agent-sdk-python__91315e__22fa9f",
   "repo_name": "anthropics/claude-agent-sdk-python",
   "repo_url": "https://github.com/anthropics/claude-agent-sdk-python.git",
+  "licence": "MIT License",
   "initial_gap": 24,
   "final_gap": 0,
   "num_epochs": 2,
@@ -42,7 +43,62 @@
     "failed": 0,
     "total": 90
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-23-43-59",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "<file>code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</file>\n      <scope>SubprocessCLITransport class</scope>\n      <secondary_file>code/src/claude_code_sdk/_internal/client.py</secondary_file>\n      <secondary_scope>InternalClient.process_query</secondary_scope>",
+          "description": "All tests in test_subprocess_buffering.py and test_integration.py call\n      transport.read_messages() as an async generator method, but SubprocessCLITransport\n      only exposes receive_messages(). InternalClient.process_query() currently calls\n      transport.receive_messages(), which on a mock AsyncMock object (that only has\n      read_messages set) returns a coroutine rather than an async iterable, causing:\n      TypeError: 'async for' requires an object with __aiter__ method, got coroutine.",
+          "contract": "SubprocessCLITransport must expose a public async generator method named\n      read_messages() that yields raw message dicts from the subprocess stdout — with\n      identical behavior to the current receive_messages(). InternalClient.process_query\n      must call transport.read_messages() instead of transport.receive_messages() when\n      iterating over raw message data.\n\n      Signature: async def read_messages(self) -> AsyncIterator[dict[str, Any]]\n\n      Behavioral contract:\n      - Yields each parsed JSON object from stdout as a dict.\n      - Buffers partial JSON across stream reads and emits complete objects only.\n      - Raises CLIJSONDecodeError when accumulated buffer exceeds _MAX_BUFFER_SIZE.\n      - Handles multiple newline-separated JSON objects delivered in a single read chunk.\n      - After stdout is exhausted, waits for process exit and raises ProcessError on\n        non-zero return code.",
+          "acceptance_tests": "tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_multiple_json_objects_on_single_line\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_json_with_embedded_newlines\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_multiple_newlines_between_objects\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_split_json_across_multiple_reads\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_large_minified_json\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_buffer_size_exceeded\n      tests/test_subprocess_buffering.py::TestSubprocessBuffering::test_mixed_complete_and_split_json\n      tests/test_integration.py::TestIntegration::test_simple_query_response\n      tests/test_integration.py::TestIntegration::test_query_with_tool_use\n      tests/test_integration.py::TestIntegration::test_continuation_option\n      tests/test_client.py::TestQueryFunction::test_query_with_cwd"
+        },
+        {
+          "id": "2",
+          "location": "<file>code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</file>\n      <scope>SubprocessCLITransport class</scope>",
+          "description": "ClaudeSDKClient tests and test_transport.py::test_connect_close expect the\n      following methods on SubprocessCLITransport that do not currently exist:\n      close(), write(data: str), is_ready() -> bool, and end_input().\n      The tests mock these methods directly on the transport object. Without them,\n      calls fall through to AsyncMock auto-generated attributes that do not behave\n      correctly, causing assertion failures such as \"Expected 'close' to have been\n      called once. Called 0 times.\" (because disconnect() is called instead).",
+          "contract": "SubprocessCLITransport must implement the following four methods:\n\n      async def close(self) -> None\n        Terminates the subprocess. Equivalent behavior to the existing disconnect():\n        cancels any running task group, terminates the process with a timeout, cleans\n        up the stderr temp file, and resets all internal stream references to None.\n\n      async def write(self, data: str) -> None\n        Sends a single string to the subprocess's stdin stream. Raises\n        CLIConnectionError if stdin is not available (not connected or already closed).\n\n      def is_ready(self) -> bool\n        Returns True if the subprocess is currently running (process is not None and\n        returncode is None). Returns False otherwise. Synchronous method.\n\n      async def end_input(self) -> None\n        Closes the stdin stream, signaling end-of-input to the subprocess. After\n        calling this, write() must no longer be usable.",
+          "acceptance_tests": "tests/test_transport.py::TestSubprocessCLITransport::test_connect_close\n      (is_ready() exists and returns True after connect, close() terminates process)\n\n      Custom criteria:\n      - transport.write(json_data) sends json_data to subprocess stdin without error\n        when the transport is connected.\n      - transport.end_input() closes stdin without raising an exception.\n      - transport.is_ready() returns False before connect() and True after connect()."
+        },
+        {
+          "id": "3",
+          "location": "<file>code/src/claude_code_sdk/client.py</file>\n      <scope>ClaudeSDKClient class</scope>",
+          "description": "ClaudeSDKClient currently uses transport methods that tests do not expect:\n      (a) disconnect() instead of close() — causing \"Expected 'close' to have been\n          called once. Called 0 times.\" failures in context-manager and manual\n          disconnect tests.\n      (b) receive_messages() instead of read_messages() — causing\n          \"TypeError: 'async for' requires an object with __aiter__ method, got\n          coroutine\" failures in all receive tests.\n      (c) send_request() instead of write() — causing query assertion failures because\n          write.call_count stays at 0.\n      (d) No initialization control request is sent on connect — tests assert that at\n          least 2 write() calls occur (one init, one user message) and mock generators\n          check for an \"initialize\" control request before yielding messages.\n      (e) interrupt() currently calls transport.interrupt() instead of sending a\n          control request via transport.write() — causing the interrupt test to fail\n          because write.call_args_list contains no interrupt control request.",
+          "contract": "ClaudeSDKClient must be updated to use the new transport interface:\n\n      connect(prompt):\n        After calling transport.connect(), send a control_request of subtype\n        \"initialize\" via transport.write(). The JSON structure is:\n        {\"type\": \"control_request\", \"request_id\": &lt;unique_id&gt;, \"request\": {\"subtype\": \"initialize\"}}\n\n      disconnect():\n        Must call transport.close() (not transport.disconnect()).\n        After close(), set self._transport to None.\n\n      __aexit__:\n        Must call disconnect(), which in turn calls transport.close().\n\n      receive_messages() -> AsyncIterator[Message]:\n        Must call transport.read_messages() to iterate raw dicts.\n        Must intercept messages with type \"control_response\": store them internally\n        (keyed by response[\"request_id\"]) for any pending control-flow logic, and do\n        NOT yield them as user-visible messages.\n        All other message dicts must be passed to parse_message() and yielded.\n\n      receive_response() -> AsyncIterator[Message]:\n        Yields from receive_messages() and returns after yielding a ResultMessage.\n        No change in behavioral contract, only the underlying receive_messages() call\n        chain changes.\n\n      query(prompt, session_id):\n        For a string prompt, serialize the user message dict as JSON and call\n        transport.write(json_str + \"\\n\"). The message dict structure is:\n        {\"type\": \"user\", \"message\": {\"role\": \"user\", \"content\": prompt},\n         \"parent_tool_use_id\": None, \"session_id\": session_id}\n\n      interrupt():\n        Must send a control_request of subtype \"interrupt\" via transport.write():\n        {\"type\": \"control_request\", \"request_id\": &lt;unique_id&gt;,\n         \"request\": {\"subtype\": \"interrupt\"}}",
+          "acceptance_tests": "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt\n      tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive\n      tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception\n      tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension"
+        },
+        {
+          "id": "4",
+          "location": "<file>code/src/claude_code_sdk/types.py</file>\n      <scope>ClaudeCodeOptions dataclass</scope>\n      <secondary_file>code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</secondary_file>\n      <secondary_scope>SubprocessCLITransport.connect</secondary_scope>",
+          "description": "test_transport.py::test_env_vars_passed_to_subprocess creates\n      ClaudeCodeOptions(env={\"MY_TEST_VAR\": value}), but ClaudeCodeOptions has no\n      `env` field, causing: TypeError: ClaudeCodeOptions.__init__() got an unexpected\n      keyword argument 'env'. Even if added, SubprocessCLITransport.connect() currently\n      always uses {**os.environ, \"CLAUDE_CODE_ENTRYPOINT\": \"sdk-py\"} and does not\n      merge options.env, so custom variables would never reach the subprocess.",
+          "contract": "ClaudeCodeOptions must gain an optional field:\n        env: dict[str, str] | None = None\n\n      This field represents additional environment variables to be passed to the\n      subprocess, layered on top of the inherited os.environ.\n\n      SubprocessCLITransport.connect() must build the subprocess environment as:\n        {**os.environ, **(options.env or {}), \"CLAUDE_CODE_ENTRYPOINT\": \"sdk-py\"}\n\n      Behavioral constraints:\n      - If env is None or empty, subprocess inherits os.environ exactly as before.\n      - Keys in options.env override any same-named keys from os.environ.\n      - CLAUDE_CODE_ENTRYPOINT is always set to \"sdk-py\" and overrides anything in\n        options.env.\n      - All existing os.environ keys (e.g. PATH) remain present in the final env.",
+          "acceptance_tests": "tests/test_transport.py::TestSubprocessCLITransport::test_env_vars_passed_to_subprocess"
+        },
+        {
+          "id": "5",
+          "location": "<file>code/src/claude_code_sdk/_internal/message_parser.py</file>\n      <scope>parse_message function, \"assistant\" case</scope>",
+          "description": "test_message_parser.py::test_parse_assistant_message_with_thinking sends an\n      assistant message whose content list contains a block of type \"thinking\".\n      The current assistant-message parsing branch handles only \"text\", \"tool_use\",\n      and \"tool_result\" types. A \"thinking\" block is silently skipped, so the parsed\n      AssistantMessage.content has length 1 (only the TextBlock) instead of the\n      expected 2 (ThinkingBlock + TextBlock), causing the assertion\n      \"assert len(message.content) == 2\" to fail.",
+          "contract": "In the \"assistant\" branch of parse_message(), the content-block match statement\n      must handle \"thinking\" blocks by producing a ThinkingBlock instance.\n\n      Input block structure: {\"type\": \"thinking\", \"thinking\": str, \"signature\": str}\n      Output: ThinkingBlock(thinking=block[\"thinking\"], signature=block[\"signature\"])\n\n      Constraints:\n      - ThinkingBlock is already defined in types.py; no new type is required.\n      - Absence of \"thinking\" or \"signature\" keys must raise MessageParseError\n        consistent with the handling of missing required fields in other block types.\n      - The fix must not change behavior for \"text\", \"tool_use\", or \"tool_result\"\n        blocks.",
+          "acceptance_tests": "tests/test_message_parser.py::TestMessageParser::test_parse_assistant_message_with_thinking"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 5,
+      "refactor": 1,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_03",
   "evoscore_detail": {
     "m1": 1.0,

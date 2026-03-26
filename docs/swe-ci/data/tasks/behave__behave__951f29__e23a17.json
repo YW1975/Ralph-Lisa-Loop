@@ -2,6 +2,7 @@
   "task_id": "behave__behave__951f29__e23a17",
   "repo_name": "behave/behave",
   "repo_url": "https://github.com/behave/behave.git",
+  "licence": "BSD 2-Clause \"Simplified\" License",
   "initial_gap": 12,
   "final_gap": 0,
   "num_epochs": 2,
@@ -66,7 +67,62 @@
     "failed": 13,
     "total": 1513
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-03-04-26",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/behave/parser.py :: Parser.action_scenario (line ~549)",
+          "description": "When the parser enters a new Scenario/ScenarioOutline, the method\n      action_scenario unconditionally resets self.last_step_type to None\n      (line 549). This causes any And/But keyword appearing as the first\n      step of a scenario to immediately raise a ParserError (\"No previous\n      step\"), even when a Background with steps exists and logically\n      provides the \"previous step type\" context.\n\n      Three affected cases:\n      (a) Feature-level Background with steps — the scenario's first And/But\n          step should inherit the step_type of the last background step.\n      (b) Rule-level Background with steps — same as above but under a Rule.\n      (c) Rule with no own Background but a Feature-level Background whose\n          steps are inherited via Background.inherited_steps — same\n          inheritance logic applies.",
+          "contract": "When action_scenario is entered, instead of unconditionally setting\n      last_step_type = None, the method must:\n      1. Determine whether the current scenario_container (Feature or Rule)\n         has a Background, and whether that Background provides any\n         effective steps (own steps or inherited_steps).\n      2. If effective background steps exist, initialize last_step_type to\n         the step_type of the last effective background step (i.e., the\n         step_type attribute of the last step returned by\n         Background.iter_steps() or an equivalent ordered sequence).\n      3. If no effective background steps exist, set last_step_type = None\n         (preserving the current behaviour for the no-background case).\n\n      Boundary conditions:\n      - A Rule that has no own Background but is contained in a Feature\n        that does have a Background must also supply the inherited context.\n        The Background model's inherited_steps / iter_steps() mechanism\n        already resolves this; the parser should rely on it.\n      - The initialisation must happen before the first call to\n        parse_step() on the scenario body lines, so that the very first\n        And/But step in the scenario can resolve its step_type correctly.",
+          "acceptance_tests": "tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_feature_background_steps[And]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_feature_background_steps[But]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_rule_background_steps[And]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_rule_background_steps[But]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_rule_inherited_steps[And]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__with_rule_inherited_steps[But]"
+        },
+        {
+          "id": "2",
+          "location": "code/behave/parser.py :: Parser.parse_step (line ~793-796)",
+          "description": "When an And/But step is encountered without any prior step context\n      (last_step_type is None), the parser raises:\n          ParserError(\"No previous step\", ...)\n      The failing tests assert that the exception message contains:\n          \"{KEYWORD}-STEP REQUIRES: An previous Given/When/Then step.\"\n      where {KEYWORD} is the uppercased step keyword (\"AND\" or \"BUT\").\n      The current generic message does not satisfy this assertion.",
+          "contract": "When step_type is \"and\" or \"but\" and last_step_type is None, the\n      ParserError must be raised with a message that:\n      - Contains the uppercased step type as a prefix, e.g. \"AND-STEP\" or\n        \"BUT-STEP\".\n      - Contains the substring \"REQUIRES: An previous Given/When/Then step.\"\n        (exact substring match expected by the test assertion).\n\n      The full recommended message format is:\n          \"{STEP_TYPE}-STEP REQUIRES: An previous Given/When/Then step.\"\n      where {STEP_TYPE} is step_type.upper() (\"AND\" or \"BUT\").\n\n      All other ParserError semantics (line number, filename) remain\n      unchanged.",
+          "acceptance_tests": "tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__without_background_steps_raises_error[And]\n      tests/unit/test_parser.py::TestParser4AndButSteps::test_parse_scenario_starts_with_and_step__without_background_steps_raises_error[But]"
+        },
+        {
+          "id": "3",
+          "location": "code/behave/matchers.py :: ParseMatcher (line ~238)",
+          "description": "ParseMatcher (and its subclass CFParseMatcher) lack a class method\n      has_registered_type. Tests call:\n          SomeMatcher.has_registered_type(\"Number\")\n      after registering a custom type, and expect True to be returned.\n      Calling this method currently raises AttributeError with the message\n      \"type object 'ParseMatcher' has no attribute 'has_registered_type'\".",
+          "contract": "Add a classmethod has_registered_type(name: str) -> bool to\n      ParseMatcher. The method must:\n      - Accept a single string argument: the type name to look up.\n      - Return True if the named type has been registered in\n        cls.custom_types (i.e., name is a key in that dict).\n      - Return False otherwise.\n\n      Because CFParseMatcher inherits from ParseMatcher and shares the\n      custom_types mechanism, it inherits this method automatically\n      with no additional changes required.\n\n      No changes to register_type or clear_registered_types are needed.",
+          "acceptance_tests": "tests/unit/test_matchers.py::TestParseMatcher::test_register_type__can_register_own_type_converters\n      tests/unit/test_matchers.py::TestCFParseMatcher::test_register_type__can_register_own_type_converters"
+        },
+        {
+          "id": "4",
+          "location": "code/behave/matchers.py :: module-level API (line ~562-614)\n      and StepMatcherFactory class (line ~391)",
+          "description": "The test test_step_matcher_current_matcher calls:\n          matchers.get_step_matcher_factory()\n      but the module only exposes get_matcher_factory(). The test then\n      accesses:\n          step_matcher_factory.step_matcher_class_mapping\n      but StepMatcherFactory only has the attribute matcher_mapping.\n      Both AttributeErrors prevent the test from running.",
+          "contract": "1. Expose get_step_matcher_factory as a module-level function in\n         behave/matchers.py. It must return the same singleton\n         _the_matcher_factory as get_matcher_factory() does. It may be\n         implemented as an alias or a thin wrapper.\n\n      2. Make step_matcher_class_mapping available as an attribute on\n         StepMatcherFactory instances. It must refer to the same\n         underlying dict as matcher_mapping. It may be implemented as a\n         property, an alias attribute set in __init__, or any equivalent\n         mechanism that makes instance.step_matcher_class_mapping and\n         instance.matcher_mapping refer to the same object.\n\n      Existing get_matcher_factory() and matcher_mapping must continue\n      to work unchanged (backward compatibility).",
+          "acceptance_tests": "tests/unit/test_matchers.py::test_step_matcher_current_matcher"
+        },
+        {
+          "id": "5",
+          "location": "code/behave/step_registry.py :: module-level namespace and\n      StepRegistry.add_step_definition (line ~42-59)",
+          "description": "The test test_add_step_definition_adds_to_lowercased_keyword patches\n      behave.step_registry.make_step_matcher, but step_registry.py only\n      imports and uses make_matcher from behave.matchers. Two problems:\n      (a) behave.step_registry has no attribute make_step_matcher, so\n          patch() raises AttributeError: module does not have the attribute.\n      (b) add_step_definition currently calls make_matcher(func, step_text)\n          with only two positional arguments. The test asserts that the\n          matched call was make_step_matcher(func, pattern, step_type),\n          i.e., the lowercased step_type must be passed as the third\n          argument.",
+          "contract": "1. Introduce make_step_matcher as a callable name in the\n         behave.step_registry module namespace. It must be importable via\n         \"from behave.step_registry import make_step_matcher\" and must\n         create a step matcher given (func, step_text, step_type). It may\n         delegate to behave.matchers.make_matcher or any equivalent.\n\n      2. Update StepRegistry.add_step_definition to call make_step_matcher\n         (the name resolvable in the module namespace, so that patching\n         \"behave.step_registry.make_step_matcher\" intercepts the call)\n         with three arguments: (func, step_text, step_type), where\n         step_type is the lowercased keyword string already computed in\n         add_step_definition.\n\n      The functional behaviour of add_step_definition must remain\n      unchanged; only the internal call site and the exposed name change.",
+          "acceptance_tests": "tests/unit/test_step_registry.py::TestStepRegistry::test_add_step_definition_adds_to_lowercased_keyword"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 4,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_04",
   "evoscore_detail": {
     "m1": 1.0,

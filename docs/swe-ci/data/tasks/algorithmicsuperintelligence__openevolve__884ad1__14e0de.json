@@ -2,6 +2,7 @@
   "task_id": "algorithmicsuperintelligence__openevolve__884ad1__14e0de",
   "repo_name": "algorithmicsuperintelligence/openevolve",
   "repo_url": "https://github.com/algorithmicsuperintelligence/openevolve.git",
+  "licence": "Apache License 2.0",
   "initial_gap": 6,
   "final_gap": 0,
   "num_epochs": 2,
@@ -59,7 +60,41 @@
     "failed": 0,
     "total": 11
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-07-28-16",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "openevolve/utils/code_utils.py — functions `extract_diffs` and `apply_diff`",
+          "description": "Both `extract_diffs` and `apply_diff` use the regex pattern\n      `r\"&lt;&lt;&lt;&lt;&lt;&lt;&lt; SEARCH\\n(.*?)\\n=======\\n(.*?)\\n&gt;&gt;&gt;&gt;&gt;&gt;&gt; REPLACE\"`\n      to locate diff blocks. This pattern requires the marker tokens\n      (`&lt;&lt;&lt;&lt;&lt;&lt;&lt; SEARCH`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt; REPLACE`) to appear with no\n      leading whitespace on their lines. When a diff text is indented (e.g.,\n      embedded inside a docstring or indented code block), the markers carry\n      leading spaces and the pattern produces zero matches. As a result,\n      `extract_diffs` returns an empty list and `apply_diff` returns the\n      original code unchanged.",
+          "contract": "`extract_diffs(diff_text: str) -&gt; List[Tuple[str, str]]`\n      — Must correctly parse diff blocks even when the marker lines\n        (`&lt;&lt;&lt;&lt;&lt;&lt;&lt; SEARCH`, `=======`, `&gt;&gt;&gt;&gt;&gt;&gt;&gt; REPLACE`) are preceded by\n        arbitrary horizontal whitespace (spaces or tabs).\n      — Each returned tuple must be `(search_text, replace_text)` where both\n        values are the raw text between the markers (including any indentation\n        that is part of the actual code content), with no leading/trailing\n        newline added by the extraction logic itself.\n      — The number of returned tuples must equal the number of SEARCH/REPLACE\n        blocks present in `diff_text`, regardless of indentation of the markers.\n\n      `apply_diff(original_code: str, diff_text: str) -&gt; str`\n      — Must apply every diff block extracted from `diff_text` to\n        `original_code`, finding the exact `search_text` substring in\n        `original_code` and replacing it with `replace_text`.\n      — The function must use the same marker-matching logic as `extract_diffs`\n        (i.e., tolerate leading whitespace on marker lines).\n      — If a search string is not found in the current result, that block is\n        skipped; subsequent blocks are still applied.\n      — The return value is the fully modified code string.",
+          "acceptance_tests": "tests/test_basic.py::TestCodeUtils::test_extract_diffs\n        — `len(diffs) == 2`\n        — `diffs[0][0]` equals the indented `def hello(): …` search block\n        — `diffs[0][1]` equals the indented `def hello(): print(\"Hello, World!\")` replace block\n        — `diffs[1][0]` equals `\"        x = 1\"`\n        — `diffs[1][1]` equals `\"        x = 2\"`\n\n      tests/test_basic.py::TestCodeUtils::test_apply_diff\n        — The returned string equals `expected_code` (both diffs applied,\n          `print(\"Hello\")` → `print(\"Hello, World!\")` and `x = 1` → `x = 2`)"
+        },
+        {
+          "id": "2",
+          "location": "openevolve/controller.py — `OpenEvolve.__init__`",
+          "description": "The current constructor signature is:\n        `def __init__(self, initial_program_path, evaluation_file, config_path=None, output_dir=None)`\n      It accepts only a file-system path (`config_path: Optional[str]`) and\n      immediately calls `load_config(config_path)` to build a `Config` object.\n      Tests in `test_checkpoint_resume.py` construct `OpenEvolve` by passing a\n      pre-built `Config` instance via the keyword argument `config=`, which the\n      current signature does not recognise, causing a `TypeError` at\n      instantiation time.",
+          "contract": "`OpenEvolve.__init__` must accept a `config` keyword argument that\n      receives an already-constructed `Config` object:\n\n        `def __init__(self, initial_program_path: str, evaluation_file: str,\n                      config_path: Optional[str] = None,\n                      config: Optional[Config] = None,\n                      output_dir: Optional[str] = None)`\n\n      Behaviour rules:\n      — If `config` is provided (not `None`), use it directly as\n        `self.config` without calling `load_config`.\n      — If `config` is `None` and `config_path` is provided, call\n        `load_config(config_path)` as before.\n      — If both are `None`, call `load_config(None)` to obtain defaults,\n        preserving the existing default behaviour.\n      — `config_path` and `config` are mutually optional; passing both is\n        caller error but no explicit validation is required.\n      — All subsequent initialisation steps (`LLMEnsemble`, `ProgramDatabase`,\n        `Evaluator`, etc.) must use `self.config` as they do today, so\n        accepting a `Config` object directly must not break the rest of the\n        constructor logic.",
+          "acceptance_tests": "tests/test_checkpoint_resume.py::TestCheckpointResume::test_fresh_start_adds_initial_program\n      tests/test_checkpoint_resume.py::TestCheckpointResume::test_checkpoint_resume_skips_initial_program\n      tests/test_checkpoint_resume.py::TestCheckpointResume::test_non_empty_database_at_iteration_zero\n      tests/test_checkpoint_resume.py::TestCheckpointResume::test_multiple_run_calls_no_pollution\n        — All four tests must pass the instantiation step without raising\n          `TypeError: OpenEvolve.__init__() got an unexpected keyword argument 'config'`."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 2,
+    "primary_category": "api_change",
+    "categories": {
+      "bug_fix": 1,
+      "new_feature": 1,
+      "refactor": 0,
+      "api_change": 2,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_02",
   "evoscore_detail": {
     "m1": 1.0,

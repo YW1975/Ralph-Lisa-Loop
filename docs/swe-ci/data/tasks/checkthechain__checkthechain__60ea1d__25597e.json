@@ -2,6 +2,7 @@
   "task_id": "checkthechain__checkthechain__60ea1d__25597e",
   "repo_name": "checkthechain/checkthechain",
   "repo_url": "https://github.com/checkthechain/checkthechain.git",
+  "licence": "MIT License",
   "initial_gap": 14,
   "final_gap": 0,
   "num_epochs": 3,
@@ -141,7 +142,81 @@
     "failed": 282,
     "total": 985
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-06-12-45",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/ctc/spec/typedefs/block_types.py and code/src/ctc/spec/typedefs/config_types.py\n      (exported via code/src/ctc/spec/__init__.py through typedefs)",
+          "description": "The ctc.spec module does not export the variables block_keys or config_keys.\n      The tests access spec.block_keys and spec.config_keys expecting them to be\n      sequences of field name strings matching the annotated keys of the corresponding\n      TypedDict classes. Currently these variables are absent, causing AttributeError.",
+          "contract": "Add two module-level variables to the spec namespace:\n\n      1. block_keys: a sequence (list or tuple) of strings whose set equals\n         set(typedefs.Block.__annotations__.keys()). It must enumerate exactly\n         the field names declared in the Block TypedDict.\n\n      2. config_keys: a sequence (list or tuple) of strings whose set equals\n         set(typedefs.Config.__annotations__.keys()),\n         set(typedefs.PartialConfig.__annotations__.keys()), and\n         set(typedefs.JsonConfig.__annotations__.keys()) simultaneously.\n         All three Config variants share the same field names; config_keys must\n         reflect that shared set.\n\n      Both variables must be importable as ctc.spec.block_keys and ctc.spec.config_keys\n      (i.e., exported through the spec package's public namespace).",
+          "acceptance_tests": "tests/ctc/spec/test_typedata.py::test_block_keys_match_types\n      tests/ctc/spec/test_typedata.py::test_config_keys_match_types"
+        },
+        {
+          "id": "2",
+          "location": "code/src/ctc/binary/signatures/signature_recovery.py\n      (exported via code/src/ctc/binary/signatures/__init__.py and code/src/ctc/binary/__init__.py)",
+          "description": "The ctc.binary module exposes get_signer_public_key but the test calls\n      binary.recover_signer_public_key, which does not exist, causing AttributeError.\n      The function recover_signer_public_key is expected to behave identically to\n      get_signer_public_key.",
+          "contract": "Expose recover_signer_public_key in ctc.binary with the following interface:\n\n        recover_signer_public_key(\n            message_hash: spec.Data,\n            *,\n            signature: spec.Data | None = None,\n            v: spec.Data | None = None,\n            r: spec.Data | None = None,\n            s: spec.Data | None = None,\n        ) -> str\n\n      The function recovers the signer's uncompressed public key (64 bytes, returned\n      as a 0x-prefixed hex string) from a message hash and a signature (v, r, s).\n      Accepts signature as a tuple (v, r, s), as a packed binary/hex blob, or via\n      separate keyword arguments v, r, s. Behaviour and return value must be\n      identical to the existing get_signer_public_key function.\n      The name recover_signer_public_key must be importable as ctc.binary.recover_signer_public_key.",
+          "acceptance_tests": "tests/ctc/binary/test_signatures.py::test_recover_address[test0]"
+        },
+        {
+          "id": "3",
+          "location": "code/src/ctc/binary/signatures/signature_creation.py — function create_text_message_hash",
+          "description": "In create_text_message_hash, when mode is 'personal_sign', the prefix is constructed\n      using str(len(message)) which counts Unicode code points (characters). For multi-byte\n      UTF-8 characters (e.g., \"I♥SF\" has 4 code points but 6 UTF-8 bytes), this produces\n      an incorrect prefix length, causing the resulting message hash and therefore the\n      signature to differ from the expected value defined by the Ethereum personal_sign\n      specification.",
+          "contract": "In create_text_message_hash, for mode == 'personal_sign', the prefix length component\n      must be computed as the number of bytes in the UTF-8 encoding of the message, not the\n      number of Unicode characters. Formally:\n\n        prefix = '\\x19Ethereum Signed Message:\\n' + str(len(message.encode('utf-8'))) + message\n\n      The entire prefixed string is then UTF-8 encoded and hashed with keccak256 to produce\n      the message hash. The function signature and return type (bytes) remain unchanged.\n      The 'eth_sign' branch is unaffected.",
+          "acceptance_tests": "tests/ctc/binary/test_signatures.py::test_sign_text_message[test0]"
+        },
+        {
+          "id": "4",
+          "location": "code/src/ctc/binary/ — a new or existing module for EIP-712 functionality,\n      exported via code/src/ctc/binary/__init__.py.\n      Expected location if new: code/src/ctc/binary/eip712.py",
+          "description": "The ctc.binary module has no get_domain_separator function. The test calls\n      binary.get_domain_separator(domain) expecting an EIP-712 DOMAIN_SEPARATOR\n      computation. Currently this raises AttributeError.",
+          "contract": "Implement and export get_domain_separator with the following interface:\n\n        get_domain_separator(domain: dict) -> str\n\n      Inputs:\n        domain — a dict that may contain any subset of the EIP-712 domain fields:\n          name (str), version (str), chainId (int), verifyingContract (str address).\n          Only fields present in the dict are included in the type hash and encoding.\n\n      Output:\n        A 0x-prefixed 32-byte hex string representing the EIP-712 domain separator.\n\n      Computation:\n        1. Construct the EIP712Domain type string from only the fields present in\n           the domain dict, preserving canonical order:\n           name, version, chainId, verifyingContract.\n           E.g., if all four are present:\n           \"EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)\"\n        2. Compute domainTypeHash = keccak256(type_string_bytes).\n        3. ABI-encode the tuple (domainTypeHash, encoded_fields...) where:\n           - string fields are hashed with keccak256 before encoding\n           - uint256 fields are left-padded to 32 bytes\n           - address fields are left-padded to 32 bytes (zero-padded)\n        4. Return keccak256(abi_encoded_tuple) as a 0x-prefixed hex string.\n\n      Verification examples:\n        domain = {'name': 'Aave Token', 'version': '1', 'chainId': 1,\n                  'verifyingContract': '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9'}\n        → '0x2901a982e363189e3f2e4db2e5c3291fa1067b815a3ac9890ac6573e51bf33b0'\n\n        domain = {'name': 'Fei USD', 'version': '1', 'chainId': 1,\n                  'verifyingContract': '0x956f47f50a910163d8bf957cf5846d573e7f87ca'}\n        → '0x0ff37d1dc9a7d6539faa7634e8848d1d0bb7ec77e2bcb30d8982e62e6e2d5914'",
+          "acceptance_tests": "tests/ctc/binary/test_eip712.py::test_get_domain_separator[test0]\n      tests/ctc/binary/test_eip712.py::test_get_domain_separator[test1]"
+        },
+        {
+          "id": "5",
+          "location": "code/src/ctc/evm/transaction_utils/transaction_crud.py (or a new file\n      code/src/ctc/evm/transaction_utils/transaction_signing.py),\n      exported via code/src/ctc/evm/transaction_utils/__init__.py and\n      code/src/ctc/evm/__init__.py.",
+          "description": "The ctc.evm module has no standardize_transaction function and no sign_transaction\n      function accessible at the evm level. The test calls evm.standardize_transaction(tx)\n      followed by evm.sign_transaction(transaction=tx, private_key=key), both of which\n      raise AttributeError. The transactions passed to standardize_transaction use mixed\n      key naming conventions (camelCase and snake_case) with field aliases.",
+          "contract": "Implement and export two functions:\n\n      1. standardize_transaction(transaction: dict) -> dict\n         Accepts a raw transaction dict with fields in any supported naming convention\n         and returns a normalized dict using snake_case keys consistent with the ctc\n         EIP-1559 (type 2) transaction format.\n         Key normalizations must include at minimum:\n           - 'chainId'              → 'chain_id'\n           - 'maxFeePerGas'         → 'max_fee_per_gas'\n           - 'maxPriorityFeePerGas' → 'max_priority_fee_per_gas'\n           - 'data'                 → 'input'\n           - 'gasLimit'             → 'gas'  (if 'gas' not already present)\n         If 'type' is absent, infer it from the fields present:\n           - Presence of 'max_fee_per_gas' indicates type 2 (EIP-1559).\n         The output dict must contain all fields required by sign_transaction.\n         access_list defaults to an empty sequence if absent.\n\n      2. sign_transaction(transaction: dict, *, private_key: spec.Data) -> tuple[int, int, int]\n         Accepts a standardized transaction dict (as produced by standardize_transaction)\n         and a private key, and returns the (v, r, s) signature tuple.\n         For EIP-1559 (type 2) transactions, the signing payload is:\n           '\\x02' + rlp([chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas,\n                         gas, to, value, input, access_list])\n         The message hash is keccak256 of that payload.\n         v must be computed as the raw recovery id (0 or 1) plus chain_id * 2 + 35,\n         matching EIP-155 replay protection. The return tuple is (v, r, s) as integers.\n\n      Both functions must be importable as ctc.evm.standardize_transaction and\n      ctc.evm.sign_transaction.",
+          "acceptance_tests": "tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test0]\n      tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test1]"
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-25-08-31-31",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/ctc/config/config_read.py — function get_config()",
+          "description": "The function get_config() calls toolconfig.get_config() and catches\n      toolconfig.ConfigDoesNotExist, but the installed version of the\n      toolconfig module does not expose these attributes. This causes an\n      AttributeError at runtime (\"module 'toolconfig' has no attribute\n      'get_config'\" followed by \"module 'toolconfig' has no attribute\n      'ConfigDoesNotExist'\"), making every CLI command that touches the\n      config pipeline exit with code 1. This single root cause is\n      responsible for 5 of the 6 failing tests.",
+          "contract": "get_config() must load the ctc configuration without calling\n      toolconfig.get_config() or catching toolconfig.ConfigDoesNotExist.\n\n      Expected behavior:\n      - Obtain the config file path using the already-working helper\n        get_config_path(raise_if_dne=False) (which calls\n        toolconfig.get_config_path, still available).\n      - If the config file does not exist (path is None or the file is\n        absent on disk), fall through to the same fallback already present\n        in the function: call config_defaults.get_default_config() and\n        optionally emit the existing warning to stderr.\n      - If the config file exists, read and parse it directly (e.g. via\n        the stdlib json or the already-listed toml dependency) and return\n        the resulting mapping.\n      - The function signature, return type, lru_cache decorator, and all\n        post-load processing (version upgrade, int-key conversion,\n        validate_config call) must remain unchanged.\n      - No new external dependencies may be introduced; only standard\n        library or already-listed project dependencies may be used.",
+          "acceptance_tests": "All five currently failing tests must exit with code 0:\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example85]\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example97]\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example116]\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example151]\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example152]\n\n      Specifically, running each corresponding CLI command must no longer\n      produce \"module 'toolconfig' has no attribute 'ConfigDoesNotExist'\"\n      on stdout."
+        },
+        {
+          "id": "2",
+          "location": "code/src/ctc/protocols/llama_utils/llama_requests.py — function\n      async_get_pool_yield()",
+          "description": "async_get_pool_yield() iterates over response['data'] and accesses\n      datum['timestamp'], datum['tvlUsd'], and datum['apy'] on each item.\n      The test failure \"string indices must be integers\" indicates that at\n      runtime datum is a string, not a dict. This happens because\n      response['data'] is either a string (e.g. an error message from the\n      API) or the API response structure has changed so that the items in\n      response['data'] are no longer plain dicts. The command\n      `ctc llama pool 0x39aa39c021dfbae8fac545936693ac917d5e7563` exits\n      with code 1 as a result.",
+          "contract": "async_get_pool_yield(pool) must tolerate API response formats where\n      response['data'] is not a list of dicts, and must not raise an\n      unhandled exception in that case.\n\n      Expected behavior:\n      - After awaiting async_request_llama_data('pool_yield', pool=pool),\n        validate that response is a dict with a 'data' key whose value is\n        a non-empty list before iterating.\n      - If response['data'] is absent, None, a non-list type (e.g. string),\n        or an empty list, raise a descriptive exception (e.g. ValueError\n        or a stdlib exception) with a message that identifies the pool and\n        the unexpected response shape, rather than propagating a generic\n        TypeError or TypeError with \"string indices must be integers\".\n      - If response['data'] is a list but contains non-dict items, the same\n        descriptive exception should be raised when the first non-dict item\n        is encountered.\n      - The return type YieldTimeseries and the existing logic for valid\n        responses (dicts with 'timestamp', 'tvlUsd', and 'apy' keys) must\n        remain functionally unchanged.",
+          "acceptance_tests": "The following test must exit with code 0:\n        tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples[cli_example145]\n\n      The CLI command `ctc llama pool 0x39aa39c021dfbae8fac545936693ac917d5e7563`\n      must no longer print \"string indices must be integers\" on stdout and\n      must not exit with code 1 due to that unhandled error. If the pool\n      data is legitimately unavailable from the API, the command should\n      exit with code 0 after printing a user-visible message about the\n      missing data (rather than a raw traceback)."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 7,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 7,
+      "new_feature": 5,
+      "refactor": 0,
+      "api_change": 7,
+      "test_fix": 0,
+      "config": 2
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_05",
   "evoscore_detail": {
     "m1": 0.9786,

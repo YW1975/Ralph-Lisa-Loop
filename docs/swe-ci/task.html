@@ -166,6 +166,56 @@
             margin-top: 8px;
         }
 
+        /* Requirements */
+        .req-card {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .req-card .req-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .req-id {
+            background: var(--accent);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .req-location {
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            color: var(--accent);
+        }
+        .req-desc { color: var(--text); margin-bottom: 6px; }
+        .req-contract { color: var(--text-muted); font-style: italic; }
+        .req-tests {
+            margin-top: 6px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 12px;
+            color: var(--green);
+        }
+        .tag-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        .tag-bug_fix { background: rgba(248,81,73,0.2); color: var(--red); }
+        .tag-new_feature { background: rgba(63,185,80,0.2); color: var(--green); }
+        .tag-refactor { background: rgba(88,166,255,0.2); color: var(--accent); }
+        .tag-api_change { background: rgba(210,153,34,0.2); color: var(--yellow); }
+        .tag-general { background: rgba(139,148,158,0.2); color: var(--text-muted); }
+
         /* Verification */
         .verify {
             background: var(--surface);
@@ -212,6 +262,16 @@
         <h3 style="font-size:14px; color:var(--text-muted); margin-bottom:8px;">EvoScore Breakdown</h3>
         <div class="metrics-grid" id="metrics-grid"></div>
 
+        <div class="chart-section" id="project-info" style="display:none">
+            <h2>Project Info</h2>
+            <div id="project-detail" style="font-size:14px; color:var(--text-muted); line-height:1.8;"></div>
+        </div>
+
+        <div class="chart-section" id="requirements-section" style="display:none">
+            <h2>Architect Requirements</h2>
+            <div id="requirements-list"></div>
+        </div>
+
         <div class="dialogue-section">
             <h2>Ralph-Lisa Dialogue</h2>
             <div class="dialogue" id="dialogue"></div>
@@ -229,7 +289,7 @@
     </div>
 
     <div class="footer">
-        <p>Powered by <a href="https://github.com/anthropics/ralph-lisa-loop">Ralph-Lisa Loop</a></p>
+        <p>Powered by <a href="https://github.com/YW1975/Ralph-Lisa-Loop">Ralph-Lisa Loop</a></p>
     </div>
 
     <script>
@@ -337,8 +397,70 @@
             return `<div class="metric-box"><div class="mv" style="color:${color}">${v.toFixed(4)}</div><div class="ml">${m.l}</div></div>`;
         }).join("");
 
+        // Project info
+        renderProjectInfo(t);
+
+        // Architect requirements
+        renderRequirements(t.requirements || []);
+
         // Dialogue replay
         renderDialogue(t.dialogue);
+    }
+
+    function renderProjectInfo(t) {
+        const section = document.getElementById("project-info");
+        const detail = document.getElementById("project-detail");
+        const analysis = t.task_analysis || {};
+        const catLabels = {
+            bug_fix: "Bug Fix", new_feature: "New Feature", refactor: "Refactor",
+            api_change: "API Change", config: "Config", general: "General", unknown: "Unknown"
+        };
+        const repoLink = t.repo_url
+            ? `<a href="${t.repo_url.replace('.git','')}" target="_blank">${t.repo_name}</a>`
+            : t.repo_name || '-';
+
+        // Category tags
+        const cats = analysis.categories || {};
+        const catTags = Object.entries(cats)
+            .filter(([k, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `<span class="tag-badge tag-${k}">${catLabels[k] || k} (${v})</span>`)
+            .join(" ");
+
+        detail.innerHTML = `
+            <p><strong>Repository:</strong> ${repoLink}</p>
+            <p><strong>License:</strong> ${t.licence || '-'}</p>
+            <p><strong>Complexity:</strong> <span class="tag-badge tag-${analysis.complexity === 'high' ? 'bug_fix' : analysis.complexity === 'medium' ? 'api_change' : 'new_feature'}">${(analysis.complexity || '-').toUpperCase()}</span> (initial gap: ${t.initial_gap})</p>
+            <p><strong>Architect Requirements:</strong> ${analysis.total_requirements || 0} items</p>
+            <p><strong>Task Categories:</strong> ${catTags || '<span style="color:var(--text-muted)">-</span>'}</p>
+        `;
+        section.style.display = "block";
+    }
+
+    function renderRequirements(reqEpochs) {
+        if (!reqEpochs || reqEpochs.length === 0) return;
+        const section = document.getElementById("requirements-section");
+        const container = document.getElementById("requirements-list");
+
+        let html = "";
+        for (const epoch of reqEpochs) {
+            if (reqEpochs.length > 1) {
+                html += `<h3 style="font-size:13px; color:var(--text-muted); margin: 16px 0 8px;">Epoch: ${epoch.epoch}</h3>`;
+            }
+            for (const req of (epoch.requirements || [])) {
+                html += `<div class="req-card">
+                    <div class="req-header">
+                        <span class="req-id">Requirement #${req.id}</span>
+                        <span class="req-location">${escapeHtml(req.location || '')}</span>
+                    </div>
+                    <div class="req-desc">${escapeHtml(req.description || '')}</div>
+                    <div class="req-contract">${escapeHtml(req.contract || '')}</div>
+                    ${req.acceptance_tests ? `<div class="req-tests">Tests: ${escapeHtml(req.acceptance_tests)}</div>` : ''}
+                </div>`;
+            }
+        }
+        container.innerHTML = html;
+        section.style.display = "block";
     }
 
     function renderDialogue(md) {

@@ -2,6 +2,7 @@
   "task_id": "9001__copyparty__ccdace__6a0aaa",
   "repo_name": "9001/copyparty",
   "repo_url": "https://github.com/9001/copyparty.git",
+  "licence": "MIT License",
   "initial_gap": 10,
   "final_gap": 0,
   "num_epochs": 2,
@@ -124,7 +125,34 @@
     "failed": 0,
     "total": 26
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-05-37-08",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/copyparty/httpcli.py — module level (top of file, near existing `import re`),\n      and within the HttpCli class methods that currently access\n      `self.conn.hsrv.ptn_cc` (lines 441, 865),\n      `self.conn.hsrv.uparam_cc_ok` (line 442), and\n      `self.conn.hsrv.ptn_hsafe` (line 3570).",
+          "description": "Three compiled regex / constant attributes — `ptn_cc`, `uparam_cc_ok`, and\n      `ptn_hsafe` — were added to the `HttpSrv` class (`httpsrv.py` lines 190-192)\n      and are now accessed inside `HttpCli` methods via `self.conn.hsrv.*`.\n      The test suite uses a lightweight stub class `VHttpSrv` (defined in\n      `tests/util.py:254`) that does not carry these attributes, causing all test\n      runs that exercise any HTTP request/response path to crash with:\n\n        AttributeError: 'VHttpSrv' object has no attribute 'ptn_cc'\n\n      All 10 currently non-passing tests fail for this single reason.\n      The patterns are purely static (they do not depend on per-server configuration\n      or runtime state), so there is no architectural reason for them to live as\n      instance attributes on `HttpSrv`.",
+          "contract": "Define the three values as module-level constants in `httpcli.py`:\n\n      • A compiled regular expression that matches any ASCII control character\n        (code points 0x00–0x1F inclusive). This is the control-character detection\n        pattern currently stored as `HttpSrv.ptn_cc`.\n\n      • A compiled regular expression that matches any of the following characters:\n        ASCII control characters (0x00–0x1F), `&lt;`, `&gt;`, `\"`, `'`, `&amp;`.\n        This is the header-safe sanitisation pattern currently stored as\n        `HttpSrv.ptn_hsafe`.\n\n      • An immutable set containing the string keys `\"doc\"`, `\"move\"`, and `\"tree\"`.\n        This is the set of URL query-parameter keys that are exempt from\n        control-character validation, currently stored as `HttpSrv.uparam_cc_ok`.\n\n      All three places in `HttpCli` that currently read these values through\n      `self.conn.hsrv` must be updated to reference the corresponding module-level\n      constants instead. No other behaviour may change: the security checks\n      (control-character detection in URL parameters and outgoing response headers,\n      header-value sanitisation) must continue to function exactly as before.\n\n      The existing `HttpSrv` instance attributes (`ptn_cc`, `ptn_hsafe`,\n      `uparam_cc_ok`) may be retained or removed from `httpsrv.py` — but if they\n      are retained they must not be the source of truth accessed by `httpcli.py`.",
+          "acceptance_tests": "Primary — all of the following previously non-passing test cases must pass:\n        tests/test_mv.py::TestDedup::test\n        tests/test_hooks.py::TestHooks::test\n        tests/test_cp.py::TestDedup::test\n        tests/test_httpcli.py::TestHttpCli::test\n        tests/test_dots.py::TestDots::test_dots\n        tests/test_dots.py::TestDots::test_dk_fk\n        tests/test_webdav.py::TestHttpCli::test\n        tests/test_metrics.py::TestMetrics::test\n        tests/test_dedup.py::TestDedup::test\n        tests/test_dedup.py::TestDedup::test_a\n\n      Secondary — no `AttributeError` referencing `ptn_cc`, `uparam_cc_ok`, or\n      `ptn_hsafe` appears anywhere in the test output.\n\n      Regression — the full test suite must not introduce any new failures compared\n      to the baseline before this change."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 1,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 1,
+      "new_feature": 1,
+      "refactor": 1,
+      "api_change": 1,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_01",
   "evoscore_detail": {
     "m1": 1.0,

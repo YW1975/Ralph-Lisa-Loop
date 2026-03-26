@@ -2,6 +2,7 @@
   "task_id": "15r10nk__inline-snapshot__3bb05d__e2b9b2",
   "repo_name": "15r10nk/inline-snapshot",
   "repo_url": "https://github.com/15r10nk/inline-snapshot.git",
+  "licence": "MIT License",
   "initial_gap": 16,
   "final_gap": 0,
   "num_epochs": 2,
@@ -60,7 +61,48 @@
     "failed": 216,
     "total": 623
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-23-21-27-12",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/inline_snapshot/testing/_example.py — class Example, method __init__",
+          "description": "The current `__init__` method converts a bare `str` argument into\n      `{\"tests/test_something.py\": str_content}`, but a bare `bytes` argument\n      is stored directly as `self.files = bytes_value`.  Because `self.files`\n      is expected to be a `dict[str, str | bytes]` everywhere else in the\n      class (e.g. `dump_files`, `_write_files`, `_changed_files`, `with_files`,\n      etc.), passing `bytes` causes an `AttributeError: 'bytes' object has no\n      attribute 'items'` in `dump_files()` at line 149, which crashes all 10\n      parametrized `test_encoding` cases.",
+          "contract": "`Example.__init__` must accept three shapes for the `files` argument:\n      - `str`   → stored as `{\"tests/test_something.py\": str_content}`\n      - `bytes` → stored as `{\"tests/test_something.py\": bytes_content}`\n      - `dict`  → stored as-is\n\n      After construction, `self.files` must always be of type\n      `dict[str, str | bytes]` regardless of which shape was supplied.\n      No other behaviour of the class should change.",
+          "acceptance_tests": "tests/test_encoding.py::test_encoding[\\n-utf-8]\n      tests/test_encoding.py::test_encoding[\\n-ascii]\n      tests/test_encoding.py::test_encoding[\\n-latin-1]\n      tests/test_encoding.py::test_encoding[\\n-cp1252]\n      tests/test_encoding.py::test_encoding[\\n-windows-1251]\n      tests/test_encoding.py::test_encoding[\\r\\n-utf-8]\n      tests/test_encoding.py::test_encoding[\\r\\n-ascii]\n      tests/test_encoding.py::test_encoding[\\r\\n-latin-1]\n      tests/test_encoding.py::test_encoding[\\r\\n-cp1252]\n      tests/test_encoding.py::test_encoding[\\r\\n-windows-1251]"
+        },
+        {
+          "id": "2",
+          "location": "code/src/inline_snapshot/testing/_example.py — class Example, method run_inline\n      (around line 292–300, inside the `with snapshot_env() as state` block)",
+          "description": "`run_inline()` sets up the test environment inside a `snapshot_env()`\n      context and then explicitly registers a `HashStorage` instance under\n      the key `\"hash\"` in `state.all_storages`.  It never registers a\n      `UuidStorage` instance under the key `\"uuid\"`.\n\n      Because `State.default_storage` is `\"uuid\"` and the `External.storage`\n      property resolves the storage name via `state().all_storages[storage_name]`,\n      any call to `external(\"uuid:\")`, `external(\".json\")` (which falls back to\n      the default storage), or any other `external()` expression that resolves\n      to the `\"uuid\"` backend raises `KeyError: 'uuid'`.\n\n      This crashes 5 tests:\n        tests/test_storage.py::test_uuid_storage\n        tests/external/storage/test_uuid.py::test_no_test_dir\n        tests/external/storage/test_uuid.py::test_uuid_rename_function\n        tests/external/test_formats.py::test_json_format\n        (and the fourth uuid-related test also tracked under KeyError: 'uuid')",
+          "contract": "After the `state.all_storages[\"hash\"] = HashStorage(...)` line in\n      `run_inline()`, a `UuidStorage` instance must also be registered under\n      the key `\"uuid\"` in `state.all_storages`.\n\n      - The `UuidStorage` class lives in\n        `inline_snapshot._external._storage._uuid`.\n      - `UuidStorage` takes no constructor arguments; it reads\n        `state().config` and `state().files_with_snapshots` lazily at call time.\n      - Registering it must happen while the `snapshot_env()` context is\n        active so that the newly created `State` object is the one being\n        populated.\n      - `state.config.tests_dir` should be set to an appropriate path within\n        `tmp_path` before or at the time the `UuidStorage` is registered, so\n        that `UuidStorage._external_files` can locate UUID-named files in the\n        temporary project tree.  If `tests_dir` is `None`, the storage falls\n        back gracefully and the test still runs.\n\n      No change to `UuidStorage` itself is required or permitted.",
+          "acceptance_tests": "tests/test_storage.py::test_uuid_storage\n      tests/external/storage/test_uuid.py::test_no_test_dir\n      tests/external/storage/test_uuid.py::test_uuid_rename_function\n      tests/external/test_formats.py::test_json_format"
+        },
+        {
+          "id": "3",
+          "location": "code/src/inline_snapshot/testing/_example.py — class Example, method run_inline\n      (lines 356–360, the `report_output` / `report_problems` block)",
+          "description": "The `run_inline()` method creates a `report_output` StringIO and a\n      `Console` writing to it, but only calls `report_problems(lambda: console)`\n      (which writes the \"Problems\" sub-section).  The method has a\n      `# TODO: add all the report output here` comment acknowledging this gap.\n\n      The full report expected by callers who pass `report=snapshot(...)` also\n      requires:\n        1. Leading FAIL/WARNING lines for missing or incorrect snapshot values\n           (e.g. \"FAIL: your snapshot is missing N values.\\n...\"),\n           which in the pytest path come from the `snapshot_check` fixture\n           calling `pytest.fail()`.\n        2. The \"═══ inline-snapshot ═══\" horizontal rule separator.\n        3. Per-flag change-diff sections (\"Create snapshots\", \"Fix snapshots\",\n           etc.) with file-level diffs and \"These changes will be applied…\"\n           or \"These changes are not applied.\" footers.\n        4. The \"Problems\" sub-section (already present via `report_problems`).\n\n      Because items 1–3 are missing, the assertion\n      `assert report == normalize(report_output.getvalue())` at line 379\n      fails for `test_no_black` and `test_black_formatting_error`, which both\n      supply an expected `report` snapshot containing all four sections.",
+          "contract": "Before the `if report is not None:` check at line 378, `run_inline()`\n      must write a complete inline-snapshot report into `report_output`.\n      The report must be written to the same `Console(file=report_output, width=80)`\n      object already created, and must include all four sections in order:\n\n      Section A — FAIL messages (only when counts are non-zero):\n        - If `state.missing_values &gt; 0`:\n            \"FAIL: your snapshot is missing one value.\" (if count == 1)\n            \"FAIL: your snapshot is missing N values.\"  (if count &gt; 1)\n            followed by the standard \"If you just created this value with\n            --snapshot=create, the value is now created and you can ignore\n            this message.\" continuation line.\n        - If `state.incorrect_values &gt; 0`:\n            \"FAIL: some snapshots in this test have incorrect values.\"\n            followed by the same continuation line.\n        These correspond exactly to the messages emitted by the pytest\n        `snapshot_check` fixture.\n\n      Section B — inline-snapshot header rule (only when there are changes\n      that are either applied or reportable):\n        A Rich `console.rule(\"inline-snapshot\", characters=\"═\")` producing\n        the \"═══ inline-snapshot ═══\" separator line.\n\n      Section C — per-flag change diffs:\n        For each flag that has associated changes (e.g. \"create\", \"fix\"),\n        in the same order as `Flags.all()`:\n          - A sub-rule header: \"Create snapshots\", \"Fix snapshots\", etc.\n          - A Rich `Panel` for each changed file showing the unified diff.\n          - The \"These changes will be applied, because you used &lt;flag&gt;\"\n            footer (when the flag is in `state.update_flags`), or the\n            \"These changes are not applied.\" footer otherwise.\n        The diff generation must use the same `ChangeRecorder` / `apply_all`\n        approach already present in `run_inline()`.\n\n      Section D — Problems (already present):\n        `report_problems(lambda: console)` as currently written.\n\n      The sections A and B/C are only written when the corresponding\n      conditions are met; an empty `report_output` is acceptable when no\n      snapshots are missing, incorrect, or changed.\n\n      The output written to `report_output` must pass through\n      `normalize(report_output.getvalue())` (which strips ANSI codes and\n      Windows line-ending artefacts) before comparison.\n\n      Note: `run_inline()` must NOT call `pytest.fail()` or any pytest\n      reporting API; it must write all output to `report_output` directly.",
+          "acceptance_tests": "tests/test_formatting.py::test_no_black\n      tests/test_formatting.py::test_black_formatting_error"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 3,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 3,
+      "new_feature": 2,
+      "refactor": 1,
+      "api_change": 3,
+      "test_fix": 0,
+      "config": 2
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_host_v3_mini",
   "evoscore_detail": {
     "m1": 1.0,

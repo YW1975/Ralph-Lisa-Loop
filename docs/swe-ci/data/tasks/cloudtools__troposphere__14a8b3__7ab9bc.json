@@ -2,6 +2,7 @@
   "task_id": "cloudtools__troposphere__14a8b3__7ab9bc",
   "repo_name": "cloudtools/troposphere",
   "repo_url": "https://github.com/cloudtools/troposphere.git",
+  "licence": "BSD 2-Clause \"Simplified\" License",
   "initial_gap": 12,
   "final_gap": 0,
   "num_epochs": 3,
@@ -343,7 +344,74 @@
     "failed": 0,
     "total": 556
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-10-37-32",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/troposphere/validators/rds.py — function validate_dbinstance",
+          "description": "The credential validation logic in validate_dbinstance has three distinct defects:\n\n      (a) The condition that requires MasterUsername+MasterUserPassword does not accept\n          ManageMasterUserPassword as a valid alternative to MasterUserPassword, so any\n          DBInstance that uses ManageMasterUserPassword for credential management is\n          incorrectly rejected with a ValueError.\n\n      (b) There is no mutual-exclusion check: both MasterUserPassword and\n          ManageMasterUserPassword can be set simultaneously without raising an error,\n          although they are mutually exclusive in AWS.\n\n      (c) The error message raised when neither credentials nor a snapshot are present\n          does not match the expected wording that tests assert against.\n\n      Additionally, in the gp3 Iops-to-storage ratio validation block (around line 497),\n      the expression `iops / int(allocated_storage)` is evaluated unconditionally, even\n      when `allocated_storage` is an AWSHelperFn instance (e.g. a Ref), which causes a\n      TypeError at runtime.",
+          "contract": "1. Credentials validity: A DBInstance is considered to have valid credentials if\n         any of the following is true:\n           - DBSnapshotIdentifier is present, OR\n           - SourceDBInstanceIdentifier is present, OR\n           - DBClusterIdentifier is present, OR\n           - MasterUsername is present AND (MasterUserPassword OR ManageMasterUserPassword\n             is present).\n         If none of the above is satisfied, raise ValueError with a message matching the\n         pattern:\n           \"Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword)\n            or DBSnapshotIdentifier are required\"\n\n      2. Mutual exclusion: If both MasterUserPassword and ManageMasterUserPassword are\n         present in properties, raise ValueError with a message matching:\n           \"Both MasterUserPassword and ManageMasterUserPassword cannot be set simultaneously.\"\n         This check must occur before (or independently of) the general credential check.\n\n      3. Iops/AllocatedStorage ratio: Any arithmetic involving allocated_storage that\n         would call int() on it must first verify that allocated_storage is NOT an\n         AWSHelperFn instance. If it is an AWSHelperFn, skip the ratio check entirely\n         (both the min-storage check and the ratio calculation). The existing guard\n         `not isinstance(allocated_storage, AWSHelperFn)` must be applied consistently\n         everywhere allocated_storage is cast to int inside the ratio validation block.",
+          "acceptance_tests": "tests/test_rds.py::TestRDS::test_it_rds_credentials_using_managemasteruserpassword\n      tests/test_rds.py::TestRDS::test_it_rds_masteruserpassword_and_managemasteruserpassword_mutually_exclusive\n      tests/test_rds.py::TestRDS::test_it_rds_instances_require_either_a_snapshot_or_credentials\n      tests/test_rds.py::TestRDS::test_gp3_storage_performance"
+        },
+        {
+          "id": "2",
+          "location": "code/troposphere/__init__.py — class FindInMap, method __init__",
+          "description": "FindInMap.__init__ currently accepts only three positional/keyword parameters\n      (mapname, toplevelkey, secondlevelkey) and does not support a defaultvalue\n      parameter. Callers that pass defaultvalue=... receive a TypeError because the\n      keyword argument is unrecognised.",
+          "contract": "FindInMap.__init__ must accept an optional keyword argument defaultvalue (default\n      None or absent). The behavior must be:\n\n        - When defaultvalue is not provided (or is None): serialize as before:\n            {\"Fn::FindInMap\": [mapname_str, toplevelkey, secondlevelkey]}\n\n        - When defaultvalue is provided (non-None): append a fourth element to the list\n          that wraps the value in a dict under the \"DefaultValue\" key:\n            {\"Fn::FindInMap\": [mapname_str, toplevelkey, secondlevelkey,\n                               {\"DefaultValue\": defaultvalue}]}\n\n      The mapname argument continues to support both string and BaseAWSObject instances\n      (resolved via self.getdata()), exactly as before.\n\n      Signature (informational, not prescriptive):\n        def __init__(self, mapname, toplevelkey, secondlevelkey, defaultvalue=None)",
+          "acceptance_tests": "tests/test_findinmap.py::TestFindInMap::test_find_in_map_with_default\n      tests/test_findinmap.py::TestFindInMap::test_find_in_map_with_object_and_default\n      Existing passing tests must not regress:\n        tests/test_findinmap.py::TestFindInMap::test_find_in_map\n        tests/test_findinmap.py::TestFindInMap::test_find_in_map_with_object"
+        },
+        {
+          "id": "3",
+          "location": "code/troposphere/__init__.py — class BaseAWSObject (methods __eq__, __hash__)\n                                    and class Template (method __eq__)",
+          "description": "(a) BaseAWSObject.__eq__ returns False for any object that is neither the same\n          class nor a dict. This prevents Python's reflected equality protocol from\n          working: when a custom comparator (e.g. TypeComparator) computes\n          `comparator == aws_object`, Python first calls `comparator.__eq__(aws_object)`\n          and, if that returns NotImplemented, then calls `aws_object.__eq__(comparator)`.\n          Because BaseAWSObject.__eq__ returns False (not NotImplemented) for foreign\n          types, the reflected call is bypassed and the assertion fails.\n\n      (b) BaseAWSObject defines __eq__ but does not define __hash__. In Python 3, a\n          class that defines __eq__ without __hash__ has its __hash__ implicitly set to\n          None, making all subclasses (including AWSObject subclasses such as\n          SecurityGroup) unhashable. Any attempt to hash such an instance raises\n          TypeError: unhashable type.\n\n      (c) Template.__eq__ returns False (instead of NotImplemented) for non-Template\n          objects, suffering the same reflected equality problem as (a).",
+          "contract": "1. BaseAWSObject.__eq__ must return NotImplemented (not False) when `other` is\n         neither the same class nor a dict. This allows Python to call\n         `other.__eq__(self)` in the reflected case.\n\n      2. BaseAWSObject must define __hash__ so that all AWSObject subclasses remain\n         hashable. The hash value must be consistent with equality: two objects that\n         compare equal must have the same hash. A suitable basis is the JSON\n         serialisation of the object (or a combination of title and JSON).\n\n      3. Template.__eq__ must return NotImplemented (not False) for objects that are\n         not Template instances, for the same reflected-equality reason as point 1.\n         Template's existing __hash__ definition is acceptable and must not be removed.",
+          "acceptance_tests": "tests/test_basic.py::TestBasic::test___eq__\n      tests/test_basic.py::TestBasic::test___hash__\n      tests/test_template.py::TestEquality::test_eq\n      Existing passing tests must not regress:\n        tests/test_basic.py::TestBasic::test___ne__\n        tests/test_template.py::TestEquality::test_ne\n        tests/test_template.py::TestEquality::test_hash"
+        },
+        {
+          "id": "4",
+          "location": "code/troposphere/cloudfront.py — new class AnycastIpList (to be added)",
+          "description": "The class AnycastIpList does not exist in troposphere/cloudfront.py. Any attempt\n      to import it raises ImportError, blocking tests that depend on this resource type.\n      The resource represents an AWS CloudFront AnycastIpList and must be importable as:\n        from troposphere.cloudfront import AnycastIpList",
+          "contract": "AnycastIpList must be an AWSObject subclass with resource_type\n      \"AWS::CloudFront::AnycastIpList\" and at minimum the following props:\n\n        - IpCount: integer, required\n        - Name: str, required\n        - Tags: optional; must accept a dict with exactly one key (\"Items\") whose value\n          is a list of Tag instances. Validation rules for Tags when provided:\n            * Must be a dict; raise ValueError if not.\n            * Must have exactly one key; raise ValueError if it has more than one key.\n            * Every element in the list under that key must be a Tag instance;\n              raise ValueError if any element is not a Tag.\n\n      The Tags validator may be implemented as a standalone function in the validators\n      layer (e.g. troposphere/validators/cloudfront.py) and referenced from the class.",
+          "acceptance_tests": "tests/test_tags.py::TestTags::test_tags_items_array"
+        },
+        {
+          "id": "5",
+          "location": "code/troposphere/__init__.py — class Parameter, method validate",
+          "description": "Parameter.validate() unconditionally rejects AllowedPattern for any parameter\n      type other than \"String\" (line ~1079: `if self.properties[\"Type\"] != \"String\"`).\n      However, AllowedPattern is also valid for CommaDelimitedList parameter types in\n      CloudFormation. A Parameter with Type=\"CommaDelimitedList\" and AllowedPattern set\n      currently raises ValueError: \"AllowedPattern can only be used with parameters of\n      the String type.\"",
+          "contract": "The validation condition that gates STRING_PROPERTIES (AllowedPattern, MaxLength,\n      MinLength) must be updated to allow those properties for both \"String\" and\n      \"CommaDelimitedList\" parameter types.\n\n      Specifically, the check must only raise ValueError for STRING_PROPERTIES when the\n      parameter type is neither \"String\" nor \"CommaDelimitedList\". The existing\n      restriction for Number-only properties (NUMBER_PROPERTIES: MaxValue, MinValue)\n      must remain unchanged.\n\n      Expected behavior:\n        - Type=\"String\" + AllowedPattern → valid, no error\n        - Type=\"CommaDelimitedList\" + AllowedPattern → valid, no error\n        - Type=\"Number\" + AllowedPattern → raises ValueError\n        - Type=\"AWS::EC2::KeyPair::KeyName\" + AllowedPattern → raises ValueError",
+          "acceptance_tests": "tests/test_parameters.py::TestParameterValidator::test_allowed_pattern_for_comma_delimited_list_and_string\n      Existing passing tests must not regress:\n        tests/test_parameters.py::TestParameterValidator::test_allowed_pattern_for_number"
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-25-10-48-21",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/troposphere/__init__.py — BaseAWSObject.__setattr__ method (around line 257–261)",
+          "description": "The AWSHelperFn bypass in BaseAWSObject.__setattr__ unconditionally skips type\n      validation for any value that is an instance of AWSHelperFn. Because the troposphere\n      Tags class inherits from AWSHelperFn, passing a Tags object to a property whose\n      declared type is dict (e.g. batch.JobDefinition.Tags, batch.ComputeEnvironment.Tags,\n      batch.JobQueue.Tags, batch.SchedulingPolicy.Tags) silently succeeds instead of\n      raising TypeError. The intended distinction is:\n\n        • True intrinsic/helper functions (GetAtt, Ref, If, Sub, Select, …) — these\n          represent values that are only known at CloudFormation deploy time, so they\n          legitimately cannot be validated and should bypass the type check.\n\n        • Tags — this is a structured tag-list object that carries concrete Python data;\n          it is NOT a CloudFormation intrinsic function and should be subject to normal\n          type validation just like any other non-AWSHelperFn value.\n\n      Currently, test_json_tags (tests/test_tags.py line 103) expects TypeError when\n      Tags=Tags({\"foo\": \"bar\"}) is passed to JobDefinition but the error is not raised,\n      causing \"AssertionError: TypeError not raised\".",
+          "contract": "The AWSHelperFn bypass must be narrowed so that Tags instances (and only Tags\n      instances) are excluded from the bypass and instead fall through to the ordinary\n      expected-type check that follows it.  After the change:\n\n        1. If `isinstance(value, AWSHelperFn)` AND `value` is NOT an instance of `Tags`\n           → bypass type checking and store as before (preserves all existing intrinsic\n             function behaviour).\n\n        2. If `value` IS an instance of `Tags`\n           → do NOT bypass; let the value proceed to the normal isinstance-against-\n             expected_type check at the bottom of the branch.\n             • When expected_type is Tags (or a compatible type): accepted.\n             • When expected_type is dict (or any type that Tags does not satisfy):\n               _raise_type is called → TypeError is raised.\n\n      No other behaviour in __setattr__ should change. The fix must not alter how\n      GetAtt, Ref, If, Sub, Select, FindInMap, Base64, or any other AWSHelperFn\n      subclass (other than Tags) is handled.\n\n      Function signature: __setattr__(self, name: str, value: Any) -> None  (unchanged)",
+          "acceptance_tests": "Primary test:\n        tests/test_tags.py::TestTags::test_json_tags\n\n      The test must pass in full, meaning all four sub-cases succeed:\n        (a) JobDefinition(Tags={\"foo\": \"bar\"})         — no exception raised\n        (b) JobDefinition(Tags=GetAtt(\"resource\",\"tags\")) — no exception raised\n        (c) JobDefinition(Tags=Tags({\"foo\": \"bar\"}))   — TypeError raised\n        (d) JobDefinition(Tags=\"string\")               — TypeError raised\n\n      Regression: all other tests in tests/test_tags.py must continue to pass,\n      including test_object_tags (which relies on Tags being accepted for\n      dynamodb.Table.Tags typed as Tags, not dict)."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 6,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 6,
+      "new_feature": 4,
+      "refactor": 1,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 3
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_05",
   "evoscore_detail": {
     "m1": 0.9958,

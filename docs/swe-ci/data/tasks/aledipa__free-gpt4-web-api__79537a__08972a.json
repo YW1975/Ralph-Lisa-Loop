@@ -2,6 +2,7 @@
   "task_id": "aledipa__free-gpt4-web-api__79537a__08972a",
   "repo_name": "aledipa/Free-GPT4-WEB-API",
   "repo_url": "https://github.com/aledipa/Free-GPT4-WEB-API.git",
+  "licence": "GNU General Public License v3.0",
   "initial_gap": 15,
   "final_gap": 0,
   "num_epochs": 2,
@@ -48,7 +49,55 @@
     "failed": 0,
     "total": 17
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-07-18-26",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/utils/__init__.py,\n      code/src/utils/validation.py,\n      code/src/utils/exceptions.py,\n      code/src/utils/logging.py,\n      code/src/utils/helpers.py",
+          "description": "The `utils` package does not exist under code/src/. All tests in\n      TestValidationModule, TestExceptionsModule, TestLoggingModule, and\n      TestUtilsModule fail with ModuleNotFoundError: No module named 'utils'.\n      This single missing package accounts for 9 of the 15 non-passed tests.\n      Four submodules must be created inside the package:\n      validation, exceptions, logging, and helpers.",
+          "contract": "1. utils/__init__.py — an empty or minimal package marker so that\n         `import utils` and `from utils.X import Y` resolve correctly when\n         code/src is on sys.path.\n\n      2. utils/validation.py — must export two callable functions:\n         - validate_proxy_format(proxy: str) -> bool\n             Returns True only when proxy is a non-empty string with scheme\n             http or https AND contains user:password credentials in the\n             authority component (i.e. the format\n             http(s)://user:pass@host:port). Returns False for empty strings,\n             non-http(s) schemes (e.g. ftp), and proxy URLs that lack\n             authentication credentials.\n         - validate_token_format(token: str) -> bool\n             Returns True only when token is a valid UUID version-4 string\n             (8-4-4-4-12 hex groups, third group starting with '4', fourth\n             group starting with 8, 9, a, or b). Returns False for empty\n             strings and any string that does not conform to UUID4 format.\n\n      3. utils/exceptions.py — must export three custom exception classes:\n         - ValidationError(Exception) — str(instance) must equal the message\n           passed to the constructor.\n         - DatabaseError(Exception) — same string representation contract.\n         - AuthenticationError(Exception) — must be importable; string\n           representation follows the same convention.\n\n      4. utils/logging.py — must export a module-level `logger` object that\n         has at minimum the callable attributes: info, error, debug. Using\n         Python's standard logging module with a named logger is acceptable.\n\n      5. utils/helpers.py — must export three callable functions:\n         - generate_uuid() — returns a new UUID string.\n         - load_json_file(path) — loads and returns the contents of a JSON\n           file at the given path.\n         - clean_response_sources(text) — accepts a string and returns a\n           cleaned string (exact cleaning logic is left to the programmer;\n           must at minimum accept a string argument and return a string).",
+          "acceptance_tests": "tests/test_launch.py::TestValidationModule::test_validation_import\n      tests/test_launch.py::TestValidationModule::test_proxy_validation\n      tests/test_launch.py::TestValidationModule::test_token_validation\n      tests/test_launch.py::TestExceptionsModule::test_exceptions_import\n      tests/test_launch.py::TestExceptionsModule::test_exception_creation\n      tests/test_launch.py::TestLoggingModule::test_logging_import\n      tests/test_launch.py::TestLoggingModule::test_logger_properties\n      tests/test_launch.py::TestUtilsModule::test_helpers_import\n      (Also unblocks the utils imports used in TestIntegration::test_core_modules_work_together)"
+        },
+        {
+          "id": "2",
+          "location": "code/src/config.py  (new file; class Config)",
+          "description": "The module `config` does not exist under code/src/. Tests in\n      TestConfigModule and TestIntegration fail with\n      ModuleNotFoundError: No module named 'config'.\n      A Config class with at least three properties is required.",
+          "contract": "- The module must be importable as `from config import Config`.\n      - Config() must be instantiable with no required arguments.\n      - Instances must expose at minimum the three attributes:\n          database — an object or dict-like structure holding database\n                     configuration (e.g. path, connection settings).\n          server   — an object or dict-like structure holding server\n                     configuration (e.g. host, port).\n          security — an object or dict-like structure holding security\n                     configuration (e.g. secret key, token expiry).\n        The test only checks hasattr; these may be plain objects, dicts,\n        dataclasses, or simple namespace instances.",
+          "acceptance_tests": "tests/test_launch.py::TestConfigModule::test_config_import\n      tests/test_launch.py::TestConfigModule::test_config_properties\n      (Also unblocks the config import used in TestIntegration::test_core_modules_work_together)"
+        },
+        {
+          "id": "3",
+          "location": "code/src/database.py  (new file; class DatabaseManager)",
+          "description": "The module `database` does not exist under code/src/. Tests in\n      TestDatabaseModule fail with\n      ModuleNotFoundError: No module named 'database'.\n      A DatabaseManager class that wraps SQLite connections is required.",
+          "contract": "- The module must be importable as `from database import DatabaseManager`.\n      - DatabaseManager(db_path: str) must accept a single positional argument\n        for the database file path (the test passes ':memory:' for an in-memory\n        SQLite database).\n      - Instances must expose at minimum the method get_connection, which\n        returns a live database connection object (sqlite3.Connection or\n        equivalent). The method signature must accept no additional required\n        arguments beyond self.\n      - DatabaseManager(':memory:') must not raise any exception during\n        construction.",
+          "acceptance_tests": "tests/test_launch.py::TestDatabaseModule::test_database_import\n      tests/test_launch.py::TestDatabaseModule::test_database_manager_creation\n      (Also unblocks the database import used in TestIntegration::test_core_modules_work_together)"
+        },
+        {
+          "id": "4",
+          "location": "code/src/auth.py  (new file; class AuthService)",
+          "description": "The module `auth` does not exist under code/src/. Tests in\n      TestAuthModule fail with\n      ModuleNotFoundError: No module named 'auth'.\n      An AuthService class providing authentication functionality is required.",
+          "contract": "- The module must be importable as `from auth import AuthService`.\n      - AuthService() must be instantiable with no required arguments.\n      - Instances must expose at minimum the method authenticate_admin.\n        The test only verifies hasattr; the full signature and behavior of\n        authenticate_admin are left to the programmer, but it must exist as\n        a callable attribute on the instance.",
+          "acceptance_tests": "tests/test_launch.py::TestAuthModule::test_auth_import\n      tests/test_launch.py::TestAuthModule::test_auth_service_creation\n      (Also unblocks the auth import used in TestIntegration::test_core_modules_work_together)"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 4,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 4,
+      "new_feature": 2,
+      "refactor": 1,
+      "api_change": 4,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_02",
   "evoscore_detail": {
     "m1": 1.0,

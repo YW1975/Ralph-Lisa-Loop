@@ -2,6 +2,7 @@
   "task_id": "aio-libs__yarl__576b5e__857930",
   "repo_name": "aio-libs/yarl",
   "repo_url": "https://github.com/aio-libs/yarl.git",
+  "licence": "Apache License 2.0",
   "initial_gap": 57,
   "final_gap": 0,
   "num_epochs": 3,
@@ -76,7 +77,102 @@
     "failed": 0,
     "total": 942
   },
-  "last_updated": "2026-03-25T12:36:37",
+  "requirements": [
+    {
+      "epoch": "2026-03-24-07-56-33",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/yarl/_path.py (new file to be created)",
+          "description": "The test file code/tests/test_normalize_path.py imports\n      `from yarl._path import normalize_path`, but the module `yarl/_path.py`\n      does not exist. This causes an ImportError at collection time, making all\n      17 parametrized `test_normalize_path` test cases fail to collect or run.\n      Currently, the path normalization logic exists only as a private class\n      method `URL._normalize_path()` inside `yarl/_url.py` and is not publicly\n      accessible via `yarl._path`.",
+          "contract": "Create a new module `code/yarl/_path.py` that exports a public function\n      `normalize_path(path: str) -> str`. This function must:\n      - Accept a single string `path` argument (may be relative or absolute).\n      - Drop all single-dot (`.`) path segments from the path.\n      - Resolve all double-dot (`..`) segments, removing the preceding segment;\n        `..` segments that would go above the root are silently ignored (not\n        added to the output).\n      - Preserve the leading `/` for absolute paths (RFC 3986 §5.2.4 and\n        §6.2.2.3): if the input starts with `/`, the output must also start\n        with `/`.\n      - If the last meaningful segment in the path was `.` or `..`, append a\n        trailing `/` to indicate the result is a directory.\n      - An empty input path returns an empty string.\n      - The function must handle non-ASCII path characters correctly.\n      Examples of expected behavior (input → output):\n        \"\"              → \"\"\n        \"/\"             → \"/\"\n        \"path/to\"       → \"path/to\"\n        \"././path/to\"   → \"path/to\"\n        \"path/./to\"     → \"path/to\"\n        \"path/to/.\"     → \"path/to/\"\n        \"../path/to\"    → \"path/to\"\n        \"path/../to\"    → \"to\"\n        \"/foo/../../../ton\" → \"/ton\"\n        \"/foo/../../../..bar\" → \"/..bar\"",
+          "acceptance_tests": "All tests in tests/test_normalize_path.py::test_normalize_path[*]\n      (17 parametrized cases) must pass. The module must be importable via\n      `from yarl._path import normalize_path`."
+        },
+        {
+          "id": "2",
+          "location": "code/yarl/_url.py — URL class (new cached_property), and\n      _InternalURLCache TypedDict (new field).",
+          "description": "The `URL` class is missing a `host_port_subcomponent` property. Tests\n      call `url.host_port_subcomponent` and receive `AttributeError: 'URL'\n      object has no attribute 'host_port_subcomponent'`. The existing\n      `host_subcomponent` property returns only the host part (with brackets\n      for IPv6) but does not include port information. The new property must\n      combine the host subcomponent with the port when it is non-default.",
+          "contract": "Add a `host_port_subcomponent` cached property (using `cached_property`\n      backed by `self._cache`) to the `URL` class. Its return type is\n      `Union[str, None]`. Behavioral contract:\n      - Return `None` for relative URLs (URLs with no netloc/authority).\n      - Return `None` for relative path-only URLs such as `\"/\"`.\n      - For absolute URLs with a host and no explicit port, or with an explicit\n        port that equals the scheme's default port (e.g. HTTP:80, HTTPS:443),\n        return the value of `host_subcomponent` (i.e. just the host, with IPv6\n        brackets included, trailing dots stripped as per `host_subcomponent`\n        semantics).\n      - For absolute URLs with a non-default explicit port, return a string of\n        the form `f\"{host_subcomponent}:{explicit_port}\"`.\n      Also add `host_port_subcomponent: Union[str, None]` as an optional field\n      to the `_InternalURLCache` TypedDict.\n      Expected return values for representative inputs:\n        \"/\"                          → None\n        \"http://example.com\"         → \"example.com\"\n        \"http://[::1]\"               → \"[::1]\"\n        \"http://xn--gnter-4ya.com\"   → \"xn--gnter-4ya.com\"\n        \"http://example.com.\"        → \"example.com\"\n        \"https://example.com.\"       → \"example.com\"\n        \"http://example.com:80\"      → \"example.com\"   (80 is default for http)\n        \"http://example.com:8080\"    → \"example.com:8080\"\n        \"http://[::1]:8080\"          → \"[::1]:8080\"",
+          "acceptance_tests": "All 9 parametrized cases of\n      tests/test_url.py::test_host_port_subcomponent[*] must pass.\n      tests/test_url_benchmarks.py::test_url_host_port_subcomponent must pass\n      (the benchmark accesses `url.host_port_subcomponent` and manipulates\n      `url._cache[\"host_port_subcomponent\"]`)."
+        },
+        {
+          "id": "3",
+          "location": "code/yarl/_url.py — URL.with_path(), URL.with_name(), URL.with_suffix()\n      methods.",
+          "description": "The methods `with_path()`, `with_name()`, and `with_suffix()` currently\n      always clear the query string and fragment of the resulting URL. Tests\n      call these methods with keyword arguments `keep_query=True` and/or\n      `keep_fragment=True` to optionally preserve those components, but the\n      current signatures do not accept these parameters, causing TypeError at\n      runtime.",
+          "contract": "Update the signatures and behavior of the three methods:\n\n      `with_path(self, path: str, *, encoded: bool = False,\n                 keep_query: bool = False, keep_fragment: bool = False) -> URL`\n      - When `keep_query=True`, the query string of `self` is preserved in the\n        returned URL.\n      - When `keep_fragment=True`, the fragment of `self` is preserved.\n      - When `keep_query=False` (default), the query string is cleared (current\n        behavior).\n      - When `keep_fragment=False` (default), the fragment is cleared (current\n        behavior).\n\n      `with_name(self, name: str, *,\n                 keep_query: bool = False, keep_fragment: bool = False) -> URL`\n      - Same keep_query/keep_fragment semantics as above.\n\n      `with_suffix(self, suffix: str, *,\n                   keep_query: bool = False, keep_fragment: bool = False) -> URL`\n      - Same keep_query/keep_fragment semantics as above.\n\n      All other existing behaviors of these three methods must be preserved\n      (encoding, validation, normalization, etc.).",
+          "acceptance_tests": "All 4 parametrized cases of\n      tests/test_url.py::test_with_path_keep_query_keep_fragment_flags[*],\n      all 4 cases of\n      tests/test_url.py::test_with_name_keep_query_keep_fragment_flags[*], and\n      all 4 cases of\n      tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[*]\n      must pass (12 tests total). Existing tests for these methods that do not\n      use the new flags must continue to pass."
+        },
+        {
+          "id": "4",
+          "location": "code/yarl/_url.py — `CacheInfo` TypedDict, `cache_info()`, `cache_clear()`,\n      and `cache_configure()` functions; a new LRU-cached `_encode_host`\n      module-level function.",
+          "description": "`cache_info()` returns only 4 keys (`idna_encode`, `idna_decode`,\n      `ip_address`, `host_validate`) but tests expect a 5th key `encode_host`.\n      `cache_configure()` does not accept the `encode_host_size` keyword\n      argument, causing TypeError. Additionally, the deprecated\n      `ip_address_size` and `host_validate_size` arguments should emit a\n      `DeprecationWarning` and map to the `encode_host_size` behaviour rather\n      than being silently ignored.",
+          "contract": "1. Introduce a module-level LRU-cached function `_encode_host` (or\n         expose the existing classmethod equivalent as a cached function) that\n         wraps the core host-encoding logic. Its LRU cache is independent of\n         `_ip_compressed_version` and `_host_validate`.\n\n      2. `CacheInfo` TypedDict must add the field:\n           `encode_host: _CacheInfo`\n\n      3. `cache_info() -> CacheInfo` must return a dict with all 5 keys:\n           \"idna_encode\", \"idna_decode\", \"ip_address\", \"host_validate\",\n           \"encode_host\"\n         The `encode_host` value is the CacheInfo of the new `_encode_host`\n         LRU cache.\n\n      4. `cache_clear()` must also call `_encode_host.cache_clear()`.\n\n      5. `cache_configure()` signature must be updated to accept:\n           `encode_host_size: Union[int, None] = _MAXCACHE`\n         as a new keyword argument. When provided, it resizes the `_encode_host`\n         LRU cache.\n\n      6. The existing `ip_address_size` and `host_validate_size` parameters\n         must continue to be accepted but must emit a `DeprecationWarning` with\n         the exact message:\n           \"cache_configure() no longer accepts the ip_address_size or\n            host_validate_size arguments, they are used to set the\n            encode_host_size instead and will be removed in the future\"\n         When either deprecated param is passed, its value overrides the\n         `encode_host_size` (the last non-None value wins, or the explicit\n         `encode_host_size` value if both deprecated and new are provided —\n         tests show deprecated params affect the `encode_host` cache).\n\n      7. The `ip_address` and `host_validate` keys must remain in the\n         `cache_info()` output (all 5 keys required).",
+          "acceptance_tests": "tests/test_cache.py::test_cache_info,\n      tests/test_cache.py::test_cache_configure_explicit,\n      tests/test_cache.py::test_cache_configure_None,\n      tests/test_cache.py::test_cache_configure_None_including_deprecated,\n      tests/test_cache.py::test_cache_configure_None_only_deprecated,\n      tests/test_cache.py::test_cache_configure_waring\n      must all pass (6 tests)."
+        },
+        {
+          "id": "5",
+          "location": "code/yarl/_url.py — URL.__new__() method, in the `not encoded` branch.",
+          "description": "Tests access `url._cache[\"raw_path\"]` immediately after URL construction,\n      before any property access, but `raw_path` is implemented as a\n      `cached_property` that only populates `_cache[\"raw_path\"]` on first\n      access. The construction code already eagerly caches `scheme`,\n      `raw_query_string`, and `raw_fragment`, but does not cache `raw_path`.\n      This causes `KeyError: 'raw_path'` for tests such as\n      `test_parsing_populates_cache`, `test_relative_url_populates_cache`, and\n      `test_parsing_populates_cache_for_single_dot`.",
+          "contract": "In the `not encoded` construction path of `URL.__new__()`, after all path\n      processing (requoting, normalization) is complete, explicitly store the\n      processed path value in `cache[\"raw_path\"]`. The cached value must\n      reflect the same value that the `raw_path` cached_property would return:\n      - If path is non-empty after processing: `cache[\"raw_path\"] = path`.\n      - If path is empty but netloc is non-empty (absolute URL with no path):\n        `cache[\"raw_path\"] = \"/\"`.\n      - If path is empty and netloc is also empty (relative empty URL):\n        `cache[\"raw_path\"] = \"\"`.\n      This ensures that after construction:\n        URL(\"http://user:password@example.com:80/path?a=b#frag\")._cache[\"raw_path\"] == \"/path\"\n        URL(\".\")._cache[\"raw_path\"] == \".\"\n        URL(\"http://example.com/.\")._cache[\"raw_path\"] == \"/\"  (after normalization)\n      The value stored must remain consistent with what the `raw_path` property\n      would compute. No changes to the encoded=True construction path are\n      required.",
+          "acceptance_tests": "tests/test_url.py::test_parsing_populates_cache,\n      tests/test_url.py::test_relative_url_populates_cache,\n      tests/test_url.py::test_parsing_populates_cache_for_single_dot\n      must all pass."
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-24-09-18-12",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/yarl/_url.py — URL.__setstate__ method (lines 535–541)",
+          "description": "When a URL is deserialized via __setstate__ with a plain tuple as the _val\n      (e.g., (\"set_state\", \"set_state\", \"set_state\", \"set_state\", \"set_state\")),\n      the resulting URL._val is left as a plain tuple rather than a SplitResult.\n      Subsequent calls to __hash__ (and other methods) access named attributes such\n      as val.path and val.netloc on this tuple, raising AttributeError because plain\n      tuples have no such attributes. SplitResult is a NamedTuple, so comparing a\n      SplitResult to an equal-value plain tuple returns True; this means converting\n      the stored value does not break equality assertions.",
+          "contract": "__setstate__ must ensure that self._val is always a SplitResult instance after\n      execution. If the value retrieved from the state argument is already a\n      SplitResult, it is stored as-is. If it is a plain 5-tuple, it must be\n      converted to SplitResult(*tuple_value) before storing. self._cache must always\n      be reset to an empty dict, unchanged from current behavior.\n      Signature is unchanged: def __setstate__(self, state) -> None.",
+          "acceptance_tests": "tests/test_pickle.py::test_default_style_state\n      tests/test_pickle.py::test_empty_url_is_not_cached"
+        },
+        {
+          "id": "2",
+          "location": "code/yarl/_url.py — URL class (after __slots__ declaration, approximately\n      lines 231–342); add properties _scheme, _netloc, _path, _query, _fragment",
+          "description": "The test test_pickle_does_not_pollute_cache creates a URL via URL.__new__(URL),\n      then directly assigns u1._scheme = \"this\", u1._netloc = \"...\", u1._path = \"\",\n      u1._query = \"\", u1._fragment = \"\", calls hash(u1), pickles and unpickles it,\n      and then reads these attributes back (u2._scheme, u2._netloc, etc.). Because\n      __slots__ = (\"_cache\", \"_val\") does not include these attribute names, setting\n      them raises AttributeError. Additionally, after unpickling, reading u2._scheme\n      must return the value that was assigned before pickling. These attributes\n      provide a backward-compatible API for code (and tests) that manipulate URL\n      internals directly using the old per-component attribute style.",
+          "contract": "The URL class must expose _scheme, _netloc, _path, _query, and _fragment as\n      properties (not slots) with both getter and setter behavior:\n      - Getter: returns the corresponding component from self._val\n        (self._val.scheme, self._val.netloc, self._val.path, self._val.query,\n        self._val.fragment respectively).\n      - Setter: replaces self._val with self._val._replace(**{component: value}),\n        and must also clear self._cache to avoid stale cached values.\n      After assigning all five components on a newly __new__-created URL, calling\n      hash() must succeed (i.e., self._val must be a valid SplitResult). After\n      pickling (using existing __getstate__ which returns (self._val,)) and\n      unpickling, each component must equal the value that was assigned before\n      pickling. The cache for other URL instances (URL() and URL(\"\")) must not be\n      affected by pickling/unpickling a URL with custom component values.",
+          "acceptance_tests": "tests/test_pickle.py::test_pickle_does_not_pollute_cache"
+        },
+        {
+          "id": "3",
+          "location": "code/yarl/_url.py — URL.port cached_property (approximately line 786–793)",
+          "description": "The port property is implemented as:\n          return self.explicit_port or self._default_port\n      When explicit_port is 0 (a valid, explicitly specified port), the expression\n      evaluates to self._default_port because 0 is falsy in Python. For example,\n      URL(\"http://example.com:0\").port returns 80 (the HTTP default) instead of 0.",
+          "contract": "The port property must return self.explicit_port when explicit_port is not\n      None (including when it is 0), and fall back to self._default_port only when\n      explicit_port is None. The corrected logic is equivalent to:\n          self.explicit_port if self.explicit_port is not None else self._default_port\n      Return type remains Union[int, None]: None for relative URLs or URLs with no\n      explicit port and no scheme-based default; an int otherwise.",
+          "acceptance_tests": "tests/test_url.py::test_explicit_zero_port"
+        },
+        {
+          "id": "4",
+          "location": "code/yarl/_url.py — URL.with_suffix method (lines 1512–1534)",
+          "description": "Two distinct bugs exist in with_suffix:\n\n      (a) Double-encoding: with_suffix retrieves self.raw_name (an already\n      percent-encoded string), appends the suffix, then passes the result to\n      with_name(), which applies _PATH_QUOTER to the name again. This causes any\n      percent-encoded sequences in raw_name to be re-encoded; for example, \"b%20c\"\n      becomes \"b%2520c\". The expected behavior is that the original encoding in the\n      path is preserved and only the new suffix characters are encoded.\n\n      (b) Wrong error message for slash in suffix: When a suffix argument contains a\n      slash (e.g., \".b/.d\"), with_suffix does not validate this before delegating to\n      with_name(). with_name() detects any slash in the composed name string and\n      raises ValueError(\"Slash in name is not allowed\"), but the test expects the\n      error message to be \"Invalid suffix '.b/.d'\" (reflecting the original invalid\n      suffix argument, not a generic name error).",
+          "contract": "(a) Encoding fix: with_suffix must work with the decoded (unencoded) name and\n      suffix so that with_name() applies percent-encoding exactly once. Concretely:\n      - Retrieve the decoded name via self.name (not self.raw_name).\n      - Retrieve the decoded old suffix via self.suffix (not self.raw_suffix).\n      - Compose the new name as: name[:-len(old_suffix)] + suffix  (or name + suffix\n        if there is no old suffix).\n      - Pass this composed decoded name to with_name(), which will then encode it.\n      The resulting raw_parts must have percent-encoded forms of both the original\n      path segment and the new suffix, without double-encoding previously encoded\n      characters.\n\n      (b) Slash validation: Before delegating to with_name(), with_suffix must check\n      whether the suffix argument contains a \"/\" character. If it does, raise\n      ValueError with the message f\"Invalid suffix {suffix!r}\" (same format as the\n      existing check for a suffix not starting with \".\"). This validation must happen\n      before any name composition or call to with_name().",
+          "acceptance_tests": "tests/test_url.py::test_with_suffix_encoded_url\n      tests/test_url.py::test_with_suffix_with_slash2"
+        },
+        {
+          "id": "5",
+          "location": "code/yarl/_url.py — URL.build classmethod (line 367)",
+          "description": "When URL.build() is called with a non-int port value (e.g., port=\"\"), the\n      current error message is \"The port is required to be int.\" The test expects\n      the error message to match the regex ^The port is required to be int, got .*\\.$\n      which requires the message to include the actual type of the provided value.",
+          "contract": "When port is not None and not an instance of int, raise TypeError with a\n      message of the form:\n          f\"The port is required to be int, got {type(port)!r}.\"\n      or any string that:\n      - Starts with \"The port is required to be int, got \"\n      - Contains a representation of the actual type of the port argument\n      - Ends with \".\"\n      No other behavior of URL.build() changes.",
+          "acceptance_tests": "tests/test_url_build.py::test_build_with_port[port-str]"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 10,
+    "primary_category": "api_change",
+    "categories": {
+      "bug_fix": 9,
+      "new_feature": 7,
+      "refactor": 1,
+      "api_change": 10,
+      "test_fix": 0,
+      "config": 4
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-03-25T17:21:11",
   "batch": "rll_full_batch_02",
   "evoscore_detail": {
     "m1": 0.9939,

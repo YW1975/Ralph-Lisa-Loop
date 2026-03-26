@@ -2,6 +2,7 @@
   "task_id": "eliben__pycparser__262a41__febd20",
   "repo_name": "eliben/pycparser",
   "repo_url": "https://github.com/eliben/pycparser.git",
+  "licence": "BSD 3-Clause \"New\" or \"Revised\" License",
   "initial_gap": 26,
   "final_gap": 0,
   "num_epochs": 2,
@@ -48,7 +49,62 @@
     "failed": 0,
     "total": 78
   },
-  "last_updated": "2026-03-25T12:36:38",
+  "requirements": [
+    {
+      "epoch": "2026-03-25-12-36-16",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "pycparser/c_lexer.py — CLexer class, __init__ method and t_LBRACE / t_RBRACE token rules",
+          "description": "CLexer.__init__ currently accepts only two positional parameters: error_func and\n      type_lookup_func. Tests instantiate it with four arguments:\n        CLexer(error_func, on_lbrace_func, on_rbrace_func, type_lookup_func)\n      This causes \"TypeError: CLexer.__init__() takes 3 positional arguments but 5 were\n      given\" for every test in tests/test_c_lexer.py (15 failing tests).\n\n      Additionally, the on_lbrace_func and on_rbrace_func callbacks are never invoked,\n      so test_on_rbrace_lbrace (which verifies that each { and } causes a callback) also\n      fails. Currently t_LBRACE and t_RBRACE are simple string patterns, so they have no\n      opportunity to execute any Python logic.",
+          "contract": "1. CLexer.__init__ signature must accept four parameters after self:\n           (error_func, on_lbrace_func, on_rbrace_func, type_lookup_func)\n         on_lbrace_func and on_rbrace_func must default to None so that callers\n         using keyword arguments — e.g., CLexer(error_func=..., type_lookup_func=...) —\n         continue to work without modification.\n\n      2. CLexer must store on_lbrace_func and on_rbrace_func as instance attributes.\n\n      3. t_LBRACE must be converted from a string attribute to a method tokenizer.\n         When the rule matches, it must call self.on_lbrace_func() (if not None) and then\n         return the token with type 'LBRACE'.\n\n      4. t_RBRACE must be converted from a string attribute to a method tokenizer.\n         When the rule matches, it must call self.on_rbrace_func() (if not None) and then\n         return the token with type 'RBRACE'.\n\n      5. All other behaviour of the lexer (token types, token values, ordering of rules)\n         must remain unchanged.",
+          "acceptance_tests": "All tests in tests/test_c_lexer.py::TestCLexerNoErrors and\n      tests/test_c_lexer.py::TestCLexerErrors must pass, including:\n        tests/test_c_lexer.py::TestCLexerNoErrors::test_trivial_tokens\n        tests/test_c_lexer.py::TestCLexerNoErrors::test_on_rbrace_lbrace\n        tests/test_c_lexer.py::TestCLexerErrors::test_char_constants\n        (and the remaining 12 CLexer tests listed in non-passed/summary.jsonl)"
+        },
+        {
+          "id": "2",
+          "location": "pycparser/c_parser.py — CParser.p_function_definition_1 method (around line 411)",
+          "description": "p_function_definition_1 handles the K&amp;R-style grammar rule\n        function_definition : declarator declaration_list_opt compound_statement\n      (function definition without declaration specifiers). It manually constructs a\n      spec dict as:\n        spec = dict(qual=[], storage=[], type=[])\n      This dict is missing the 'function' key. The helper _build_function_definition\n      (line 300) unconditionally accesses spec['function'], which causes:\n        KeyError: 'function'\n      This is the root cause of test_function_definitions failing at the f4 case\n      (a K&amp;R-style function with no return type specifier).",
+          "contract": "The spec dict constructed in p_function_definition_1 must include all four keys\n      that _build_function_definition and _fix_decl_name_type expect:\n        spec = dict(qual=[], storage=[], type=[], function=[])\n      No other change to logic is required; the rest of p_function_definition_1 is\n      correct.",
+          "acceptance_tests": "tests/test_c_parser.py::TestCParser_fundamentals::test_function_definitions"
+        },
+        {
+          "id": "3",
+          "location": "pycparser/c_parser.py — CParser._fix_decl_name_type method (around line 249)",
+          "description": "_fix_decl_name_type receives a typename list that may be empty when parsing\n      implicit-int declarations (C89 rule allowing declarations without an explicit\n      type specifier, e.g., \"extern foobar(foo, bar);\"). When typename is an empty\n      list, the final line:\n        coord=typename[0].coord\n      raises IndexError: list index out of range.\n      This is the root cause of test_simple_decls failing on the assertion at line 264.",
+          "contract": "When typename is an empty list, _fix_decl_name_type must synthesize an implicit\n      'int' type for the declaration (per C89 implicit-int rules). Specifically:\n\n      1. If typename is empty, set type.type to a new c_ast.IdentifierType whose\n         names list is ['int'] and whose coord is taken from decl.coord (the\n         declaration node's own coordinate).\n\n      2. The method must then return decl normally, without raising any exception.\n\n      3. When typename is non-empty, existing behaviour is unchanged.\n\n      The expected AST for 'extern foobar(foo, bar);' is:\n        ['Decl', 'foobar', ['FuncDecl', [['ID', 'foo'], ['ID', 'bar']],\n                             ['TypeDecl', ['IdentifierType', ['int']]]]]",
+          "acceptance_tests": "tests/test_c_parser.py::TestCParser_fundamentals::test_simple_decls\n      (specifically the assertion at line 264 involving 'extern foobar(foo, bar);')"
+        },
+        {
+          "id": "4",
+          "location": "pycparser/c_parser.py — CParser.p_direct_declarator_1 grammar rule (around line 812)",
+          "description": "The direct_declarator grammar rule currently only accepts the token ID:\n        direct_declarator : ID\n      When a name that was previously registered as a typedef (TYPEID token) appears\n      in a declarator position — such as a struct member name, a re-typedef declaration,\n      or a variable name that shadows a typedef in an inner or parameter scope — the\n      parser cannot match it because TYPEID is not accepted. This triggers parse errors\n      such as \"Multiple type specifiers with a type tag\" or \"before: [\" for the failing\n      tests:\n        test_duplicate_typedef, test_struct_members_namespace,\n        test_innerscope_reuse_typedef_name, test_parameter_reuse_typedef_name",
+          "contract": "1. p_direct_declarator_1 must accept both ID and TYPEID as valid terminals:\n           direct_declarator : ID | TYPEID\n         In both cases the resulting TypeDecl node is constructed identically, using\n         the token value as the declarator name.\n\n      2. For all other direct_declarator sub-rules (2 through 5) that recurse on\n         direct_declarator, no change is needed — they already delegate to rule 1\n         via the recursive direct_declarator non-terminal.\n\n      3. The struct member namespace is handled naturally: because struct declarations\n         use the same declarator grammar, TYPEID is now a valid struct member name.\n         No additional special-casing for struct context is required.\n\n      4. This change alone does not make same-scope redeclaration raise a ParseError;\n         that semantic check is addressed in Requirement 5.",
+          "acceptance_tests": "tests/test_c_parser.py::TestCParser_fundamentals::test_duplicate_typedef\n      tests/test_c_parser.py::TestCParser_fundamentals::test_struct_members_namespace\n      tests/test_c_parser.py::TestCParser_typenames::test_innerscope_reuse_typedef_name\n      tests/test_c_parser.py::TestCParser_typenames::test_parameter_reuse_typedef_name"
+        },
+        {
+          "id": "5",
+          "location": "pycparser/c_parser.py — CParser scope management:\n        _add_typedef_type (line 135), _is_type_in_scope (line 141),\n        p_decl_body (line 453), and associated declaration processing",
+          "description": "The parser has a scope stack (_scope_stack) that tracks typedef names. However:\n\n      (a) Same-scope reuse: When a typedef name is declared as a plain variable in the\n          same scope, no error is raised. test_samescope_reuse_name expects ParseError\n          when, e.g., \"typedef char TT;\" is followed by \"char TT = 5;\" at the same\n          scope level.\n\n      (b) Inner-scope shadowing: When a typedef name is redeclared as a variable in an\n          inner scope, the name should stop being treated as a type within that scope.\n          Currently, because _is_type_in_scope searches all scope levels, the name\n          continues to be recognised as a typedef even after redeclaration.\n          test_innerscope_reuse_typedef_name and test_parameter_reuse_typedef_name\n          expect that subsequent uses of the name resolve correctly as a variable.",
+          "contract": "1. Add a helper _is_type_in_current_scope(name) that returns True only if name\n         is in _scope_stack[-1] (the topmost, current scope level). This is needed to\n         distinguish same-scope reuse from inner-scope shadowing.\n\n      2. In p_decl_body (and any other location that processes a completed declarator),\n         after resolving the declarator name, perform the following check when the\n         declaration is NOT a typedef:\n           - If _is_type_in_current_scope(name) is True: call _parse_error to raise\n             ParseError (\"Cannot reuse typedef name as a variable in the same scope\"\n             or similar). This enforces the same-scope error for test_samescope_reuse_name.\n           - If _is_type_in_scope(name) is True but _is_type_in_current_scope(name) is\n             False (name is a typedef in an outer scope): add name to a \"shadowed\"\n             set in the current scope so that _lex_type_lookup_func returns False for\n             that name while the current scope is active.\n\n      3. _lex_type_lookup_func (line 149) must be updated to return False for names\n         that have been shadowed (declared as a non-typedef variable) in any active\n         scope level, even if the name exists as a typedef in an outer scope level.\n\n      4. When a scope is popped (_pop_scope), shadowed names from that scope are\n         discarded, so the outer-scope typedef becomes visible again.\n\n      5. For duplicate typedef redeclaration (same name, both typedef, same scope):\n         this is NOT an error; _is_type_in_current_scope should not raise an error\n         when is_typedef is True in p_decl_body.\n\n      Interface summary:\n        _is_type_in_current_scope(name: str) -> bool\n          Returns True iff name is a typedef in _scope_stack[-1].\n        _scope_stack entries must support both \"typedef\" names and \"shadowed\" names;\n          the exact data structure (e.g., separate set per scope entry, or a dict\n          distinguishing typedef vs. shadowed) is an implementation detail.",
+          "acceptance_tests": "tests/test_c_parser.py::TestCParser_typenames::test_samescope_reuse_name\n      tests/test_c_parser.py::TestCParser_typenames::test_innerscope_reuse_typedef_name\n      tests/test_c_parser.py::TestCParser_typenames::test_parameter_reuse_typedef_name\n      (Requirement 4 must also be implemented for inner-scope and parameter tests to pass)"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-25T17:21:12",
   "batch": "rll_full_batch_06",
   "evoscore_detail": {
     "m1": 1.0,
