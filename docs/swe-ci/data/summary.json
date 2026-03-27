@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 67,
-  "solved": 61,
+  "solved": 62,
   "improving": 1,
   "stuck": 0,
-  "pending": 5,
-  "total_completed": 62,
+  "pending": 4,
+  "total_completed": 63,
   "solve_rate": 98.4,
-  "zero_regression_rate": 93.5,
-  "zero_regression_count": 58,
-  "avg_fix_rate": 92.4,
-  "avg_evoscore": 0.9498,
-  "avg_evoscore_completed": 0.9861,
+  "zero_regression_rate": 93.7,
+  "zero_regression_count": 59,
+  "avg_fix_rate": 93.9,
+  "avg_evoscore": 0.9573,
+  "avg_evoscore_completed": 0.9863,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -180,8 +180,8 @@
     {
       "batch": "rll_full_batch_14",
       "total": 5,
-      "solved": 0,
-      "avg_evoscore": 0.5,
+      "solved": 1,
+      "avg_evoscore": 0.6,
       "tasks": [
         "mkdocstrings__griffe__22a44a__9b98da",
         "mkdocstrings__griffe__a26ccd__439f65",
@@ -888,11 +888,11 @@
       "task_id": "mkdocstrings__griffe__22a44a__9b98da",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 74,
-      "final_gap": 74,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
       "batch": "rll_full_batch_14"
     },
     {
@@ -940,7 +940,7 @@
       "batch": "rll_full_batch_14"
     }
   ],
-  "last_updated": "2026-03-27T08:49:57",
+  "last_updated": "2026-03-27T11:22:02",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
