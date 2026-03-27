@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 54,
-  "final_gap": 54,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 18,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,82 @@
       "passed": 221,
       "failed": 54,
       "total": 275
+    },
+    {
+      "epoch": 1,
+      "gap": 18,
+      "passed": 257,
+      "failed": 18,
+      "total": 275,
+      "programmer_time": 3511.3242728710175
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 221,
+    "failed": 54,
+    "total": 275
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-27-02-29-13",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/griffe/expressions.py — class Name (__eq__ method) and class Expression (class body)",
+          "description": "Two related defects exist in expressions.py:\n\n      (a) Name.__eq__ crashes with AttributeError when `other` is a plain str.\n          The method unconditionally calls `other.source`, which does not exist on str.\n          This is triggered whenever a Name on the right-hand side of `==` is compared\n          against a str annotation value (Python tries the reflected __eq__ on the Name\n          after str.__eq__ returns NotImplemented).\n\n      (b) Expression has no `source` property.\n          Tests directly access `.source` on Expression objects (e.g.\n          `annotation.source == \"int\"`, `returns[0].annotation.source`).\n          Expression currently exposes only `full` and `is_tuple`; `source` is absent,\n          causing AttributeError at test call sites.",
+          "contract": "(a) Name.__eq__(self, other):\n          - If `other` is not a Name instance, return NotImplemented (or return False),\n            so that the comparison degrades gracefully instead of raising AttributeError.\n          - When `other` is a Name, existing behaviour is preserved:\n            equality holds iff self.source == other.source and self.full == other.full.\n\n      (b) Expression.source property:\n          - Return type: str\n          - Return value: the expression rendered as a plain string, identical to str(self)\n            (i.e. joining all elements with str()).\n          - The property must not raise any exception and must be consistent with __str__.",
+          "acceptance_tests": "tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Parameters\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Returns\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Yields\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Raises\\n---\\n{name}\\n    Description.\\n-RuntimeError]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Receives\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Warns\\n---\\n{name}\\n    Description.\\n-UserWarning]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Attributes\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_parse_annotations_in_all_sections[Other Parameters\\n---\\na : {name}\\n    Description.\\n-int]\n      tests/test_docstrings/test_numpy.py::test_prefer_docstring_type_over_annotation\n      tests/test_docstrings/test_google.py::test_parse_returns_tuple_in_generator\n      tests/test_docstrings/test_google.py::test_parse_yields_tuple_in_iterator_or_generator[Iterator[tuple[int, float]]]\n      tests/test_docstrings/test_google.py::test_parse_yields_tuple_in_iterator_or_generator[Generator[tuple[int, float], ..., ...]]\n      tests/test_docstrings/test_google.py::test_parse_receives_tuple_in_generator\n      tests/test_docstrings/test_numpy.py::test_parse_returns_tuple_in_generator\n      tests/test_docstrings/test_numpy.py::test_parse_yields_tuple_in_iterator_or_generator[Iterator[tuple[int, float]]]\n      tests/test_docstrings/test_numpy.py::test_parse_yields_tuple_in_iterator_or_generator[Generator[tuple[int, float], ..., ...]]\n      tests/test_docstrings/test_numpy.py::test_parse_receives_tuple_in_generator"
+        },
+        {
+          "id": "2",
+          "location": "src/griffe/dataclasses.py — class Decorator (__init__ and as_dict)\n      src/griffe/agents/visitor.py — method handle_function",
+          "description": "Decorator objects do not store the decorator's string value (e.g. \"property\",\n      \"functools.cache\", \"lru_cache(maxsize=8)\"). The Decorator class only records\n      lineno and endlineno. As a result, handle_function in the visitor cannot inspect\n      decorator values and therefore never sets any decorator-derived labels on Function\n      objects. All test_set_labels_using_decorators cases fail because the expected labels\n      (e.g. {\"property\"}, {\"cached\"}, {\"staticmethod\"}, {\"abstractmethod\"}) are never\n      added to function.labels.",
+          "contract": "(a) Decorator class:\n          - Add a `value` attribute (type: str | Name | Expression | None, default None)\n            to store the decorator's rendered source text.\n          - __init__ signature becomes:\n              def __init__(self, value, lineno, endlineno) or with keyword arguments.\n          - as_dict must include \"value\" in its return dict.\n\n      (b) handle_function in Visitor:\n          - When building each Decorator object, extract the decorator's string\n            representation from the AST decorator node and store it as Decorator.value.\n          - After constructing the Function object, inspect each Decorator.value and\n            update function.labels according to the following mapping\n            (matching on the decorator's string value, ignoring call arguments where\n            only the callable matters):\n\n            Decorator value (or its base callable)  →  Labels to add\n            ─────────────────────────────────────────────────────────\n            \"property\"                               →  {\"property\"}\n            \"staticmethod\"                           →  {\"staticmethod\"}\n            \"classmethod\"                            →  {\"classmethod\"}\n            \"functools.cache\", \"cache\"               →  {\"cached\"}\n            \"functools.cached_property\",\n              \"cached_property\"                      →  {\"cached\", \"property\"}\n            \"functools.lru_cache\", \"lru_cache\",\n              \"functools.lru_cache(...)\",\n              \"lru_cache(...)\"                       →  {\"cached\"}\n            \"abc.abstractmethod\", \"abstractmethod\"   →  {\"abstractmethod\"}\n\n          - Labels contributed by the decorator mapping are OR-merged into\n            function.labels (i.e. function.labels |= derived_labels).\n          - Decorators not in the mapping are silently ignored.\n          - The existing labels parameter (e.g. {\"async\"}) must continue to work\n            unchanged.",
+          "acceptance_tests": "tests/test_visitor.py::test_set_labels_using_decorators[property-labels0]\n      tests/test_visitor.py::test_set_labels_using_decorators[staticmethod-labels1]\n      tests/test_visitor.py::test_set_labels_using_decorators[classmethod-labels2]\n      tests/test_visitor.py::test_set_labels_using_decorators[functools.cache-labels3]\n      tests/test_visitor.py::test_set_labels_using_decorators[functools.cached_property-labels4]\n      tests/test_visitor.py::test_set_labels_using_decorators[functools.lru_cache-labels5]\n      tests/test_visitor.py::test_set_labels_using_decorators[functools.lru_cache(maxsize=8)-labels6]\n      tests/test_visitor.py::test_set_labels_using_decorators[cache-labels7]\n      tests/test_visitor.py::test_set_labels_using_decorators[cached_property-labels8]\n      tests/test_visitor.py::test_set_labels_using_decorators[lru_cache-labels9]\n      tests/test_visitor.py::test_set_labels_using_decorators[lru_cache(maxsize=8)-labels10]\n      tests/test_visitor.py::test_set_labels_using_decorators[abc.abstractmethod-labels11]\n      tests/test_visitor.py::test_set_labels_using_decorators[abstractmethod-labels12]"
+        },
+        {
+          "id": "3",
+          "location": "src/griffe/dataclasses.py — class Object, property has_docstrings",
+          "description": "The has_docstrings property is documented as \"Tell if this object OR ANY OF ITS\n      MEMBERS has a non-empty docstring\", but the implementation only checks\n      member.has_docstring (the non-recursive, single-level variant) for each direct\n      child. If a docstring exists at a deeper level (e.g. a grandchild module), the\n      root object's has_docstrings incorrectly returns False.\n\n      Current code (line 356):\n          if (not member.is_alias or member.resolved) and member.has_docstring:\n                                                          ^^^^^^^^^^^^^^^^\n          Should be member.has_docstrings to recurse.",
+          "contract": "Object.has_docstrings:\n      - Returns True if self.has_docstring is True (the object itself has a docstring).\n      - Returns True if any member (at any depth) has a non-empty docstring, by calling\n        member.has_docstrings recursively instead of member.has_docstring.\n      - The existing guard `not member.is_alias or member.resolved` must be preserved\n        to avoid triggering alias resolution unnecessarily.\n      - Returns False only when neither the object nor any descendant has a docstring.",
+          "acceptance_tests": "tests/test_dataclasses.py::test_has_docstrings"
+        },
+        {
+          "id": "4",
+          "location": "src/griffe/agents/nodes.py — function parse__all__\n      src/griffe/agents/visitor.py — class Visitor (add visit_augassign handler)",
+          "description": "The current parse__all__ function and the visitor only handle the simplest case:\n        __all__ = [\"a\", \"b\", ...]\n      with literal string elements. Complex real-world patterns are not supported:\n\n      (a) BinOp concatenation:\n            __all__ = moda_all + modb_all + [\"CONST_INIT\"]\n          node.value is an ast.BinOp; node.value.elts does not exist, so the\n          AttributeError is swallowed and exports remains None.\n\n      (b) Starred unpacking in list:\n            __all__ = [\"CONST_INIT\", *moda_all, *modb_all]\n          node.value.elts contains ast.Starred nodes. The current code tries\n          elt.value on Starred elements, which returns the AST node object itself\n          rather than a string, polluting exports with AST node objects.\n\n      (c) Augmented assignment:\n            __all__ += moda_all\n            __all__ += [\"X\"]\n          The visitor has no visit_augassign handler, so augmented __all__\n          assignments are completely ignored and exports stays None.",
+          "contract": "(a) parse__all__ (or a helper it delegates to) must handle:\n          - Simple list literal: extract str values from ast.Constant/ast.Str elements.\n          - Starred elements in a list: starred elements (ast.Starred) contribute a\n            symbolic marker (e.g. the referenced name as a string) so the caller knows\n            additional names may come from that variable. Alternatively, starred\n            elements may be resolved if the referenced __all__ is already known.\n            At minimum, starred element contributions must not inject raw AST node\n            objects into the exports set.\n          - BinOp (+ operator): recursively collect string elements from both sides.\n            Non-string, non-list sub-expressions are treated as unknown external\n            contributions and can be represented symbolically or skipped.\n          - The function signature may be extended or a new overload added to accept\n            both ast.Assign and ast.AugAssign nodes, or a separate helper may be\n            introduced.\n\n      (b) Visitor must add a visit_augassign method:\n          - When the augmented assignment target is \"__all__\" in a module context,\n            treat the right-hand side value the same way as an __all__ assignment,\n            merging the extracted names into the existing module.exports set.\n          - If module.exports is None when an augmented assignment is encountered,\n            it should be initialized to a set before merging.\n\n      (c) The overall observable contract is:\n          - After visiting any of the following patterns in a module:\n              __all__ = A + B + [\"X\"]\n              __all__ = [\"X\", *A, *B]\n              __all__ = [\"X\"]; __all__ += A\n              __all__ = A; __all__ += [\"X\"]\n              __all__ = [\"X\"]; __all__ += A; __all__ += B + C\n            where A, B, C are module-level names whose __all__ attributes are\n            themselves sets of strings, module.exports must be a set[str] containing\n            at least all the literal string values present in the expression.\n            (Dynamic variable references that cannot be statically resolved at visit\n            time need not be resolved, but they must not prevent literal strings\n            from being collected.)",
+          "acceptance_tests": "tests/test_visitor.py::test_parse_complex__all__assignments[__all__ = moda_all + modb_all + modc_all + [\"CONST_INIT\"]]\n      tests/test_visitor.py::test_parse_complex__all__assignments[__all__ = [\"CONST_INIT\", *moda_all, *modb_all, *modc_all]]\n      tests/test_visitor.py::test_parse_complex__all__assignments[\\n        __all__ = [\"CONST_INIT\"]\\n        __all__ += moda_all + modb_all + modc_all\\n        ]\n      tests/test_visitor.py::test_parse_complex__all__assignments[\\n        __all__ = moda_all + modb_all + modc_all\\n        __all__ += [\"CONST_INIT\"]\\n        ]\n      tests/test_visitor.py::test_parse_complex__all__assignments[\\n        __all__ = [\"CONST_INIT\"]\\n        __all__ += moda_all\\n        __all__ += modb_all + modc_all\\n        ]"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 4,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 4,
       "test_fix": 0,
       "config": 0
     },
     "complexity": "high"
   },
-  "last_updated": "2026-03-27T01:47:35",
+  "last_updated": "2026-03-27T02:47:41",
   "batch": "rll_full_batch_13",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.8333,
+    "m2": 0.6667,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7,
+  "fix_rate": 66.7
 }
