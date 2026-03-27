@@ -2,16 +2,16 @@
   "total_benchmark_tasks": 137,
   "total_evaluated": 57,
   "solved": 52,
-  "improving": 0,
+  "improving": 1,
   "stuck": 0,
-  "pending": 5,
-  "total_completed": 52,
-  "solve_rate": 100.0,
-  "zero_regression_rate": 94.2,
-  "zero_regression_count": 49,
-  "avg_fix_rate": 91.2,
-  "avg_evoscore": 0.9503,
-  "avg_evoscore_completed": 0.9936,
+  "pending": 4,
+  "total_completed": 53,
+  "solve_rate": 98.1,
+  "zero_regression_rate": 94.3,
+  "zero_regression_count": 50,
+  "avg_fix_rate": 92.5,
+  "avg_evoscore": 0.9542,
+  "avg_evoscore_completed": 0.9885,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -155,7 +155,7 @@
       "batch": "rll_full_batch_12",
       "total": 5,
       "solved": 0,
-      "avg_evoscore": 0.5,
+      "avg_evoscore": 0.544,
       "tasks": [
         "marshmallow-code__marshmallow__3c7816__3db174",
         "matoking__protontricks__42ba1e__ff2381",
@@ -763,11 +763,11 @@
       "task_id": "matoking__protontricks__42ba1e__ff2381",
       "repo_name": "Matoking/protontricks",
       "initial_gap": 15,
-      "final_gap": 15,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 4,
+      "num_epochs": 2,
+      "fix_rate": 73.3,
+      "evoscore": 0.72,
+      "status": "improving",
       "batch": "rll_full_batch_12"
     },
     {
@@ -804,7 +804,7 @@
       "batch": "rll_full_batch_12"
     }
   ],
-  "last_updated": "2026-03-26T15:24:38",
+  "last_updated": "2026-03-26T17:07:33",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

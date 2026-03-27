@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/Matoking/protontricks.git",
   "licence": "GNU General Public License v3.0",
   "initial_gap": 15,
-  "final_gap": 15,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 4,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 136,
       "failed": 15,
       "total": 151
+    },
+    {
+      "epoch": 1,
+      "gap": 4,
+      "passed": 147,
+      "failed": 4,
+      "total": 151,
+      "programmer_time": 3045.817123889923
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 136,
+    "failed": 15,
+    "total": 151
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-26-17-01-05",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/protontricks/cli/main.py — `main()` function (argument parsing section and the `elif args.command:` branch near line 373)",
+          "description": "The main CLI is missing a `--cwd-app` argument. Additionally, when `--command` (`-c`) is used, the current implementation unconditionally sets `cwd=str(steam_app.install_path)` when calling `run_command()` (line 385), but the test `test_run_command` requires `command.cwd` to be `None` by default. The `test_run_command_cwd_app` test expects that only when `--cwd-app` is provided should the working directory be set to the game's installation path.",
+          "contract": "1. Add a `--cwd-app` boolean flag (store_true) to the argument parser in `main()`. When provided, the working directory for the shell command should be set to the game's installation path (`steam_app.install_path`). When not provided, `cwd` must not be passed to `run_command()` (or be `None`).\n      2. The `--cwd-app` flag should only affect the `-c`/`--command` code path, not the winetricks command path.\n      3. Signature contract for the updated call: `run_command(..., cwd=str(steam_app.install_path), shell=True)` only when `args.cwd_app` is True; otherwise `run_command(..., shell=True)` without a `cwd` argument.",
+          "acceptance_tests": "tests/cli/test_main.py::TestCLICommand::test_run_command\n      tests/cli/test_main.py::TestCLICommand::test_run_command_cwd_app"
+        },
+        {
+          "id": "2",
+          "location": "src/protontricks/cli/launch.py — `main()` function (argument parsing section near lines 51–98, and the inner_args construction near lines 178–181)",
+          "description": "Two problems exist in `protontricks-launch`:\n      (a) The executable path is wrapped in single quotes (`f\"'{executable_path}'\"`) when building the wine command string (line 179). This causes `command.args.endswith(\"/test.exe\")` to fail because the string ends with `test.exe'` instead of `test.exe`.\n      (b) The `--cwd-app` flag is not defined in the `launch.py` argument parser. When a caller passes `--cwd-app`, argparse raises a SystemExit(2) error. The `test_run_executable_passthrough_arguments` test passes `--cwd-app` and expects it to be forwarded to `cli_main` as part of `cli_args`.",
+          "contract": "(a) The executable path in the wine command string must not be wrapped in single quotes. The path may be shell-quoted in a way that preserves the `endswith(\"/test.exe\")` or `endswith(\"test.exe\")` assertion (i.e., the final portion must end with the bare filename, not with a trailing quote character). Using `shlex.quote` is acceptable only if it does not add trailing quote characters that break the assertion; alternatively, the path can be used without quoting.\n      (b) Add a `--cwd-app` boolean flag (store_true) to `launch.py`'s argument parser. When present, include `\"--cwd-app\"` in the `cli_args` list passed to `cli_main`. The expected forwarded `cli_args[0:7]` for the `test_run_executable_passthrough_arguments` call is: `[\"-v\", \"--no-runtime\", \"--no-bwrap\", \"--no-background-wineserver\", \"--no-term\", \"--cwd-app\", \"-c\"]`.",
+          "acceptance_tests": "tests/cli/test_launch.py::TestCLIRun::test_run_executable\n      tests/cli/test_launch.py::TestCLIRun::test_run_executable_appid\n      tests/cli/test_launch.py::TestCLIRun::test_run_executable_passthrough_arguments"
+        },
+        {
+          "id": "3",
+          "location": "src/protontricks/steam.py — `get_custom_compat_tool_installations_in_dir()` function (around line 988)",
+          "description": "After successfully parsing a VDF file (no `SyntaxError`), the function directly accesses `compat_tools[\"compatibilitytools\"]` without guarding against a missing key. If the VDF data is structurally valid (no parse error) but semantically incomplete (e.g., the top-level key is misspelled or absent), a `KeyError: 'compatibilitytools'` is raised and propagates to the caller, aborting the entire app discovery process. The two failing test cases use VDF content with either an empty dict `{}` or a wrong key name (`\"incompatibilitytools\"`).",
+          "contract": "After `vdf_data` is successfully parsed, the case-insensitive lookup for `\"compatibilitytools\"` in the lowercased `vdf_data` dict must be wrapped in a guard. If the key is absent, log a warning (similar to the existing corrupted-file warning) and `continue` to the next VDF file rather than raising a `KeyError`. The same guard should apply to the subsequent `\"compat_tools\"` key lookup. The warning message should indicate the file path and suggest reinstallation. After this change, a corrupted or empty VDF file must not cause an exception to propagate; instead it is silently skipped and the function continues processing remaining VDF files.",
+          "acceptance_tests": "tests/test_steam.py::TestGetSteamApps::test_get_steam_apps_custom_proton_corrupted_compatibilitytool[\"incompatibilitytools\"\\n{\\n}- is incomplete. ]\n      tests/test_steam.py::TestGetSteamApps::test_get_steam_apps_custom_proton_corrupted_compatibilitytool[- is empty. ]"
+        },
+        {
+          "id": "4",
+          "location": "src/protontricks/steam.py — `find_steam_installations()` function (around lines 391–405);\n      src/protontricks/gui.py — `select_steam_installation()` function (around lines 247–252)",
+          "description": "Two related problems with Snap Steam support:\n      (a) `find_steam_installations()` handles the Flatpak path (`.var/app/com.valvesoftware.Steam/data/Steam`) specially — ensuring `steam_root == steam_path`. However, the Snap Steam path (`snap/steam/common/.local/share/Steam`) is not handled; it falls into the COMMON_STEAM_DIRS loop where `steam_root` defaults to `~/.steam/root`, causing both paths to diverge and the test's `next(...)` iterator to raise `StopIteration` because the entry with matching `steam_path` has the wrong `steam_root`.\n      (b) `select_steam_installation()` only detects Flatpak installations (checking `endswith(\"/com.valvesoftware.Steam/.local/share/Steam\")`). Snap installations are labeled \"Native\" instead of \"Snap\".",
+          "contract": "(a) In `find_steam_installations()`, add a Snap Steam path (`~/.snap/steam/common/.local/share/Steam` or the equivalent relative path `snap/steam/common/.local/share/Steam` under `Path.home()`) handled analogously to the Flatpak path: if the directory has a steamapps subdirectory, add a candidate where both `steam_path` and `steam_root` point to the same Snap directory (not `~/.steam/root`).\n      (b) In `select_steam_installation()`, add Snap detection: if `steam_path` contains `snap/steam/common/` (or an equivalent indicator), assign the label `\"Snap\"` instead of `\"Native\"` or `\"Flatpak\"`. The priority of label checks should be: Flatpak first, then Snap, then Native.\n      Both changes must be consistent: a path recognized as Snap by `find_steam_installations()` must also be labeled \"Snap\" by `select_steam_installation()`.",
+          "acceptance_tests": "tests/test_steam.py::TestFindSteamPath::test_find_steam_path_non_native[snap/steam/common/.local/share/Steam]\n      tests/test_gui.py::TestSelectSteamInstallation::test_correct_labels_detected[snap/steam/common/.local/share/Steam-Snap]"
+        },
+        {
+          "id": "5",
+          "location": "src/protontricks/cli/main.py — `main()` function: (a) the no-args early-return block around lines 171–173; (b) the `do_gui` code path around lines 276–294",
+          "description": "Two problems in the main CLI's GUI handling:\n      (a) When `protontricks` is invoked with no arguments, the function detects `not do_command and not do_list_apps and not do_gui and not do_winetricks` and calls `parser.print_help()` and returns immediately. The test `test_run_no_args` expects the command to default to GUI mode, showing \"No game was selected\" when no game is chosen.\n      (b) In the `do_gui` branch (around line 276–294), `run_command()` is called without first checking `proton_app.is_proton_ready`. If the Proton installation is incomplete (the `dist`/`files` directory is missing), `proton_app.proton_dist_path` returns `None`, causing a `TypeError` when `run_command()` tries to construct paths like `proton_app.proton_dist_path / \"lib64\" / \"wine\"`. The test `test_run_gui_proton_incomplete` expects the error message \"Proton installation is incomplete\" to be returned.",
+          "contract": "(a) When no arguments are provided (all of `do_command`, `do_list_apps`, `do_gui`, `do_winetricks` are False), the function must set `do_gui = True` and proceed with the GUI flow rather than printing help and returning. All other behaviors of the GUI flow remain unchanged.\n      (b) In the `do_gui` branch, after `find_proton_app()` returns a non-None `proton_app` (line ~277–281) and before calling `run_command()`, add the same `is_proton_ready` guard that already exists in the winetricks/command flow (lines 338–343): if `not proton_app.is_proton_ready`, call `exit_(\"Proton installation is incomplete. Have you launched a Steam app using this Proton version at least once to finish the installation?\")`.",
+          "acceptance_tests": "tests/cli/test_main.py::TestCLIGUI::test_run_no_args\n      tests/cli/test_main.py::TestCLIGUI::test_run_gui_proton_incomplete"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 3,
       "test_fix": 0,
-      "config": 0
+      "config": 2
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-26T15:24:38",
+  "last_updated": "2026-03-26T17:07:32",
   "batch": "rll_full_batch_12",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.8667,
+    "m2": 0.7333,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.72
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.72,
+  "fix_rate": 73.3
 }
