@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/MemMachine/MemMachine.git",
   "licence": "Apache License 2.0",
   "initial_gap": 14,
-  "final_gap": 14,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 1,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 32,
       "failed": 14,
       "total": 55
+    },
+    {
+      "epoch": 1,
+      "gap": 1,
+      "passed": 45,
+      "failed": 1,
+      "total": 55,
+      "programmer_time": 869.9038391113281
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 32,
+    "failed": 14,
+    "total": 55
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-26-23-07-46",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/memmachine/episodic_memory/episodic_memory.py ::\n      EpisodicMemory.formalize_query_with_context",
+          "description": "The method currently calls `await self.query_memory(query, limit)` and\n      unpacks the result into exactly 2 variables (`episodes, summary`).\n      However, `query_memory` returns a 3-tuple:\n      `(short_term_episodes, long_term_episodes, summary_list)`.\n      This causes `ValueError: too many values to unpack (expected 2)` for\n      every call to `formalize_query_with_context`.\n\n      Additionally, the current method only uses a single `episodes` list\n      for the `&lt;Episodes&gt;` block, but tests expect:\n      - Both short-term and long-term episodes to appear in the output,\n        ordered by their `timestamp` (ascending — oldest first).\n      - A proper summary block built from the returned list of summary\n        strings.",
+          "contract": "`formalize_query_with_context(query: str, limit: int | None = None) -> str`\n\n      1. Call `await self.query_memory(query, limit)` and unpack the\n         3-tuple into `short_episodes`, `long_episodes`, and `summary_list`.\n      2. Merge `short_episodes` and `long_episodes` into a single list,\n         then sort by `Episode.timestamp` ascending so the oldest appears\n         first in the formatted output.\n      3. Build the return string:\n         - If `summary_list` is non-empty and contains at least one\n           non-None entry, include a `&lt;Summary&gt;` block that joins all\n           summary strings separated by \"\\n\".\n         - If the merged episode list is non-empty, include an\n           `&lt;Episodes&gt;` block where each episode's string content appears\n           on its own line.\n         - Always append `&lt;Query&gt;\\n{query}\\n&lt;/Query&gt;` at the end.\n         - When both summary and episodes are absent (all lists empty),\n           return only the `&lt;Query&gt;` block.\n\n      Expected output format (when both context and summary exist):\n      ```\n      &lt;Summary&gt;\n      {summary_strings joined by \"\\n\"}\n\n      &lt;/Summary&gt;\n      &lt;Episodes&gt;\n      {episode1.content}\n      {episode2.content}\n      &lt;/Episodes&gt;\n      &lt;Query&gt;\n      {query}\n      &lt;/Query&gt;\n      ```",
+          "acceptance_tests": "tests/memmachine/episodic_memory/test_episodic_memory.py::test_formalize_query_with_context\n      tests/memmachine/episodic_memory/test_episodic_memory.py::test_formalize_query_with_empty_context\n      tests/memmachine/episodic_memory/test_episodic_memory.py::test_formalize_query_with_ordering"
+        },
+        {
+          "id": "2",
+          "location": "code/src/memmachine/episodic_memory/session_manager/session_manager.py ::\n      SessionManager",
+          "description": "Several methods that tests depend on are either absent or have an\n      incorrect signature:\n\n      (a) `create_new_group`, `create_session`, `retrieve_group`,\n          `retrieve_all_groups`, `delete_group`, and `open_session` do not\n          exist on `SessionManager`.\n\n      (b) The existing `delete_session` has four required positional\n          parameters (`group_id`, `agent_ids`, `user_ids`, `session_id`).\n          Tests call it with only two keyword arguments:\n          `delete_session(group_id=..., session_id=...)`.\n\n      The `SessionManager` needs a separate persistent concept of a \"group\"\n      (with its own agent list, user list, and configuration), independent\n      of the session link table.",
+          "contract": "Add or update the following public methods on `SessionManager`:\n\n      **New ORM model** — `GroupInfo` (or similar), stored in a dedicated\n      table (e.g., `\"group_infos\"`), with columns:\n        - `group_id: str` (unique)\n        - `agent_list: str` (JSON-encoded list of agent IDs)\n        - `user_list: str` (JSON-encoded list of user IDs)\n        - `configuration: str` (JSON-encoded dict)\n\n      The returned data object must expose:\n        `group_id`, `agent_list` (decoded list), `user_list` (decoded list),\n        `configuration` (decoded dict).\n\n      ---\n\n      `create_new_group(group_id: str, agent_ids: list[str],\n                        user_ids: list[str], configuration: dict | None) -> None`\n      - Persists a new group record with the given parameters.\n      - Raises `ValueError` if a group with the same `group_id` already\n        exists.\n      - Raises `ValueError` if both `agent_ids` and `user_ids` are empty\n        lists, or if `configuration` is `None`.\n\n      `retrieve_group(group_id: str) -> GroupInfoObject | None`\n      - Returns the group object for the given `group_id`, or `None`.\n\n      `retrieve_all_groups() -> list[GroupInfoObject]`\n      - Returns all stored group objects.\n\n      `delete_group(group_id: str) -> None`\n      - Deletes the group record for `group_id`.\n      - Raises `ValueError` if any active sessions exist for the group\n        (i.e., there are sessions linked to this `group_id`).\n\n      `create_session(group_id: str, session_id: str,\n                      configuration: dict | None = None) -> SessionInfo`\n      - Creates a new session under an existing group, inheriting the\n        group's `agent_ids` and `user_ids`.\n      - Raises `ValueError` if the group does not exist.\n      - Raises `ValueError` if a session with the same `session_id` already\n        exists within the group.\n\n      `open_session(group_id: str, session_id: str) -> SessionInfo`\n      - Retrieves the `SessionInfo` for an existing session.\n      - Raises `ValueError` if the session does not exist.\n\n      **Updated `delete_session` signature:**\n      `delete_session(group_id: str, session_id: str) -> None`\n      - Deletes the session identified by `(group_id, session_id)`.\n      - Also removes all associated link-table records (users, agents,\n        groups link).\n      - `agent_ids` and `user_ids` parameters must be removed; the method\n        must look up the session by `group_id` and `session_id` only.",
+          "acceptance_tests": "tests/memmachine/episodic_memory/session_manager/test_session_manager.py::test_create_group\n      tests/memmachine/episodic_memory/session_manager/test_session_manager.py::test_create_session\n      tests/memmachine/episodic_memory/session_manager/test_session_manager.py::test_delete_session"
+        },
+        {
+          "id": "3",
+          "location": "code/src/memmachine/episodic_memory/episodic_memory.py ::\n      EpisodicMemory",
+          "description": "Two distinct gaps exist in `EpisodicMemory`:\n\n      (a) No public `get_reference_count()` method. The internal `_ref_count`\n          attribute exists but is private. `test_reference_and_close` calls\n          `instance.get_reference_count()`, producing `AttributeError`.\n\n      (b) `add_memory_episode` silently returns `False` when `producer` or\n          `produced_for` does not belong to the session context. Tests expect\n          a `ValueError` to be raised in these cases (in addition to the\n          error-level log message that already exists).",
+          "contract": "`get_reference_count(self) -> int`\n      - Returns the current value of the internal reference counter\n        (`_ref_count`).\n      - Must be thread-safe with respect to concurrent `reference()` /\n        `close()` calls (may be read under `_lock` or simply returned as\n        the integer value).\n\n      `add_memory_episode(producer, produced_for, ...) -> bool`\n      - When `producer` is not in `memory_context.user_id` and not in\n        `memory_context.agent_id`:\n        * Log the error message as before.\n        * Raise `ValueError` (instead of returning `False`).\n      - When `produced_for` is not in `memory_context.user_id` and not in\n        `memory_context.agent_id`:\n        * Log the error message as before.\n        * Raise `ValueError` (instead of returning `False`).\n      - All other behaviour (successful addition) remains unchanged.",
+          "acceptance_tests": "tests/memmachine/episodic_memory/test_episodic_memory.py::test_reference_and_close\n      tests/memmachine/episodic_memory/test_episodic_memory.py::test_add_memory_episode_invalid_producer\n      tests/memmachine/episodic_memory/test_episodic_memory.py::test_add_memory_episode_invalid_produced_for"
+        },
+        {
+          "id": "4",
+          "location": "code/src/memmachine/episodic_memory/short_term_memory/session_memory.py ::\n      SessionMemory.get_session_memory_context",
+          "description": "When memory reaches capacity, `_do_evict` schedules a background\n      `asyncio.Task` via `asyncio.create_task(self.create_summary(...))`.\n      Because this task is fire-and-forget, `self._summary` may still be\n      `\"\"` when a subsequent `get_session_memory_context` call reads it —\n      even in tests where the event loop has not yielded between the\n      `add_episode` await and the next await.\n\n      Tests assert that `summary == \"summary\"` immediately after memory\n      fills up, but the summary task has not yet run, so the actual value\n      is `\"\"`.",
+          "contract": "`get_session_memory_context(query, limit=0, max_token_num=0)\n        -> tuple[list[Episode], str]`\n\n      Before reading `self._summary` and building the return value, the\n      method must ensure that any pending summary task (`self._summary_task`)\n      has completed:\n      - If `self._summary_task` is not `None` and the task is not yet done,\n        await it so that `self._summary` is populated before it is read.\n      - After awaiting, proceed with the existing logic to collect episodes\n        and return `(episodes, self._summary)`.\n\n      The task-await must happen while holding `self._lock` (or must be\n      safe with respect to the lock already being acquired in the calling\n      path). Note that `create_summary` itself does not acquire `_lock`, so\n      awaiting the task inside the `async with self._lock` block is safe.",
+          "acceptance_tests": "tests/memmachine/episodic_memory/short_term_memory/test_session_memory.py::TestSessionMemoryPublicAPI::test_add_episode\n      tests/memmachine/episodic_memory/short_term_memory/test_session_memory.py::TestSessionMemoryPublicAPI::test_get_session_memory_context"
+        },
+        {
+          "id": "5",
+          "location": "code/src/memmachine/common/reranker/embedder_reranker.py ::\n      EmbedderReranker.score",
+          "description": "When `candidates` is an empty list (`[]`), calling\n      `np.array(await self._embedder.ingest_embed([]))` produces an array\n      of shape `(0,)`. The subsequent `np.dot(candidate_embeddings,\n      query_embedding)` then fails with:\n        `ValueError: shapes (0,) and (2,) not aligned: 0 (dim 0) != 2 (dim 0)`\n      because NumPy cannot dot-product a 1-D empty array against the\n      2-D query embedding vector.",
+          "contract": "`score(query: str, candidates: list[str]) -> list[float]`\n\n      - If `candidates` is an empty list, return an empty list `[]`\n        immediately, without calling the embedder.\n      - For all non-empty `candidates`, the existing cosine-similarity\n        computation remains unchanged.\n      - The return value must always be a `list[float]` of the same length\n        as `candidates`.",
+          "acceptance_tests": "tests/memmachine/common/reranker/test_embedder_reranker.py::test_score[-candidates3]\n      tests/memmachine/common/reranker/test_embedder_reranker.py::test_score[Are tomatoes fruits?-candidates3]"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "api_change",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
-      "refactor": 0,
-      "api_change": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
+      "refactor": 1,
+      "api_change": 5,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-26T22:53:30",
+  "last_updated": "2026-03-26T23:23:34",
   "batch": "rll_full_batch_13",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.9643,
+    "m2": 0.9286,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7786
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7786,
+  "fix_rate": 92.9
 }
