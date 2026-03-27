@@ -9,9 +9,9 @@
   "solve_rate": 96.4,
   "zero_regression_rate": 94.5,
   "zero_regression_count": 52,
-  "avg_fix_rate": 95.6,
-  "avg_evoscore": 0.967,
-  "avg_evoscore_completed": 0.984,
+  "avg_fix_rate": 96.0,
+  "avg_evoscore": 0.968,
+  "avg_evoscore_completed": 0.985,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -155,7 +155,7 @@
       "batch": "rll_full_batch_12",
       "total": 5,
       "solved": 1,
-      "avg_evoscore": 0.6901,
+      "avg_evoscore": 0.7016,
       "tasks": [
         "marshmallow-code__marshmallow__3c7816__3db174",
         "matoking__protontricks__42ba1e__ff2381",
@@ -753,7 +753,7 @@
       "repo_name": "marshmallow-code/marshmallow",
       "initial_gap": 21,
       "final_gap": 2,
-      "num_epochs": 9,
+      "num_epochs": 11,
       "fix_rate": 90.5,
       "evoscore": 0.7714,
       "status": "improving",
@@ -774,10 +774,10 @@
       "task_id": "mayitzin__ahrs__503d4e__c83bd1",
       "repo_name": "Mayitzin/ahrs",
       "initial_gap": 39,
-      "final_gap": 15,
-      "num_epochs": 3,
-      "fix_rate": 61.5,
-      "evoscore": 0.6846,
+      "final_gap": 7,
+      "num_epochs": 4,
+      "fix_rate": 82.1,
+      "evoscore": 0.7421,
       "status": "improving",
       "batch": "rll_full_batch_12"
     },
@@ -804,7 +804,7 @@
       "batch": "rll_full_batch_12"
     }
   ],
-  "last_updated": "2026-03-26T20:46:07",
+  "last_updated": "2026-03-26T21:40:02",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
