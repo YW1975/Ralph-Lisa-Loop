@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 62,
-  "solved": 58,
+  "solved": 59,
   "improving": 2,
   "stuck": 0,
-  "pending": 2,
-  "total_completed": 60,
+  "pending": 1,
+  "total_completed": 61,
   "solve_rate": 96.7,
-  "zero_regression_rate": 95.0,
-  "zero_regression_count": 57,
-  "avg_fix_rate": 96.6,
-  "avg_evoscore": 0.9746,
-  "avg_evoscore_completed": 0.9904,
+  "zero_regression_rate": 95.1,
+  "zero_regression_count": 58,
+  "avg_fix_rate": 98.2,
+  "avg_evoscore": 0.9826,
+  "avg_evoscore_completed": 0.9905,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -167,8 +167,8 @@
     {
       "batch": "rll_full_batch_13",
       "total": 5,
-      "solved": 2,
-      "avg_evoscore": 0.7994,
+      "solved": 3,
+      "avg_evoscore": 0.8994,
       "tasks": [
         "memmachine__memmachine__9be125__5d01e0",
         "miguelgrinberg__python-socketio__6bdc49__4bf487",
@@ -853,11 +853,11 @@
       "task_id": "mitre__caldera__88b4d2__90c746",
       "repo_name": "mitre/caldera",
       "initial_gap": 9,
-      "final_gap": 9,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
       "batch": "rll_full_batch_13"
     },
     {
@@ -872,7 +872,7 @@
       "batch": "rll_full_batch_13"
     }
   ],
-  "last_updated": "2026-03-27T01:17:30",
+  "last_updated": "2026-03-27T01:47:35",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
