@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 21,
-  "final_gap": 21,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 5,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,82 @@
       "passed": 553,
       "failed": 24,
       "total": 577
+    },
+    {
+      "epoch": 1,
+      "gap": 5,
+      "passed": 571,
+      "failed": 6,
+      "total": 577,
+      "programmer_time": 4863.701767921448
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 553,
+    "failed": 24,
+    "total": 577
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-27-11-53-10",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/griffe/finder.py — function _handle_editable_module (line ~399) and its callers\n      _handle_pth_file (line ~376) and _extend_from_pth_files (line ~328)",
+          "description": "The function _handle_editable_module currently returns list[Path]. Tests access\n      the results via [sp.path for sp in _handle_editable_module(...)], expecting each\n      element to be an object with a .path attribute. Because plain Path objects have no\n      .path attribute, all call-site accesses raise AttributeError: 'PosixPath' object\n      has no attribute 'path'.\n\n      Affected tests (7):\n        tests/test_finder.py::test_editables_file_handling[__editables_whatever.py]\n        tests/test_finder.py::test_editables_file_handling[_editable_impl_whatever.py]\n        tests/test_finder.py::test_setuptools_file_handling\n        tests/test_finder.py::test_setuptools_file_handling_multiple_paths\n        tests/test_finder.py::test_scikit_build_core_file_handling\n        tests/test_finder.py::test_pth_file_handling\n        tests/test_finder.py::test_pth_file_handling_with_semi_colon",
+          "contract": "1. Introduce a named data type (e.g., NamespaceSearchPath or SearchPath) in\n         src/griffe/finder.py with at least the following fields:\n           - path: Path          — the resolved search directory\n           - always_scan_for: str | None = None\n             — optionally restricts what package name to look for inside the path\n             (used for meson-python style installs; None means no restriction)\n\n      2. Change the return type annotation of _handle_editable_module from list[Path]\n         to list[<new type>].  Every code path in _handle_editable_module that\n         currently returns a bare Path must instead return an instance of the new type\n         with that Path as the .path field and always_scan_for=None.\n\n      3. _handle_pth_file currently returns _handle_editable_module(...) directly.\n         Because _extend_from_pth_files uses the result as plain directories\n         (self._append_search_path(directory)), _handle_pth_file must be updated to\n         extract the .path field from each returned object so the rest of ModuleFinder\n         continues to receive plain Path values.  Alternatively, _extend_from_pth_files\n         itself may be updated to unwrap the new type — whichever approach keeps the\n         internal ModuleFinder logic receiving plain Path objects.\n\n      4. The new type must be importable from griffe.finder alongside Package and\n         NamespacePackage (or at least importable from the same location the tests use\n         to import _handle_editable_module, i.e., griffe.finder).",
+          "acceptance_tests": "All 7 tests listed in the description must pass:\n        tests/test_finder.py::test_editables_file_handling[__editables_whatever.py]\n        tests/test_finder.py::test_editables_file_handling[_editable_impl_whatever.py]\n        tests/test_finder.py::test_setuptools_file_handling\n        tests/test_finder.py::test_setuptools_file_handling_multiple_paths\n        tests/test_finder.py::test_scikit_build_core_file_handling\n        tests/test_finder.py::test_pth_file_handling\n        tests/test_finder.py::test_pth_file_handling_with_semi_colon"
+        },
+        {
+          "id": "2",
+          "location": "src/griffe/agents/nodes/_values.py — function _extract_yield (line ~292)\n      and the _node_map dictionary (line ~298)",
+          "description": "Two related defects in the value-extraction layer for yield expressions:\n\n      (a) _extract_yield is incorrect: for a bare ast.Yield node (node.value is None)\n          it returns repr(None) which produces the string \"None\" instead of \"yield\".\n          For a node with a value (e.g., ast.Yield(value=Name('a'))), it returns only\n          the extracted value string (e.g., \"a\") instead of \"yield a\".\n\n      (b) ast.YieldFrom is not registered in _node_map at all. Any call to\n          get_value() / _extract() on an ast.YieldFrom node raises\n          KeyError: &lt;class 'ast.YieldFrom'&gt;.\n\n      Affected tests (4):\n        tests/test_nodes.py::test_building_value_from_nodes[yield]\n        tests/test_nodes.py::test_building_value_from_nodes[yield a]\n        tests/test_nodes.py::test_building_value_from_nodes[yield from a]\n        tests/test_nodes.py::test_building_expressions_from_nodes[yield from a]",
+          "contract": "1. _extract_yield(node: ast.Yield, **kwargs) -> str must return:\n           - \"yield\"           when node.value is None\n           - \"yield \" + _extract(node.value, **kwargs)   when node.value is not None\n         The prefix \"yield\" (with a trailing space before any value) is mandatory.\n\n      2. A new extractor function for ast.YieldFrom must be added:\n           _extract_yieldfrom(node: ast.YieldFrom, **kwargs) -> str\n         It must return \"yield from \" + _extract(node.value, **kwargs).\n\n      3. _node_map must include an entry:\n           ast.YieldFrom: _extract_yieldfrom\n\n      4. No other entries in _node_map or other extractor functions should be modified.",
+          "acceptance_tests": "All 4 tests listed in the description must pass:\n        tests/test_nodes.py::test_building_value_from_nodes[yield]\n        tests/test_nodes.py::test_building_value_from_nodes[yield a]\n        tests/test_nodes.py::test_building_value_from_nodes[yield from a]\n        tests/test_nodes.py::test_building_expressions_from_nodes[yield from a]"
+        },
+        {
+          "id": "3",
+          "location": "src/griffe/tests.py — function temporary_pypackage (line ~58)",
+          "description": "Tests call temporary_pypackage(..., inits=False) to create namespace subpackages\n      (subpackage directories without __init__.py). The current signature only accepts\n      an init: bool = True keyword argument that controls the top-level package's\n      __init__.py. There is no inits parameter, so any call passing inits= raises:\n        TypeError: temporary_pypackage() got an unexpected keyword argument 'inits'\n\n      Affected tests (3):\n        tests/test_finder.py::test_not_finding_namespace_package_twice\n        tests/test_finder.py::test_scanning_package_and_module_with_same_names[True]\n        tests/test_finder.py::test_scanning_package_and_module_with_same_names[False]",
+          "contract": "1. Add a keyword-only parameter inits: bool = True to temporary_pypackage.\n         The parameter name is inits (plural), distinct from the existing init (singular).\n\n      2. Behavioral contract:\n           - init controls whether the top-level leaf package directory receives an\n             __init__.py file. This existing behavior is unchanged.\n           - inits controls whether intermediate (non-leaf) package directories created\n             for module paths in the modules argument receive __init__.py files.\n             When inits=False, those subdirectories are created without __init__.py,\n             making them namespace packages.\n           - When both init=False and inits=False, no __init__.py files are created\n             anywhere, producing a fully namespace-style package tree.\n\n      3. The function signature after the change:\n           def temporary_pypackage(\n               package: str,\n               modules: Sequence[str] | Mapping[str, str] | None = None,\n               *,\n               init: bool = True,\n               inits: bool = True,\n           ) -> Iterator[TmpPackage]: ...\n\n      4. Existing callers that do not pass inits must continue to work unchanged\n         (inits=True preserves current behavior of creating __init__.py in\n         intermediate directories).",
+          "acceptance_tests": "All 3 tests listed in the description must pass without error:\n        tests/test_finder.py::test_not_finding_namespace_package_twice\n        tests/test_finder.py::test_scanning_package_and_module_with_same_names[True]\n        tests/test_finder.py::test_scanning_package_and_module_with_same_names[False]"
+        },
+        {
+          "id": "4",
+          "location": "src/griffe/docstrings/numpy.py —\n        _section_kind dict (line ~68),\n        _section_reader dict (line ~723),\n        _read_block function (line ~154),\n        parse function (line ~740)",
+          "description": "The Numpy docstring parser does not recognise admonition-style sections such as\n      \"See Also\", \"Notes\", \"Note\", \"Warnings\", and \"Warning\". When these headers appear\n      followed by a dash line (e.g., \"See Also\\n--------\"), the main parse loop does not\n      find them in _section_kind and therefore appends the header and its content as raw\n      text, producing a single DocstringSectionText instead of a text section plus a\n      DocstringSectionAdmonition section.\n\n      Additionally, _read_block (used to extract section body text) incorrectly breaks\n      out of the body when it encounters an empty line immediately followed by any pure\n      dash line (line 167-168).  This causes sections like Note to silently truncate\n      their content when the body contains an isolated \"---\" separator (a Markdown\n      horizontal rule), so content after the \"---\" is lost from the section and may\n      leak into a new spurious text section.\n\n      Affected tests (5):\n        tests/test_docstrings/test_numpy.py::test_admonition_see_also\n        tests/test_docstrings/test_numpy.py::test_admonition_empty\n        tests/test_docstrings/test_numpy.py::test_isolated_dash_lines_do_not_create_sections\n        tests/test_docstrings/test_numpy.py::test_admonition_warnings_special_case\n        tests/test_docstrings/test_numpy.py::test_admonition_notes_special_case",
+          "contract": "A. New admonition section names must be recognised by the parser.\n\n         The following lowercase section header names (matching the lowercased line\n         text in the docstring) must be added and mapped to\n         DocstringSectionKind.admonition in _section_kind:\n           \"see also\", \"notes\", \"note\", \"warnings\", \"warning\"\n         (Other admonition-style names such as \"references\", \"todo\", \"examples\"\n         may also be added if desired, but only the five above are required.)\n\n      B. A reader function for admonition sections must be registered.\n\n         A new reader, e.g. _read_admonition_section, must be registered in\n         _section_reader for DocstringSectionKind.admonition.  It must:\n           1. Read the section body text using _read_block (same helper already\n              used by other section readers).\n           2. Determine the admonition kind string from the section title:\n                \"warnings\" / \"warning\" → kind = \"warning\"\n                \"notes\" / \"note\"       → kind = \"note\"\n                all others             → kind derived from the title (e.g., \"see_also\"\n                                         for \"see also\", or the title itself)\n           3. Return a DocstringSectionAdmonition(kind=<kind>, text=<body>, title=<title>)\n              where title is the original (non-lowercased) section header line.\n\n         Because all admonitions share a single DocstringSectionKind.admonition key in\n         _section_reader but require different kind strings, the reader must be able to\n         recover the section title. One approach is to pass the title as an additional\n         keyword option from the parse loop.  Exact mechanism is left to the\n         implementer; the observable behaviour is what matters.\n\n      C. _read_block must not stop at isolated dash lines.\n\n         The condition on lines 167-168 of _read_block:\n           if is_empty and new_offset < len(lines) - 1 and _is_dash_line(lines[new_offset + 1]):\n               break  # Break if a new unnamed section is reached.\n         causes a false break whenever the block body contains a Markdown horizontal\n         rule (\"---\") immediately following a blank line, even though there is no\n         valid numpydoc section header associated with it.\n\n         This condition must be made more restrictive so it only triggers when a\n         genuine new named section (i.e., a non-empty, non-dash header line followed by\n         a dash line where that header name is a recognised section kind) would start.\n         An \"isolated dash line\" (a pure \"---\" or \"----\" not preceded by a header name\n         in _section_kind) must be treated as ordinary text within the block.\n\n         The condition that breaks for NAMED sections (lines 170-171) may similarly be\n         restricted to only recognised section kinds to avoid false breaks on any\n         text-followed-by-dashes pattern.\n\n      D. Observable interface contracts for DocstringSectionAdmonition:\n           - section.kind == DocstringSectionKind.admonition\n           - section.title == <original header string, e.g., \"See Also\", \"Warnings\">\n           - section.value is a DocstringAdmonition instance\n           - section.value.description == <full body text, including any blank lines\n             and content that follows isolated \"---\" separators>\n           - section.value.kind == \"warning\"  for Warnings / Warning sections\n           - section.value.kind == \"note\"     for Notes / Note sections\n           - section.value.description == \"\"  for empty admonition sections (body is\n             empty or whitespace-only after the dash line)",
+          "acceptance_tests": "All 5 tests listed in the description must pass:\n        tests/test_docstrings/test_numpy.py::test_admonition_see_also\n        tests/test_docstrings/test_numpy.py::test_admonition_empty\n        tests/test_docstrings/test_numpy.py::test_isolated_dash_lines_do_not_create_sections\n        tests/test_docstrings/test_numpy.py::test_admonition_warnings_special_case\n        tests/test_docstrings/test_numpy.py::test_admonition_notes_special_case"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 4,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 4,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 4,
       "test_fix": 0,
-      "config": 0
+      "config": 2
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-27T11:22:01",
+  "last_updated": "2026-03-27T12:38:24",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.9286,
+    "m2": 0.8571,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7571
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7571,
+  "fix_rate": 76.2
 }
