@@ -1,0 +1,49 @@
+{
+  "task_id": "minio__minio-py__79b528__910385",
+  "repo_name": "minio/minio-py",
+  "repo_url": "https://github.com/minio/minio-py.git",
+  "licence": "Apache License 2.0",
+  "initial_gap": 6,
+  "final_gap": 6,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 6,
+      "passed": 102,
+      "failed": 6,
+      "total": 108
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "low"
+  },
+  "last_updated": "2026-03-26T22:53:30",
+  "batch": "rll_full_batch_13",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}

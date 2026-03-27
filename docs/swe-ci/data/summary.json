@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 57,
-  "solved": 55,
-  "improving": 2,
+  "total_evaluated": 62,
+  "solved": 56,
+  "improving": 1,
   "stuck": 0,
-  "pending": 0,
+  "pending": 5,
   "total_completed": 57,
-  "solve_rate": 96.5,
+  "solve_rate": 98.2,
   "zero_regression_rate": 94.7,
   "zero_regression_count": 54,
-  "avg_fix_rate": 99.8,
-  "avg_evoscore": 0.9863,
-  "avg_evoscore_completed": 0.9863,
+  "avg_fix_rate": 91.8,
+  "avg_evoscore": 0.9504,
+  "avg_evoscore_completed": 0.9899,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -154,14 +154,27 @@
     {
       "batch": "rll_full_batch_12",
       "total": 5,
-      "solved": 3,
-      "avg_evoscore": 0.9099,
+      "solved": 4,
+      "avg_evoscore": 0.9513,
       "tasks": [
         "marshmallow-code__marshmallow__3c7816__3db174",
         "matoking__protontricks__42ba1e__ff2381",
         "mayitzin__ahrs__503d4e__c83bd1",
         "mdbloice__augmentor__c182f1__cab8b0",
         "memmachine__memmachine__48ac32__7888ba"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_13",
+      "total": 5,
+      "solved": 0,
+      "avg_evoscore": 0.5,
+      "tasks": [
+        "memmachine__memmachine__9be125__5d01e0",
+        "miguelgrinberg__python-socketio__6bdc49__4bf487",
+        "minio__minio-py__79b528__910385",
+        "mitre__caldera__88b4d2__90c746",
+        "mkdocstrings__griffe__21e6bd__e4f217"
       ]
     },
     {
@@ -774,11 +787,11 @@
       "task_id": "mayitzin__ahrs__503d4e__c83bd1",
       "repo_name": "Mayitzin/ahrs",
       "initial_gap": 39,
-      "final_gap": 1,
-      "num_epochs": 5,
-      "fix_rate": 97.4,
-      "evoscore": 0.7836,
-      "status": "improving",
+      "final_gap": 0,
+      "num_epochs": 6,
+      "fix_rate": 100.0,
+      "evoscore": 0.9903,
+      "status": "solved",
       "batch": "rll_full_batch_12"
     },
     {
@@ -802,9 +815,64 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_12"
+    },
+    {
+      "task_id": "memmachine__memmachine__9be125__5d01e0",
+      "repo_name": "MemMachine/MemMachine",
+      "initial_gap": 14,
+      "final_gap": 14,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_13"
+    },
+    {
+      "task_id": "miguelgrinberg__python-socketio__6bdc49__4bf487",
+      "repo_name": "miguelgrinberg/python-socketio",
+      "initial_gap": 60,
+      "final_gap": 60,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_13"
+    },
+    {
+      "task_id": "minio__minio-py__79b528__910385",
+      "repo_name": "minio/minio-py",
+      "initial_gap": 6,
+      "final_gap": 6,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_13"
+    },
+    {
+      "task_id": "mitre__caldera__88b4d2__90c746",
+      "repo_name": "mitre/caldera",
+      "initial_gap": 9,
+      "final_gap": 9,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_13"
+    },
+    {
+      "task_id": "mkdocstrings__griffe__21e6bd__e4f217",
+      "repo_name": "mkdocstrings/griffe",
+      "initial_gap": 54,
+      "final_gap": 54,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_13"
     }
   ],
-  "last_updated": "2026-03-26T22:23:24",
+  "last_updated": "2026-03-26T22:53:30",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

@@ -348,4 +348,34 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/memmachine__memmachine__9be125__5d01e0.html</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/miguelgrinberg__python-socketio__6bdc49__4bf487.html</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/minio__minio-py__79b528__910385.html</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mitre__caldera__88b4d2__90c746.html</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mkdocstrings__griffe__21e6bd__e4f217.html</loc>
+    <lastmod>2026-03-26</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>
