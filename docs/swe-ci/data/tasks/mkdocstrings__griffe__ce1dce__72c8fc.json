@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 46,
-  "final_gap": 46,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 14,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 751,
       "failed": 46,
       "total": 797
+    },
+    {
+      "epoch": 1,
+      "gap": 14,
+      "passed": 785,
+      "failed": 12,
+      "total": 797,
+      "programmer_time": 4885.785382032394
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 751,
+    "failed": 46,
+    "total": 797
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-27-12-49-16",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/griffe/dataclasses.py — Object.has_labels (line ~522) 和 Alias.has_labels (line ~1071)",
+          "description": "当前 has_labels 方法签名为 `def has_labels(self, labels: set[str]) -> bool:`，\n      仅接受一个 set[str] 参数。然而测试通过 `module[\"A.f\"].has_labels(*labels)` 的方式调用，\n      其中 labels 是 tuple[str, ...]，展开后变成多个位置参数（如 has_labels(\"cached\", \"property\")）。\n      这导致 TypeError: Object.has_labels() takes 2 positional arguments but 3 were given。\n      Object 类与 Alias 类均存在此问题。",
+          "contract": "将 Object.has_labels 和 Alias.has_labels 的签名更改为接受可变位置字符串参数：\n        def has_labels(self, *labels: str) -> bool\n      语义：当且仅当对象的 self.labels 中包含全部指定的标签时返回 True，否则返回 False。\n      对于 Alias.has_labels，应委托给其最终目标 (final_target) 的 has_labels。\n      当未传入任何标签时（无参数），应返回 True（vacuous truth）。\n      此更改不影响内部代码中直接传 set 的调用（agents/visitor.py:306），\n      因为那里使用 has_labels({\"property\"}) 传的是单一 set 参数——调整签名后需相应修改为 has_labels(\"property\")。",
+          "acceptance_tests": "tests/test_visitor.py::test_set_function_labels_using_decorators[property-labels0]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[staticmethod-labels1]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[classmethod-labels2]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.cache-labels3]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[cache-labels4]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.cached_property-labels5]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[cached_property-labels6]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.lru_cache-labels7]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.lru_cache(maxsize=8)-labels8]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[lru_cache-labels9]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[lru_cache(maxsize=8)-labels10]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[abc.abstractmethod-labels11]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[abstractmethod-labels12]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[dataclasses.dataclass-labels13]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[dataclass-labels14]\n      tests/test_visitor.py::test_set_class_labels_using_decorators[dataclasses.dataclass-labels0]\n      tests/test_visitor.py::test_set_class_labels_using_decorators[dataclass-labels1]\n      tests/test_visitor.py::test_handle_property_setter_and_deleter"
+        },
+        {
+          "id": "2",
+          "location": "src/griffe/extensions/base.py — load_extensions 函数 (line ~458) 及 _load_extension 函数 (line ~365)",
+          "description": "load_extensions 当前假设输入始终为序列（或 None），内部直接 `for extension in exts or ():`。\n      测试以单个扩展规格调用该函数（非序列），引发多种错误：\n      1. 传入 Extension 实例（ExtensionTest(option=0)）或 Extension 类（ExtensionTest）时：\n         TypeError: 'ExtensionTest' object is not iterable / TypeError: 'type' object is not iterable\n      2. 传入字符串（如 \"tests.test_extensions\"）时，字符串被逐字符迭代，\n         第一个字符 \"t\" 被当作 extension 尝试加载，导致：\n         ExtensionNotLoadedError: Error while importing extension 't': No module named 't'\n      3. 传入绝对路径字符串（如 \"/app/codes/tests/test_extensions.py\"）时，\n         _load_extension_path 中的冒号分割逻辑错误地将 Unix 绝对路径切分，\n         导致 ExtensionNotLoadedError: Could not import module from path '/'。",
+          "contract": "1. load_extensions 函数签名需同时支持单个扩展规格和扩展规格序列：\n           exts: Sequence[...] | str | dict | ExtensionType | type[ExtensionType] | None = None\n         当传入的 exts 不是 Sequence（但非 None）时，将其包装为单元素列表再迭代处理。\n         关键：字符串、dict、Extension 实例、Extension 类均视为\"单个扩展规格\"，\n         不能对其进行字符级别或 key 级别的迭代。\n\n      2. _load_extension 中的路径冒号分割逻辑需正确区分 Windows 驱动器冒号与类名分隔符冒号。\n         对 Unix 绝对路径（不含 Windows 驱动器）：若恰好有一个 \":\"，\n         则仅当 \":\" 之前的部分对应已存在文件时，才做路径/类名分割；\n         否则视整个字符串为文件路径（不含类名）。\n\n      3. 支持的 load_extensions 调用形式（测试涵盖）：\n         - load_extensions(ExtensionTest(option=0))  ← Extension 实例\n         - load_extensions(ExtensionTest)            ← Extension 类\n         - load_extensions(\"tests.test_extensions\")  ← 模块点路径字符串\n         - load_extensions(\"tests.test_extensions.ExtensionTest\")  ← 包含类名的点路径\n         - load_extensions(\"tests/test_extensions.py\")             ← 相对文件路径\n         - load_extensions(\"tests/test_extensions.py:ExtensionTest\")← 相对路径:类名\n         - load_extensions(\"/abs/path/tests/test_extensions.py\")   ← 绝对路径\n         - load_extensions(\"/abs/path/tests/test_extensions.py:ExtensionTest\") ← 绝对路径:类名\n         - load_extensions({\"tests.test_extensions\": {\"option\": 0}}) ← 带选项的字典\n\n      返回值类型保持 Extensions 不变；结果的 _extensions[0] 应为 ExtensionTest 实例；\n      若原始输入为带 option 的 dict 或带 kwargs 的 Extension 实例，则 loaded.kwargs == {\"option\": 0}。",
+          "acceptance_tests": "tests/test_extensions.py::test_loading_extensions[extension8]\n      tests/test_extensions.py::test_loading_extensions[ExtensionTest]\n      tests/test_extensions.py::test_loading_extensions[extension1]\n      tests/test_extensions.py::test_loading_extensions[extension3]\n      tests/test_extensions.py::test_loading_extensions[extension5]\n      tests/test_extensions.py::test_loading_extensions[extension7]\n      tests/test_extensions.py::test_loading_extensions[tests/test_extensions.py]\n      tests/test_extensions.py::test_loading_extensions[tests/test_extensions.py:ExtensionTest]\n      tests/test_extensions.py::test_loading_extensions[tests.test_extensions]\n      tests/test_extensions.py::test_loading_extensions[tests.test_extensions.ExtensionTest]\n      tests/test_extensions.py::test_loading_extensions[/app/codes/tests/test_extensions.py]\n      tests/test_extensions.py::test_loading_extensions[/app/codes/tests/test_extensions.py:ExtensionTest]\n      tests/test_extensions.py::test_extension_events"
+        },
+        {
+          "id": "3",
+          "location": "src/griffe/loader.py — GriffeLoader.__init__ (line ~48)",
+          "description": "GriffeLoader.__init__ 当前参数列表中不包含 force_inspection 关键字参数。\n      测试使用 GriffeLoader(force_inspection=False, ...) 和 GriffeLoader(force_inspection=True, ...)，\n      导致 TypeError: GriffeLoader.__init__() got an unexpected keyword argument 'force_inspection'。\n      现有参数 allow_inspection: bool = True 仅控制\"是否允许回退到动态检查\"，\n      而 force_inspection 的语义是\"强制使用动态检查（inspect）而非静态访问（visit）\"。",
+          "contract": "在 GriffeLoader.__init__ 中添加 force_inspection: bool = False 关键字参数。\n      当 force_inspection=True 时，load 方法在加载模块时应强制使用动态检查（inspect）\n      而非静态访问（visit），即使对于可用于静态访问的普通 Python 文件也如此。\n      当 force_inspection=False（默认值）时，行为与现有逻辑完全相同。\n      该参数应在 GriffeLoader 实例上作为实例属性存储，供 load 方法使用。",
+          "acceptance_tests": "tests/test_loader.py::test_forcing_inspection"
+        },
+        {
+          "id": "4",
+          "location": "src/griffe/mixins.py — ObjectAliasMixin.is_public (line ~317)",
+          "description": "当前 is_public 被定义为普通方法（def is_public(self, *, strict=False, check_name=True) -> bool:），\n      而测试通过属性访问方式 module[\"ABC\"].is_public 期望得到布尔值。\n      由于没有 @property 装饰器，访问 .is_public 返回的是绑定方法对象（始终为真），\n      导致 `assert not module[\"ABC\"].is_public` 断言失败：\n        AssertionError: assert not is_public\n        where is_public = Alias('ABC', 'abc.ABC').is_public",
+          "contract": "将 is_public 改造为 @property，签名变为 `def is_public(self) -> bool:`，\n      去掉 strict 和 check_name 参数，使用合理的默认逻辑：\n      - 若 self.public 非 None，返回 self.public\n      - 若对象被显式导出（is_explicitely_exported），返回 True\n      - 若名称以 _ 开头，返回 False\n      - 若对象是别名（is_alias）且既未继承（not inherited）又未处于别名父级（not parent.is_alias），返回 False\n      - 否则返回 True\n      确保 Alias 类通过继承或代理同样暴露 is_public 属性。\n      如有代码调用 obj.is_public(strict=True) 或 obj.is_public(check_name=False)，\n      需评估是否改用其他属性（如 is_explicitely_exported、is_implicitely_exported）替代。",
+          "acceptance_tests": "tests/test_public_api.py::test_not_detecting_imported_objects_as_public"
+        },
+        {
+          "id": "5",
+          "location": "src/griffe/dataclasses.py 或 src/griffe/mixins.py — Object/Module 类（及 Alias 代理）",
+          "description": "Module 对象（以及其他 Object 子类）缺少 is_wildcard_exposed 属性，\n      导致 AttributeError: 'Module' object has no attribute 'is_wildcard_exposed'。\n      此属性用于判断一个成员是否会在通配符导入（from pkg import *）时被导出。",
+          "contract": "在 Object 类（或其 mixin）上添加 is_wildcard_exposed 属性，返回 bool，\n      逻辑如下（根据测试中的断言推导）：\n      1. 若 self.parent 的 exports 不为 None（即父模块定义了 __all__），\n         则当且仅当 self.name 在 parent.exports 中时，返回 True。\n      2. 若 self.parent.exports 为 None（父模块未定义 __all__），\n         则当且仅当 self.name 在 parent.imports 中（即父模块显式 import 了该名称）时，返回 True。\n      3. 若对象无父级（parent 为 None）或不满足以上条件，返回 False。\n\n      测试中断言（见 tests/test_dataclasses.py::test_submodule_exports）：\n      - root[\"sub\"].is_wildcard_exposed 初始为 False；\n        root.imports[\"sub\"] = \"root.sub\" 后变为 True\n      - root[\"_private\"].is_wildcard_exposed 初始为 False；\n        root.exports = {\"_private\"} 后变为 True",
+          "acceptance_tests": "tests/test_dataclasses.py::test_submodule_exports"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
+      "bug_fix": 5,
       "new_feature": 0,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 3,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-27T12:38:24",
+  "last_updated": "2026-03-27T13:53:21",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.8696,
+    "m2": 0.7391,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7217
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7217,
+  "fix_rate": 69.6
 }
