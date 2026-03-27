@@ -1,0 +1,49 @@
+{
+  "task_id": "mkdocstrings__griffe__a26ccd__439f65",
+  "repo_name": "mkdocstrings/griffe",
+  "repo_url": "https://github.com/mkdocstrings/griffe.git",
+  "licence": "ISC License",
+  "initial_gap": 21,
+  "final_gap": 21,
+  "num_epochs": 1,
+  "status": "pending",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 21,
+      "passed": 553,
+      "failed": 24,
+      "total": 577
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {},
+  "requirements": [],
+  "task_analysis": {
+    "total_requirements": 0,
+    "primary_category": "general",
+    "categories": {
+      "bug_fix": 0,
+      "new_feature": 0,
+      "refactor": 0,
+      "api_change": 0,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-27T08:49:57",
+  "batch": "rll_full_batch_14",
+  "evoscore_detail": {
+    "m1": 0.5,
+    "m2": 0.0,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5
+  },
+  "evoscore": 0.5,
+  "fix_rate": 0.0
+}
