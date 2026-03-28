@@ -1,16 +1,16 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 68,
+  "total_evaluated": 69,
   "solved": 63,
   "improving": 3,
   "stuck": 0,
-  "pending": 2,
+  "pending": 3,
   "total_completed": 66,
   "solve_rate": 95.5,
   "zero_regression_rate": 92.4,
   "zero_regression_count": 61,
-  "avg_fix_rate": 96.7,
-  "avg_evoscore": 0.9704,
+  "avg_fix_rate": 95.3,
+  "avg_evoscore": 0.9636,
   "avg_evoscore_completed": 0.9847,
   "batches": [
     {
@@ -192,11 +192,12 @@
     },
     {
       "batch": "rll_full_batch_15",
-      "total": 1,
+      "total": 2,
       "solved": 0,
       "avg_evoscore": 0.5,
       "tasks": [
-        "modelcontextprotocol__python-sdk__281fd4__a9cc82"
+        "modelcontextprotocol__python-sdk__281fd4__a9cc82",
+        "modelcontextprotocol__python-sdk__998f0e__5983a6"
       ]
     },
     {
@@ -920,7 +921,7 @@
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 46,
       "final_gap": 2,
-      "num_epochs": 12,
+      "num_epochs": 14,
       "fix_rate": 95.7,
       "evoscore": 0.7852,
       "status": "improving",
@@ -958,9 +959,20 @@
       "evoscore": 0.5,
       "status": "pending",
       "batch": "rll_full_batch_15"
+    },
+    {
+      "task_id": "modelcontextprotocol__python-sdk__998f0e__5983a6",
+      "repo_name": "modelcontextprotocol/python-sdk",
+      "initial_gap": 161,
+      "final_gap": 161,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-28T10:53:52",
+  "last_updated": "2026-03-28T11:24:20",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
