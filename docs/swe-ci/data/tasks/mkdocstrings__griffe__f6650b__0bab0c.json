@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 21,
-  "final_gap": 21,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 5,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 387,
       "failed": 21,
       "total": 408
+    },
+    {
+      "epoch": 1,
+      "gap": 5,
+      "passed": 403,
+      "failed": 5,
+      "total": 408,
+      "programmer_time": 4858.140955924988
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 387,
+    "failed": 21,
+    "total": 408
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-28-08-27-02",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/griffe/dataclasses.py — class Class (currently ends at line ~1408)",
+          "description": "The `Class` dataclass is missing a `mro()` method. Tests call `cls.mro()` expecting a\n      list of resolved `Class` objects representing the Method Resolution Order (C3 linearization)\n      of the class, excluding the class itself and built-in base types (e.g., `object`, `str`,\n      dynamic/unresolvable bases). Currently `Class` has no such method, causing\n      `AttributeError: 'Class' object has no attribute 'mro'` in all MRO-related tests.",
+          "contract": "- `Class.mro() -> list[Class | Alias]`: Returns the C3-linearized MRO of the class,\n        excluding the class itself. Only includes bases that can be resolved within the loaded\n        modules collection. Unresolvable bases (e.g., built-ins, dynamically created types,\n        bases from unloaded modules) are silently skipped from the MRO but do not cause an error.\n      - If the MRO is uncomputable due to inconsistent ordering (e.g., duplicate base, cyclic\n        inheritance), `mro()` must raise `ValueError` with a message matching \"Cannot compute\n        C3 linearization\".\n      - When no resolvable bases exist (e.g., class inherits only from dynamic/built-in types),\n        `mro()` returns an empty list `[]`.\n      - The returned list contains objects whose `.path` attribute is the fully-qualified dotted\n        path (e.g., `\"module.ClassName\"`), enabling MRO path comparisons as done in tests via\n        `[base.path for base in cls.mro()]`.\n      - Class resolution should use the modules collection accessible through the object's module\n        hierarchy.",
+          "acceptance_tests": "tests/test_inheritance.py::test_computing_mro[classes0-B-expected_mro0]\n      tests/test_inheritance.py::test_computing_mro[classes1-D-expected_mro1]\n      tests/test_inheritance.py::test_computing_mro[classes2-D-expected_mro2]\n      tests/test_inheritance.py::test_computing_mro[classes3-A-expected_mro3]\n      tests/test_inheritance.py::test_computing_mro[classes4-A-expected_mro4]\n      tests/test_inheritance.py::test_computing_mro[classes5-D-expected_mro5]\n      tests/test_inheritance.py::test_computing_mro[classes6-H-expected_mro6]\n      tests/test_inheritance.py::test_computing_mro[classes7-C-expected_mro7]\n      tests/test_inheritance.py::test_uncomputable_mro[classes0-B]\n      tests/test_inheritance.py::test_uncomputable_mro[classes1-D]\n      tests/test_inheritance.py::test_dynamic_base_classes"
+        },
+        {
+          "id": "2",
+          "location": "code/src/griffe/dataclasses.py — class Class (currently ends at line ~1408)",
+          "description": "The `Class` dataclass is missing a `resolved_bases` property. Tests access\n      `cls.resolved_bases` expecting a list of resolved `Class`/`Alias` objects for each\n      declared base class that can be found in the modules collection. Currently causes\n      `AttributeError: 'Class' object has no attribute 'resolved_bases'`.",
+          "contract": "- `Class.resolved_bases -> list[Class | Alias]`: A property that returns a list of\n        resolved object references for each base class declared in `self.bases`.\n      - Only includes bases that can be successfully resolved against the modules collection.\n        Bases that cannot be resolved (e.g., built-ins, dynamic expressions, unloaded modules)\n        are silently omitted from the result.\n      - The result preserves declaration order.\n      - An actual `Class` object (or its `Alias`) appears in `resolved_bases` when that class\n        was loaded into the modules collection, enabling identity comparisons like\n        `classa in classb.resolved_bases`.",
+          "acceptance_tests": "tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_inspected_module]"
+        },
+        {
+          "id": "3",
+          "location": "code/src/griffe/dataclasses.py — class Class (currently ends at line ~1408)",
+          "description": "The `Class` dataclass is missing `inherited_members` and `all_members` properties.\n      Tests access `cls.inherited_members` expecting members inherited from parent classes\n      (excluding own-declared and overridden members), and `cls.all_members` expecting the\n      union of own and inherited members. Currently causes\n      `AttributeError: 'Class' object has no attribute 'inherited_members'`.",
+          "contract": "- `Class.inherited_members -> dict[str, Object | Alias]`: A property that returns a\n        dictionary of members inherited from ancestor classes via the MRO. A member is\n        \"inherited\" if it exists in at least one ancestor class but is NOT defined directly\n        in `self.members`. If a member is overridden/redefined in `self.members`, it must\n        NOT appear in `inherited_members`. Members are collected by walking the MRO in order;\n        the first ancestor that defines a member provides that member.\n      - `Class.all_members -> dict[str, Object | Alias]`: A property that returns the union\n        of `self.members` and `self.inherited_members`. Own members take precedence over\n        inherited ones (i.e., if a name exists in both, the own member is returned).\n      - If `mro()` cannot be computed (raises `ValueError`) or contains unresolvable classes,\n        the method gracefully returns only what it can resolve without propagating exceptions.",
+          "acceptance_tests": "tests/test_inheritance.py::test_nested_class_inheritance[temporary_visited_module]\n      tests/test_inheritance.py::test_nested_class_inheritance[temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_inspected_module]\n      tests/test_stdlib.py::test_fuzzing_on_stdlib"
+        },
+        {
+          "id": "4",
+          "location": "code/src/griffe/finder.py — function `_handle_pth_file` (line ~323)",
+          "description": "`_handle_pth_file` currently skips any line containing a semicolon (`\";\" not in line`\n      on line 341). The test `test_pth_file_handling_with_semi_colon` provides a .pth file\n      where a single line contains semicolon-separated entries (e.g.,\n      `\"import thing; import\\tthing; /doesnotexist; tests\"`). The expected behavior is that\n      such a line is split by semicolons and each part is evaluated independently, yielding\n      `[Path(\"tests\")]`. Currently the entire line is discarded, so the function returns `[]`\n      instead.",
+          "contract": "- When a line in a .pth file contains one or more semicolons, the line must be split\n        on semicolons and each resulting part must be stripped and evaluated independently\n        using the same rules as a standalone line:\n          * Parts matching the `import ...` pattern are handled as editable-module imports.\n          * Parts that are empty or begin with `#` are skipped.\n          * Parts that correspond to existing paths on the filesystem are added to the\n            result as `Path` objects.\n          * Parts that do not exist on the filesystem are silently skipped.\n      - The overall return value is `list[Path]` as before; the change is purely in how\n        semicolon-containing lines are tokenized before evaluation.",
+          "acceptance_tests": "tests/test_finder.py::test_pth_file_handling_with_semi_colon"
+        },
+        {
+          "id": "5",
+          "location": "code/src/griffe/cli.py — function `check` (line ~336);\n      code/src/griffe/git.py — function `_get_latest_tag` (line ~45) and\n      `_get_repo_root` (line ~57) as supporting context",
+          "description": "The `check()` function calls `_get_latest_tag(package)` which internally calls\n      `subprocess.check_output([\"git\", \"describe\", \"--tags\", \"--abbrev=0\"], ...)`.\n      When the given path is not a git repository (or has no tags), this raises\n      `subprocess.CalledProcessError`. The test `test_git_failures` passes a plain\n      temporary directory (not a git repo) and expects `check()` to return `2`,\n      but currently the `CalledProcessError` propagates uncaught, causing the test to fail.",
+          "contract": "- The `check()` function must catch git-related failures (such as\n        `subprocess.CalledProcessError` and `OSError`) that arise from\n        `_get_latest_tag()` and `_get_repo_root()` when the provided path is not a valid\n        git repository or has no tags.\n      - On any such git failure, `check()` must return the integer `2` (distinct from the\n        existing return codes `0` for success and `1` for API breakages or extension errors).\n      - The function signature must remain unchanged. No other behavior should be affected.",
+          "acceptance_tests": "tests/test_git.py::test_git_failures"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "api_change",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 2,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 5,
       "test_fix": 0,
       "config": 0
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-28T08:19:45",
+  "last_updated": "2026-03-28T08:49:50",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.881,
+    "m2": 0.7619,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7286
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7286,
+  "fix_rate": 76.2
 }
