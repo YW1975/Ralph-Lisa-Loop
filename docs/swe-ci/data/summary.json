@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 67,
-  "solved": 62,
-  "improving": 2,
+  "total_evaluated": 66,
+  "solved": 61,
+  "improving": 3,
   "stuck": 0,
-  "pending": 3,
+  "pending": 2,
   "total_completed": 64,
-  "solve_rate": 96.9,
+  "solve_rate": 95.3,
   "zero_regression_rate": 93.8,
   "zero_regression_count": 60,
-  "avg_fix_rate": 95.2,
-  "avg_evoscore": 0.9624,
-  "avg_evoscore_completed": 0.9841,
+  "avg_fix_rate": 96.2,
+  "avg_evoscore": 0.9685,
+  "avg_evoscore_completed": 0.9832,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -179,11 +179,10 @@
     },
     {
       "batch": "rll_full_batch_14",
-      "total": 5,
-      "solved": 1,
-      "avg_evoscore": 0.6552,
+      "total": 4,
+      "solved": 0,
+      "avg_evoscore": 0.6788,
       "tasks": [
-        "mkdocstrings__griffe__22a44a__9b98da",
         "mkdocstrings__griffe__a26ccd__439f65",
         "mkdocstrings__griffe__ce1dce__72c8fc",
         "mkdocstrings__griffe__f6650b__0bab0c",
@@ -885,24 +884,13 @@
       "batch": "rll_full_batch_13"
     },
     {
-      "task_id": "mkdocstrings__griffe__22a44a__9b98da",
-      "repo_name": "mkdocstrings/griffe",
-      "initial_gap": 74,
-      "final_gap": 0,
-      "num_epochs": 2,
-      "fix_rate": 100.0,
-      "evoscore": 1.0,
-      "status": "solved",
-      "batch": "rll_full_batch_14"
-    },
-    {
       "task_id": "mkdocstrings__griffe__a26ccd__439f65",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 21,
-      "final_gap": 3,
+      "final_gap": 2,
       "num_epochs": 3,
-      "fix_rate": 85.7,
-      "evoscore": 0.7762,
+      "fix_rate": 90.5,
+      "evoscore": 1.0,
       "status": "improving",
       "batch": "rll_full_batch_14"
     },
@@ -910,11 +898,11 @@
       "task_id": "mkdocstrings__griffe__ce1dce__72c8fc",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 46,
-      "final_gap": 46,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 15,
+      "num_epochs": 2,
+      "fix_rate": 67.4,
+      "evoscore": 0.7152,
+      "status": "improving",
       "batch": "rll_full_batch_14"
     },
     {
@@ -940,7 +928,7 @@
       "batch": "rll_full_batch_14"
     }
   ],
-  "last_updated": "2026-03-28T00:51:54",
+  "last_updated": "2026-03-28T01:33:29",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
