@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 73,
+  "total_evaluated": 74,
   "solved": 65,
   "improving": 4,
   "stuck": 0,
-  "pending": 4,
+  "pending": 5,
   "total_completed": 69,
   "solve_rate": 94.2,
   "zero_regression_rate": 92.8,
   "zero_regression_count": 64,
-  "avg_fix_rate": 94.0,
-  "avg_evoscore": 0.9551,
-  "avg_evoscore_completed": 0.9815,
+  "avg_fix_rate": 92.8,
+  "avg_evoscore": 0.9491,
+  "avg_evoscore_completed": 0.9817,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -194,7 +194,7 @@
       "batch": "rll_full_batch_15",
       "total": 5,
       "solved": 2,
-      "avg_evoscore": 0.7471,
+      "avg_evoscore": 0.7496,
       "tasks": [
         "modelcontextprotocol__python-sdk__281fd4__a9cc82",
         "modelcontextprotocol__python-sdk__998f0e__5983a6",
@@ -205,11 +205,12 @@
     },
     {
       "batch": "rll_full_batch_17",
-      "total": 1,
+      "total": 2,
       "solved": 0,
       "avg_evoscore": 0.5,
       "tasks": [
-        "nat-n__poethepoet__681394__6eb522"
+        "nat-n__poethepoet__681394__6eb522",
+        "nbqa-dev__nbqa__baa36f__9d140b"
       ]
     },
     {
@@ -998,10 +999,10 @@
       "task_id": "more-itertools__more-itertools__3c1e75__b469c1",
       "repo_name": "more-itertools/more-itertools",
       "initial_gap": 140,
-      "final_gap": 19,
-      "num_epochs": 6,
-      "fix_rate": 86.4,
-      "evoscore": 0.7443,
+      "final_gap": 12,
+      "num_epochs": 7,
+      "fix_rate": 91.4,
+      "evoscore": 0.7568,
       "status": "improving",
       "batch": "rll_full_batch_15"
     },
@@ -1026,9 +1027,20 @@
       "evoscore": 0.5,
       "status": "pending",
       "batch": "rll_full_batch_17"
+    },
+    {
+      "task_id": "nbqa-dev__nbqa__baa36f__9d140b",
+      "repo_name": "nbQA-dev/nbQA",
+      "initial_gap": 23,
+      "final_gap": 23,
+      "num_epochs": 1,
+      "fix_rate": 0.0,
+      "evoscore": 0.5,
+      "status": "pending",
+      "batch": "rll_full_batch_17"
     }
   ],
-  "last_updated": "2026-03-28T15:18:34",
+  "last_updated": "2026-03-28T16:33:44",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

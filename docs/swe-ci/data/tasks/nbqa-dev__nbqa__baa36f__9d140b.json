@@ -1,19 +1,19 @@
 {
-  "task_id": "nat-n__poethepoet__681394__6eb522",
-  "repo_name": "nat-n/poethepoet",
-  "repo_url": "https://github.com/nat-n/poethepoet.git",
+  "task_id": "nbqa-dev__nbqa__baa36f__9d140b",
+  "repo_name": "nbQA-dev/nbQA",
+  "repo_url": "https://github.com/nbQA-dev/nbQA.git",
   "licence": "MIT License",
-  "initial_gap": 8,
-  "final_gap": 8,
+  "initial_gap": 23,
+  "final_gap": 23,
   "num_epochs": 1,
   "status": "pending",
   "gap_curve": [
     {
       "epoch": 0,
-      "gap": 8,
-      "passed": 192,
-      "failed": 72,
-      "total": 266
+      "gap": 23,
+      "passed": 60,
+      "failed": 38,
+      "total": 98
     }
   ],
   "dialogue": "",
@@ -32,7 +32,7 @@
       "test_fix": 0,
       "config": 0
     },
-    "complexity": "low"
+    "complexity": "medium"
   },
   "last_updated": "2026-03-28T16:33:44",
   "batch": "rll_full_batch_17",
