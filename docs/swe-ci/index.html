@@ -121,8 +121,7 @@
             th, td { padding: 6px 8px; }
             .task-link { font-size: 11px; }
             /* Hide less important columns on mobile */
-            th:nth-child(5), td:nth-child(5),
-            th:nth-child(6), td:nth-child(6) { display: none; }
+            th:nth-child(5), td:nth-child(5) { display: none; }
         }
         @media (max-width: 480px) {
             .stat-value { font-size: 28px; }
@@ -174,15 +173,27 @@
         <div class="live-badge"><span class="refresh-dot"></span>Live &mdash; results update as tasks complete</div>
     </div>
 
-    <!-- Comparison chart -->
+    <!-- Solve Rate comparison -->
+    <div class="comparison">
+        <h2>Solve Rate vs. Published Baselines</h2>
+        <div class="bar-chart" id="solve-rate-chart"></div>
+        <div class="chart-note">
+            Solve Rate = percentage of tasks where all target tests pass (gap&rarr;0).
+            Published baselines from <a href="https://arxiv.org/abs/2603.03823" target="_blank">arXiv:2603.03823</a>, Table 2 (M4 Target Attainment metric).
+            Single-agent baselines use iFlow CLI with Architect-Programmer protocol.
+        </div>
+        <div class="chart-note">* RLL score based on completed tasks. Full benchmark (137 tasks) in progress.</div>
+    </div>
+
+    <!-- Zero-Regression comparison -->
     <div class="comparison">
         <h2>Zero-Regression Rate vs. Published Baselines</h2>
         <div class="bar-chart" id="zero-reg-chart"></div>
         <div class="chart-note">
-            Published baselines use iFlow CLI agent framework with same-model Architect-Programmer protocol
-            (source: <a href="https://arxiv.org/abs/2603.03823" target="_blank">arXiv:2603.03823</a>, Section 4.1).
-            RLL uses Claude Code (Ralph) + Codex CLI (Lisa) with cross-provider dual-agent orchestration.
-            Results reflect full-system performance.
+            Zero-Regression Rate = percentage of tasks where passed test counts never decreased across epochs
+            (<a href="https://arxiv.org/abs/2603.03823" target="_blank">arXiv:2603.03823</a>, Section 4.2, Figure 6: M5 Monotonicity metric).
+            Most single-agent models achieve below 25%; only Claude Opus exceeds 50%.
+            RLL's built-in code review catches regressions before they persist.
         </div>
         <div class="chart-note">* RLL score based on completed tasks. Full benchmark (137 tasks) in progress.</div>
     </div>
@@ -199,7 +210,6 @@
                         <th data-sort="initial_gap">Gap</th>
                         <th data-sort="num_epochs">Epochs</th>
                         <th data-sort="fix_rate">Fix %</th>
-                        <th data-sort="evoscore">EvoScore</th>
                         <th data-sort="status">Status</th>
                     </tr>
                 </thead>
@@ -209,7 +219,8 @@
         <div class="table-legend">
             <strong>Gap</strong> = number of failing tests (initial &rarr; final). 0 = all target tests pass.
             <strong>Epochs</strong> = Architect-Programmer iterations needed.
-            <strong>EvoScore</strong> = official SWE-CI metric (<a href="https://arxiv.org/abs/2603.03823" target="_blank">ANC</a>, 0&ndash;1).
+            <strong>Fix %</strong> = percentage of test gap closed.
+            EvoScore details available on each task's detail page.
         </div>
     </div>
 
@@ -348,6 +359,15 @@
     </div>
 
     <script>
+    // Solve Rate baselines (M4 Target Attainment from paper Table 2)
+    const SR_BASELINES = [
+        { name: "RLL (Sonnet 4.6 + Codex GPT-5.4) *", score: 0, ours: true },
+        { name: "Claude Opus 4.6", score: 0.72 },
+        { name: "Claude Opus 4.5", score: 0.65 },
+        { name: "DeepSeek V3.2", score: 0.57 },
+        { name: "GPT-5.2", score: 0.50 },
+    ];
+    // Zero-Regression baselines (M5 Monotonicity from paper Figure 6)
     const ZR_BASELINES = [
         { name: "RLL (Sonnet 4.6 + Codex GPT-5.4) *", score: 0, ours: true },
         { name: "Claude Opus 4.6", score: 0.55 },
@@ -377,6 +397,22 @@
             `${data.total_evaluated} evaluated \u00b7 ${data.solved} solved \u00b7 ` +
             `${data.pending || 0} in progress \u00b7 Ralph: ${data.model} \u00b7 Lisa: ${data.lisa_model || 'codex-gpt-5.4'}`;
 
+        // Render Solve Rate chart
+        const ourSR = (data.solve_rate || 0) / 100;
+        SR_BASELINES[0].score = ourSR;
+        SR_BASELINES.sort((a, b) => b.score - a.score);
+        document.getElementById("solve-rate-chart").innerHTML = SR_BASELINES.map(b => `
+            <div class="bar-row">
+                <div class="bar-label ${b.ours ? 'ours' : ''}">${b.name}</div>
+                <div class="bar-track">
+                    <div class="bar-fill ${b.ours ? 'ours' : 'other'}" style="width: ${(b.score * 100).toFixed(1)}%">
+                        ${(b.score * 100).toFixed(0)}%
+                    </div>
+                </div>
+            </div>
+        `).join("");
+
+        // Render Zero-Regression chart
         const ourZR = (data.zero_regression_rate || 0) / 100;
         ZR_BASELINES[0].score = ourZR;
         ZR_BASELINES.sort((a, b) => b.score - a.score);
@@ -412,7 +448,6 @@
                 <td>${t.initial_gap} <span class="gap-arrow">&rarr;</span> ${fg}</td>
                 <td>${t.num_epochs - 1 || 0}</td>
                 <td>${t.fix_rate.toFixed(0)}%</td>
-                <td>${t.evoscore.toFixed(4)}</td>
                 <td><span class="status-badge status-${t.status}">${t.status}</span></td>
             </tr>`;
         }).join("");
