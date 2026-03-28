@@ -900,7 +900,7 @@
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 21,
       "final_gap": 2,
-      "num_epochs": 8,
+      "num_epochs": 10,
       "fix_rate": 90.5,
       "evoscore": 1.0,
       "status": "improving",
@@ -940,7 +940,7 @@
       "batch": "rll_full_batch_14"
     }
   ],
-  "last_updated": "2026-03-28T06:01:40",
+  "last_updated": "2026-03-28T06:31:46",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
