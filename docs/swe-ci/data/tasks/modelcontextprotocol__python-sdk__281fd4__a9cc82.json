@@ -1,19 +1,19 @@
 {
-  "task_id": "modelcontextprotocol__python-sdk__116c13__b19fa6",
+  "task_id": "modelcontextprotocol__python-sdk__281fd4__a9cc82",
   "repo_name": "modelcontextprotocol/python-sdk",
   "repo_url": "https://github.com/modelcontextprotocol/python-sdk.git",
   "licence": "MIT License",
-  "initial_gap": 85,
-  "final_gap": 85,
+  "initial_gap": 159,
+  "final_gap": 159,
   "num_epochs": 1,
   "status": "pending",
   "gap_curve": [
     {
       "epoch": 0,
-      "gap": 85,
-      "passed": 672,
-      "failed": 22,
-      "total": 697
+      "gap": 159,
+      "passed": 945,
+      "failed": 30,
+      "total": 1071
     }
   ],
   "dialogue": "",
@@ -35,7 +35,7 @@
     "complexity": "high"
   },
   "last_updated": "2026-03-28T10:53:52",
-  "batch": "rll_full_batch_14",
+  "batch": "rll_full_batch_15",
   "evoscore_detail": {
     "m1": 0.5,
     "m2": 0.0,
