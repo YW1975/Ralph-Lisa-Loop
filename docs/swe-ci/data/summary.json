@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 71,
+  "total_evaluated": 72,
   "solved": 64,
-  "improving": 3,
+  "improving": 5,
   "stuck": 0,
-  "pending": 4,
-  "total_completed": 67,
-  "solve_rate": 95.5,
-  "zero_regression_rate": 92.5,
-  "zero_regression_count": 62,
-  "avg_fix_rate": 94.0,
-  "avg_evoscore": 0.9576,
-  "avg_evoscore_completed": 0.9849,
+  "pending": 3,
+  "total_completed": 69,
+  "solve_rate": 92.8,
+  "zero_regression_rate": 92.8,
+  "zero_regression_count": 64,
+  "avg_fix_rate": 94.1,
+  "avg_evoscore": 0.9553,
+  "avg_evoscore_completed": 0.975,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -192,14 +192,15 @@
     },
     {
       "batch": "rll_full_batch_15",
-      "total": 4,
+      "total": 5,
       "solved": 1,
-      "avg_evoscore": 0.6247,
+      "avg_evoscore": 0.658,
       "tasks": [
         "modelcontextprotocol__python-sdk__281fd4__a9cc82",
         "modelcontextprotocol__python-sdk__998f0e__5983a6",
         "more-itertools__more-itertools__3250ca__8c1a6e",
-        "more-itertools__more-itertools__3c1e75__b469c1"
+        "more-itertools__more-itertools__3c1e75__b469c1",
+        "more-itertools__more-itertools__d2d104__4dc5e8"
       ]
     },
     {
@@ -988,15 +989,26 @@
       "task_id": "more-itertools__more-itertools__3c1e75__b469c1",
       "repo_name": "more-itertools/more-itertools",
       "initial_gap": 140,
-      "final_gap": 140,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 81,
+      "num_epochs": 3,
+      "fix_rate": 42.1,
+      "evoscore": 0.6243,
+      "status": "improving",
+      "batch": "rll_full_batch_15"
+    },
+    {
+      "task_id": "more-itertools__more-itertools__d2d104__4dc5e8",
+      "repo_name": "more-itertools/more-itertools",
+      "initial_gap": 61,
+      "final_gap": 27,
+      "num_epochs": 2,
+      "fix_rate": 55.7,
+      "evoscore": 0.6672,
+      "status": "improving",
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-28T13:10:35",
+  "last_updated": "2026-03-28T13:40:42",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

@@ -1,0 +1,102 @@
+{
+  "task_id": "more-itertools__more-itertools__d2d104__4dc5e8",
+  "repo_name": "more-itertools/more-itertools",
+  "repo_url": "https://github.com/more-itertools/more-itertools.git",
+  "licence": "MIT License",
+  "initial_gap": 61,
+  "final_gap": 27,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 61,
+      "passed": 603,
+      "failed": 61,
+      "total": 665
+    },
+    {
+      "epoch": 1,
+      "gap": 27,
+      "passed": 637,
+      "failed": 27,
+      "total": 665,
+      "programmer_time": 634.9647648334503
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 603,
+    "failed": 61,
+    "total": 665
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-28-13-25-06",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/more_itertools/more.py — new top-level function `classify_unique`;\n      also add `'classify_unique'` to the `__all__` list at the top of the file.",
+          "description": "The function `classify_unique` does not exist in `more_itertools`.\n      All 13 tests in `ClassifyUniqueTests` fail with:\n        AttributeError: module 'more_itertools' has no attribute 'classify_unique'",
+          "contract": "Signature: `classify_unique(iterable, key=None)`\n\n      For each element in *iterable*, yield a 3-tuple:\n        (element, is_unique_justseen, is_unique_everseen)\n\n      Where:\n      - `is_unique_justseen` (bool): True if the element's key is different from\n        the previous element's key (i.e., this element would be kept by\n        `unique_justseen`). Always True for the very first element.\n      - `is_unique_everseen` (bool): True if the element's key has never been\n        seen before in the iteration (i.e., this element would be kept by\n        `unique_everseen`). Always True for the very first element.\n\n      If `key` is None, use the element itself as its key.\n\n      The function must handle non-hashable elements and keys by falling back\n      from set-based membership testing to list-based equality testing. It must\n      also handle iterables with a mixture of hashable and non-hashable elements\n      gracefully.\n\n      Invariants (derivable from tests):\n      - Filtering by `is_unique_everseen` must produce the same result as\n        `unique_everseen(iterable, key)`.\n      - Filtering by `is_unique_justseen` must produce the same result as\n        `unique_justseen(iterable, key)`.\n      - Filtering by `not is_unique_everseen` must produce the same result as\n        `duplicates_everseen(iterable, key)`.\n      - Filtering by `not is_unique_justseen` must produce the same result as\n        `duplicates_justseen(iterable, key)`.",
+          "acceptance_tests": "tests/test_more.py::ClassifyUniqueTests::test_basic\n      tests/test_more.py::ClassifyUniqueTests::test_non_hashable\n      tests/test_more.py::ClassifyUniqueTests::test_partially_hashable\n      tests/test_more.py::ClassifyUniqueTests::test_key_hashable\n      tests/test_more.py::ClassifyUniqueTests::test_key_non_hashable\n      tests/test_more.py::ClassifyUniqueTests::test_key_partially_hashable\n      tests/test_more.py::ClassifyUniqueTests::test_vs_unique_everseen\n      tests/test_more.py::ClassifyUniqueTests::test_vs_unique_everseen_key\n      tests/test_more.py::ClassifyUniqueTests::test_vs_unique_justseen\n      tests/test_more.py::ClassifyUniqueTests::test_vs_unique_justseen_key\n      tests/test_more.py::ClassifyUniqueTests::test_vs_duplicates_everseen\n      tests/test_more.py::ClassifyUniqueTests::test_vs_duplicates_everseen_key\n      tests/test_more.py::ClassifyUniqueTests::test_vs_duplicates_justseen\n      tests/test_more.py::ClassifyUniqueTests::test_vs_duplicates_justseen_key"
+        },
+        {
+          "id": "2",
+          "location": "code/more_itertools/more.py — new top-level function `doublestarmap`;\n      also add `'doublestarmap'` to the `__all__` list at the top of the file.",
+          "description": "The function `doublestarmap` does not exist in `more_itertools`.\n      All 8 tests in `DoubleStarMapTests` fail with:\n        AttributeError: module 'more_itertools' has no attribute 'doublestarmap'",
+          "contract": "Signature: `doublestarmap(func, iterable)`\n\n      Analogous to `itertools.starmap`, but unpacks each element of *iterable*\n      as keyword arguments (`**`) into *func* rather than as positional arguments.\n\n      For each element `mapping` in *iterable*, yield `func(**mapping)`.\n\n      Behavior:\n      - If an element is not a mapping (e.g., an integer), a `TypeError` must\n        be raised (propagated from the attempted `**` unpacking).\n      - If the keys in an element do not match the expected parameters of *func*,\n        a `TypeError` must be raised (propagated from the function call).\n      - If *iterable* is empty, yield nothing (return an empty iterator).\n\n      Return type: a lazy iterator (generator or equivalent).",
+          "acceptance_tests": "tests/test_more.py::DoubleStarMapTests::test_construction\n      tests/test_more.py::DoubleStarMapTests::test_identity\n      tests/test_more.py::DoubleStarMapTests::test_adding\n      tests/test_more.py::DoubleStarMapTests::test_mismatch_function_smaller\n      tests/test_more.py::DoubleStarMapTests::test_mismatch_function_different\n      tests/test_more.py::DoubleStarMapTests::test_mismatch_function_larger\n      tests/test_more.py::DoubleStarMapTests::test_no_mapping\n      tests/test_more.py::DoubleStarMapTests::test_empty"
+        },
+        {
+          "id": "3",
+          "location": "code/more_itertools/more.py — new top-level function `filter_map`;\n      also add `'filter_map'` to the `__all__` list at the top of the file.",
+          "description": "The function `filter_map` does not exist in `more_itertools`.\n      All 4 tests in `FilterMapTests` fail with:\n        AttributeError: module 'more_itertools' has no attribute 'filter_map'",
+          "contract": "Signature: `filter_map(func, iterable)`\n\n      Apply *func* to each element of *iterable*; yield the result only when\n      the result is not `None`. Elements for which *func* returns `None` are\n      silently skipped.\n\n      Behavior:\n      - If *iterable* is empty, yield nothing.\n      - If *func* returns `None` for every element, yield nothing.\n      - If *func* returns a non-None value for every element, yield all results.\n      - Both filtering and mapping cases must be handled in a single pass.\n\n      Return type: a lazy iterator (generator or equivalent).",
+          "acceptance_tests": "tests/test_more.py::FilterMapTests::test_no_iterables\n      tests/test_more.py::FilterMapTests::test_filter\n      tests/test_more.py::FilterMapTests::test_map\n      tests/test_more.py::FilterMapTests::test_filter_map"
+        },
+        {
+          "id": "4",
+          "location": "code/more_itertools/more.py — new top-level function `iter_suppress`;\n      also add `'iter_suppress'` to the `__all__` list at the top of the file.",
+          "description": "The function `iter_suppress` does not exist in `more_itertools`.\n      All 4 tests in `IterSuppressTests` fail with:\n        AttributeError: module 'more_itertools' has no attribute 'iter_suppress'",
+          "contract": "Signature: `iter_suppress(iterable, *exceptions)`\n\n      Iterate over *iterable*, suppressing any of the given *exceptions* if\n      they are raised either during `iter()` (i.e., in `__iter__`) or during\n      `next()` (i.e., in `__next__`).\n\n      Behavior:\n      - If no exception is raised, yield all elements normally.\n      - If an exception listed in *exceptions* is raised at any point (including\n        when constructing the iterator via `__iter__`), stop iteration silently\n        and return without raising.\n      - If an exception NOT listed in *exceptions* is raised, let it propagate\n        normally to the caller.\n      - `StopIteration` (normal end of iteration) must still work correctly and\n        should never be suppressed.\n\n      Return type: a lazy iterator (generator or equivalent).",
+          "acceptance_tests": "tests/test_more.py::IterSuppressTests::test_no_error\n      tests/test_more.py::IterSuppressTests::test_raises_error\n      tests/test_more.py::IterSuppressTests::test_suppression\n      tests/test_more.py::IterSuppressTests::test_early_suppression"
+        },
+        {
+          "id": "5",
+          "location": "code/more_itertools/more.py — existing function `distinct_permutations`\n      (defined at approximately line 648).",
+          "description": "The current implementation calls `sorted(iterable)` unconditionally at the\n      start. This fails with `TypeError: '&lt;' not supported between instances of ...`\n      when the iterable contains elements of mixed types that are not mutually\n      comparable (e.g., `['1', 2, 2, 3]` or `[1, True, '3']`) or contains\n      unhashable elements (e.g., `([1], [1], 2)`).\n\n      Four tests fail:\n        - test_unsortable: mixed str and int elements\n        - test_unsorted_equivalent: elements equal under Python equality but of\n          different types (e.g., 1 and True)\n        - test_unsortable_r: same as test_unsortable but with varying r values\n        - test_unhashable: iterable contains unhashable items (lists)",
+          "contract": "The function signature `distinct_permutations(iterable, r=None)` must\n      remain unchanged.\n\n      The function must be modified to handle the following cases gracefully:\n\n      1. **Unsortable elements (mixed incomparable types)**: When the attempt to\n         sort the elements raises a `TypeError`, the function must fall back to\n         an alternative strategy that still yields all distinct permutations\n         without relying on element ordering. The fallback must produce the same\n         set of results as `set(permutations(iterable))` (or\n         `set(permutations(iterable, r))` when r is given), though the order of\n         yielded permutations need not match any specific ordering.\n\n      2. **Unhashable elements**: When elements cannot be hashed, the fallback\n         deduplication must use equality-based comparison (e.g., equivalent to\n         `unique_everseen(permutations(iterable))`) rather than a set.\n\n      3. **Equivalent elements of different types** (e.g., `1` and `True`):\n         These should be treated as distinct elements (they compare equal but\n         are not the same object), and all permutations of the original sequence\n         must be yielded without deduplication across type boundaries, consistent\n         with `set(permutations(iterable))`.\n\n      The optimized sorted-based algorithm should still be used for the common\n      case where all elements are mutually sortable.",
+          "acceptance_tests": "tests/test_more.py::DistinctPermutationsTests::test_unsortable\n      tests/test_more.py::DistinctPermutationsTests::test_unsortable_r\n      tests/test_more.py::DistinctPermutationsTests::test_unsorted_equivalent\n      tests/test_more.py::DistinctPermutationsTests::test_unhashable"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 1,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-03-28T13:40:42",
+  "batch": "rll_full_batch_15",
+  "evoscore_detail": {
+    "m1": 0.7787,
+    "m2": 0.5574,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.6672
+  },
+  "evoscore": 0.6672,
+  "fix_rate": 55.7
+}
