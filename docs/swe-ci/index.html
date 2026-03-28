@@ -248,6 +248,78 @@
             </div>
         </div>
 
+        <!-- Epoch loop diagram -->
+        <h3 style="font-size: 14px; margin-top: 28px; margin-bottom: 12px;">Epoch Loop: How Tasks Get Solved</h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+            Each task runs through up to 10 epochs. Within each epoch, the Architect analyzes test failures,
+            Ralph implements fixes with Lisa reviewing, then pytest re-evaluates. The loop stops when all tests pass or the epoch limit is reached.
+        </p>
+        <div style="max-width: 600px; margin: 0 auto;">
+            <!-- Vertical flowchart -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+                <!-- Start -->
+                <div style="background: var(--surface); border: 2px solid var(--accent); border-radius: 20px; padding: 8px 24px; font-size: 13px; font-weight: 600;">
+                    Task Start (gap = N failing tests)
+                </div>
+                <div style="color: var(--text-muted); font-size: 16px; line-height: 1;">&#8595;</div>
+
+                <!-- Epoch box -->
+                <div style="border: 1px dashed var(--border); border-radius: 10px; padding: 16px 20px; width: 100%; max-width: 480px; position: relative;">
+                    <div style="position: absolute; top: -10px; left: 16px; background: var(--bg); padding: 0 8px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Epoch (repeats up to 10&times;)</div>
+
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 4px;">
+                        <div style="background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 85%; text-align: center;">
+                            <strong style="color: var(--accent);">Architect</strong> &mdash; analyzes test failures, writes requirement.xml
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 14px; line-height: 1;">&#8595;</div>
+                        <div style="background: var(--surface); border: 1px solid var(--ralph-blue); border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 85%; text-align: center;">
+                            <strong style="color: var(--ralph-blue);">Ralph</strong> &mdash; reads requirements, implements code changes
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 14px; line-height: 1;">&#8597;</div>
+                        <div style="background: var(--surface); border: 1px solid var(--lisa-green); border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 85%; text-align: center;">
+                            <strong style="color: var(--lisa-green);">Lisa</strong> &mdash; reviews changes, catches regressions, requests fixes
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 14px; line-height: 1;">&#8595;</div>
+                        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 85%; text-align: center;">
+                            <strong>Consensus</strong> &mdash; both agents agree the implementation is ready
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 14px; line-height: 1;">&#8595;</div>
+                        <div style="background: var(--surface); border: 1px solid var(--yellow); border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 85%; text-align: center;">
+                            <strong style="color: var(--yellow);">pytest</strong> &mdash; run full test suite in Docker, measure new gap
+                        </div>
+                    </div>
+                </div>
+
+                <div style="color: var(--text-muted); font-size: 16px; line-height: 1;">&#8595;</div>
+
+                <!-- Decision diamond (CSS diamond) -->
+                <div style="background: var(--surface); border: 2px solid var(--yellow); border-radius: 6px; padding: 10px 20px; font-size: 13px; font-weight: 600; text-align: center; transform: rotate(0deg);">
+                    gap == 0 &nbsp;or&nbsp; epoch &ge; 10 ?
+                </div>
+
+                <!-- Two branches -->
+                <div style="display: flex; justify-content: center; gap: 60px; margin-top: 6px; width: 100%;">
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">No</div>
+                        <div style="color: var(--text-muted); font-size: 14px;">&#8593;</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">next epoch</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; align-items: center;">
+                        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Yes</div>
+                        <div style="color: var(--text-muted); font-size: 14px;">&#8595;</div>
+                        <div style="background: var(--surface); border: 2px solid var(--green); border-radius: 20px; padding: 8px 24px; font-size: 13px; font-weight: 600; color: var(--green);">
+                            Done &mdash; record final gap
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 11px; margin-top: 12px; text-align: center; line-height: 1.6;">
+            Decision logic: <code style="background:var(--surface);padding:2px 6px;border-radius:3px;font-size:11px;">run.py:240</code> &mdash;
+            gap&rarr;0 = solved, epoch&ge;10 = stopped.
+            Each epoch is fully independent (new workspace, new tmux session).
+        </p>
+
         <h3 style="font-size: 14px; margin-top: 20px; margin-bottom: 8px;">Why These Metrics?</h3>
         <div style="color: var(--text-muted); font-size: 13px; line-height: 1.7;">
             <p><strong style="color: var(--text);">Solve Rate</strong> &mdash; Did the AI finish the job? Percentage of tasks where all target tests pass (gap&rarr;0). In CI/CD terms: the pipeline goes green.</p>
