@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 21,
-  "final_gap": 21,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 1,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 387,
       "failed": 21,
       "total": 408
+    },
+    {
+      "epoch": 1,
+      "gap": 1,
+      "passed": 407,
+      "failed": 1,
+      "total": 408,
+      "programmer_time": 4005.355323791504
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 387,
+    "failed": 21,
+    "total": 408
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-27-20-24-49",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/griffe/dataclasses.py :: class Class",
+          "description": "The `Class` object is missing the `mro()` method. Tests in `tests/test_inheritance.py`\n      call `cls.mro()` to retrieve the Method Resolution Order (MRO) of a class, but no such\n      method exists, causing `AttributeError: 'Class' object has no attribute 'mro'` in all\n      `test_computing_mro`, `test_uncomputable_mro`, `test_dynamic_base_classes`, and\n      `test_loading_inherited_members` test cases.",
+          "contract": "Add a `mro()` method to the `Class` class in `src/griffe/dataclasses.py`.\n\n      Signature: `def mro(self) -> list[Class]`\n\n      Behavioral requirements:\n      - Implements C3 linearization over the class's resolved base classes.\n      - Returns a list of `Class` objects representing the MRO in order (the class itself is\n        excluded; only the ancestor classes are included, in MRO order).\n      - To resolve each entry in `self.bases` (which are `Name | Expression | str` values) to a\n        `Class` object, the method should use the parent object's scope and the `modules_collection`\n        for dotted-path lookups. A `Name` carries a `.full` attribute (fully-qualified path), and\n        an `Expression` may wrap subscript generics like `B[T]` — the base class name is the first\n        element of the expression.\n      - If any base class name cannot be resolved (e.g., dynamic bases such as\n        `namedtuple(\"B\", \"attrb\")`), or if the resolved object is not a `Class`, those bases are\n        silently ignored and `mro()` returns an empty list `[]`.\n      - If the C3 linearization is impossible (e.g., inconsistent ordering or circular\n        inheritance that makes linearization undefined), `mro()` raises\n        `ValueError` with a message matching `\"Cannot compute C3 linearization\"`.\n      - The method must tolerate cross-module bases resolved through `modules_collection`.",
+          "acceptance_tests": "tests/test_inheritance.py::test_computing_mro[classes0-B-expected_mro0]\n      tests/test_inheritance.py::test_computing_mro[classes1-D-expected_mro1]\n      tests/test_inheritance.py::test_computing_mro[classes2-D-expected_mro2]\n      tests/test_inheritance.py::test_computing_mro[classes3-A-expected_mro3]\n      tests/test_inheritance.py::test_computing_mro[classes4-A-expected_mro4]\n      tests/test_inheritance.py::test_computing_mro[classes5-D-expected_mro5]\n      tests/test_inheritance.py::test_computing_mro[classes6-H-expected_mro6]\n      tests/test_inheritance.py::test_computing_mro[classes7-C-expected_mro7]\n      tests/test_inheritance.py::test_uncomputable_mro[classes0-B]\n      tests/test_inheritance.py::test_uncomputable_mro[classes1-D]\n      tests/test_inheritance.py::test_dynamic_base_classes"
+        },
+        {
+          "id": "2",
+          "location": "src/griffe/dataclasses.py :: class Class",
+          "description": "The `Class` object is missing the `resolved_bases` property. Tests call\n      `cls.resolved_bases` expecting a list of resolved `Class` objects for the class's direct\n      base classes. Its absence causes `AttributeError: 'Class' object has no attribute\n      'resolved_bases'` in all `test_loading_inherited_members` test cases.",
+          "contract": "Add a `resolved_bases` property to the `Class` class in `src/griffe/dataclasses.py`.\n\n      Signature: `@property def resolved_bases(self) -> list[Class]`\n\n      Behavioral requirements:\n      - Iterates over `self.bases` (each of type `Name | Expression | str`) and resolves each\n        base to a `Class` object via parent scope and `modules_collection`.\n      - Returns a list containing only those bases that could be successfully resolved to `Class`\n        objects (unresolvable bases, built-ins, and non-class objects are silently skipped).\n      - For generic subscript expressions (e.g., `B[T]`), the base class is the subscripted name\n        before the bracket (e.g., `B`).\n      - The result preserves the declaration order of `self.bases`.\n      - The property shares the same name resolution logic as `mro()` (requirement 1).",
+          "acceptance_tests": "tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_visited_module]"
+        },
+        {
+          "id": "3",
+          "location": "src/griffe/dataclasses.py :: class Class",
+          "description": "The `Class` object is missing the `inherited_members` property and the `all_members`\n      property. Tests call `cls.inherited_members` expecting a dict of members inherited from\n      ancestor classes, and `cls.all_members` expecting all members (own + inherited).\n      Their absence causes `AttributeError: 'Class' object has no attribute 'inherited_members'`\n      in `test_nested_class_inheritance`, `test_loading_inherited_members`, and\n      `test_fuzzing_on_stdlib`.",
+          "contract": "Add two properties to the `Class` class in `src/griffe/dataclasses.py`:\n\n      **`inherited_members` property:**\n      Signature: `@property def inherited_members(self) -> dict[str, Object | Alias]`\n      - Computes members inherited from ancestor classes by traversing `self.mro()` in order.\n      - Returns a dict mapping member name to the member object as defined in the nearest ancestor\n        that provides it (i.e., respecting MRO order: the first ancestor to define the member wins).\n      - Excludes members that are already defined directly in `self.members` (own members override\n        inherited ones and are not considered \"inherited\").\n      - If `mro()` returns an empty list (unresolvable bases) or raises `ValueError`, returns an\n        empty dict `{}`.\n      - For each ancestor `Class` in the MRO, includes all entries from `ancestor.members` that\n        are not already present in the result dict.\n\n      **`all_members` property:**\n      Signature: `@property def all_members(self) -> dict[str, Object | Alias]`\n      - Returns a merged dict of all members: own members (`self.members`) plus all inherited\n        members (`self.inherited_members`), where own members take precedence.\n      - Equivalent to `{**self.inherited_members, **self.members}`.",
+          "acceptance_tests": "tests/test_inheritance.py::test_nested_class_inheritance[temporary_inspected_module]\n      tests/test_inheritance.py::test_nested_class_inheritance[temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_inspected_module-temporary_visited_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_inspected_module]\n      tests/test_inheritance.py::test_loading_inherited_members[temporary_visited_module-temporary_visited_module]\n      tests/test_stdlib.py::test_fuzzing_on_stdlib"
+        },
+        {
+          "id": "4",
+          "location": "src/griffe/finder.py :: function _handle_pth_file",
+          "description": "The `_handle_pth_file` function at line 341 skips any `.pth` file line that contains a\n      semicolon (`\";\" not in line`). This means lines like\n      `\"import thing; import\\tthing; /doesnotexist; tests\"` are entirely ignored,\n      even though they contain valid directory entries separated by semicolons.\n      The test `test_pth_file_handling_with_semi_colon` expects `[Path(\"tests\")]` but receives `[]`.",
+          "contract": "Modify `_handle_pth_file` in `src/griffe/finder.py` to support semicolon-separated\n      entries within a single `.pth` file line.\n\n      Behavioral requirements:\n      - When a line contains one or more semicolons, split it by `\";\"` and treat each\n        resulting part as an independent entry, applying the same logic as for standalone lines:\n        strip whitespace from each part, skip parts matching `_re_import_line`, skip blank parts\n        and parts starting with `\"#\"`, and add parts that exist on the filesystem as directories.\n      - Lines without semicolons continue to work as before.\n      - The function signature and return type remain unchanged:\n        `def _handle_pth_file(path: Path) -> list[Path]`",
+          "acceptance_tests": "tests/test_finder.py::test_pth_file_handling_with_semi_colon"
+        },
+        {
+          "id": "5",
+          "location": "src/griffe/git.py :: function _get_latest_tag\n      src/griffe/cli.py :: function check",
+          "description": "The `_get_latest_tag` function calls `subprocess.check_output` without catching\n      `subprocess.CalledProcessError`, so when the target path is not a git repository (e.g.,\n      `tmp_path` in the test), the error propagates unhandled out of `check()` instead of\n      returning a graceful failure code. The test `test_git_failures` calls `check(tmp_path)`\n      on a non-git directory and expects a return value of `2`, but the function crashes with\n      `subprocess.CalledProcessError` at line 50 in `git.py`.",
+          "contract": "Two coordinated changes are required:\n\n      **`_get_latest_tag` in `src/griffe/git.py`:**\n      - When `subprocess.check_output` raises `subprocess.CalledProcessError` (e.g., because\n        the path is not a git repository or no tags exist), catch the exception and re-raise it\n        as `OSError` with an informative message (consistent with how `_get_repo_root` handles the\n        same condition in the same file).\n      - Signature unchanged: `def _get_latest_tag(path: str | Path) -> str`\n\n      **`check` in `src/griffe/cli.py`:**\n      - Wrap the git-related operations (lines that call `_get_latest_tag` and `_get_repo_root`)\n        in error handling so that when an `OSError` is raised (indicating a git operation failure),\n        the function logs the error and returns `2` (a new exit code indicating a git/environment\n        error, distinct from `0` for success and `1` for API breakage found).",
+          "acceptance_tests": "tests/test_git.py::test_git_failures"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "new_feature",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 5,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 5,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-27T19:29:05",
+  "last_updated": "2026-03-27T21:35:11",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.9762,
+    "m2": 0.9524,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7857
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7857,
+  "fix_rate": 95.2
 }
