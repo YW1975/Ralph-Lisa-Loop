@@ -1,0 +1,102 @@
+{
+  "task_id": "more-itertools__more-itertools__3250ca__8c1a6e",
+  "repo_name": "more-itertools/more-itertools",
+  "repo_url": "https://github.com/more-itertools/more-itertools.git",
+  "licence": "MIT License",
+  "initial_gap": 23,
+  "final_gap": 3,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 23,
+      "passed": 672,
+      "failed": 23,
+      "total": 696
+    },
+    {
+      "epoch": 1,
+      "gap": 3,
+      "passed": 692,
+      "failed": 3,
+      "total": 696,
+      "programmer_time": 913.9175517559052
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 672,
+    "failed": 23,
+    "total": 696
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-28-12-07-43",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/more_itertools/more.py — module-level function `extract`;\n      also add 'extract' to `__all__` list in the same file.",
+          "description": "The function `extract` is entirely absent from `more_itertools.more`.\n      Accessing `more_itertools.extract` raises `AttributeError`.\n      This causes all 6 tests in `ExtractTests` to fail at the call stage.",
+          "contract": "Define `extract(iterable, indices)` as a lazy generator function.\n\n      Behavioral contract:\n      - Both `iterable` and `indices` must be iterable; if either is not,\n        raise `TypeError` immediately (before consuming any elements).\n      - Each element of `indices` must be a non-negative integer.\n        - If any index value is not an integer type (e.g., float), raise `ValueError`.\n        - If any index value is negative, raise `ValueError`.\n        - If any index value is greater than or equal to the length of the\n          data source (i.e., out of bounds), raise `IndexError`.\n      - Indices may arrive in any order (including decreasing or mixed order)\n        and may repeat; the function must yield the corresponding data element\n        for each requested index in the order the indices are given.\n      - The function must be lazy: it should not consume more elements from\n        `iterable` than are required to satisfy the current and future indices\n        that have already been revealed from `indices`. Specifically, after\n        yielding the item at index k, elements at positions less than k that\n        are no longer needed must be released from memory (no lingering\n        references in internal buffers).\n      - The return value must be an iterator (has `__next__`), not a list.\n\n      Signature: `extract(iterable, indices) -> Iterator`",
+          "acceptance_tests": "tests/test_more.py::ExtractTests::test_basics\n      tests/test_more.py::ExtractTests::test_negative_one_bug\n      tests/test_more.py::ExtractTests::test_none_value_bug\n      tests/test_more.py::ExtractTests::test_all_orderings\n      tests/test_more.py::ExtractTests::test_early_free\n      tests/test_more.py::ExtractTests::test_lazy_consumption"
+        },
+        {
+          "id": "2",
+          "location": "code/more_itertools/more.py — module-level function `interleave_randomly`;\n      also add 'interleave_randomly' to `__all__` list in the same file.",
+          "description": "The function `interleave_randomly` is entirely absent from\n      `more_itertools.more`. Accessing `more_itertools.interleave_randomly`\n      raises `AttributeError`. All 5 tests in `InterleaveRandomlyTests` fail.",
+          "contract": "Define `interleave_randomly(*iterables)` as a generator function that\n      merges multiple iterables into a single sequence by selecting the next\n      element randomly from the non-exhausted input iterables at each step.\n\n      Behavioral contract:\n      - When called with no arguments, yields nothing (empty output).\n      - Each argument must be iterable; if any argument is not iterable,\n        raise `TypeError` (this may be raised lazily, i.e., upon iteration).\n      - Empty iterables are silently ignored; they do not affect the output.\n      - The distribution of selections must be uniform among the remaining\n        non-exhausted iterables at each step (so that with a fixed random\n        seed the output is reproducible).\n      - All elements from all iterables are eventually yielded (the total\n        output length equals the sum of lengths of all input iterables).\n      - The function must use Python's `random` module so that seeding\n        via `random.seed()` makes the output deterministic.\n\n      Signature: `interleave_randomly(*iterables) -> Iterator`",
+          "acceptance_tests": "tests/test_more.py::InterleaveRandomlyTests::test_basic\n      tests/test_more.py::InterleaveRandomlyTests::test_some_empty\n      tests/test_more.py::InterleaveRandomlyTests::test_all_empty\n      tests/test_more.py::InterleaveRandomlyTests::test_no_args\n      tests/test_more.py::InterleaveRandomlyTests::test_bad_type"
+        },
+        {
+          "id": "3",
+          "location": "code/more_itertools/more.py — module-level function `derangements`;\n      also add 'derangements' to `__all__` list in the same file.",
+          "description": "The function `derangements` is entirely absent from `more_itertools.more`.\n      Accessing `more_itertools.derangements` raises `AttributeError`.\n      Tests `test_unique_values`, `test_repeated_values`, and\n      `test_unsortable_unhashable` fail immediately at the call stage;\n      `test_r` also fails (all subtests raise AttributeError).",
+          "contract": "Define `derangements(iterable, r=None)` that yields permutations of\n      elements drawn from `iterable` such that no yielded element appears at\n      its original position in the input.\n\n      Behavioral contract for `r=None` (full derangements):\n      - Yield every permutation of all elements of `iterable` in which no\n        element occupies its original index position.\n      - If the iterable contains repeated values, treat positional identity\n        (not value identity) when determining \"original position\". That is,\n        two elements with the same value at different positions are\n        considered distinct for derangement purposes.\n      - Elements need not be sortable or hashable; the implementation must\n        handle unsortable, unhashable items (e.g., a mix of `int`, `bool`,\n        and `list`).\n      - The output for a given input must be in a deterministic, consistent\n        order (see test_repeated_values for the exact expected ordering\n        for 'AACD').\n\n      Behavioral contract for `r` as a non-negative integer:\n      - Yield tuples of length `r` drawn from the elements of `iterable`\n        (without replacement) such that for each yielded tuple, the element\n        at position `i` of the tuple is not equal to the element at position\n        `i` of the original input (for all valid positions `i < r`).\n      - `r=0` must yield exactly one empty tuple/string (matching the\n        behavior shown in test_r: r=0 → `['']` when joined).\n      - The output must be sorted lexicographically by the joined string\n        representation (consistent with test_r expected values).\n\n      Signature: `derangements(iterable, r=None) -> Iterator[tuple]`",
+          "acceptance_tests": "tests/test_more.py::DerangementsTests::test_unique_values\n      tests/test_more.py::DerangementsTests::test_repeated_values\n      tests/test_more.py::DerangementsTests::test_unsortable_unhashable\n      tests/test_more.py::DerangementsTests::test_r"
+        },
+        {
+          "id": "4",
+          "location": "code/more_itertools/recipes.py — module-level function `running_median`;\n      also add 'running_median' to `__all__` list in the same file.",
+          "description": "The function `running_median` is entirely absent from\n      `more_itertools.recipes`. Accessing `more_itertools.running_median`\n      raises `AttributeError`. All 3 tests in `RunningMedianTests` fail\n      at the call stage.",
+          "contract": "Define `running_median(iterable, maxlen=None)` that yields the running\n      median of the elements seen so far.\n\n      Behavioral contract:\n      - For each element consumed from `iterable` (in order), yield the\n        median of all elements seen so far (or, when `maxlen` is set, the\n        median of the most recent `maxlen` elements).\n      - The yielded median must be identical in value AND type to what\n        `statistics.median()` would return for the same window of data.\n        In particular: for an even-sized window, `statistics.median()`\n        averages the two middle values, so the result type follows normal\n        Python arithmetic (e.g., `int + int / 2` may produce `float`).\n      - `maxlen=None` (default): unbounded window — each yield uses all\n        elements consumed so far.\n      - `maxlen=k` (positive integer): sliding window of size k — each yield\n        uses at most the last k elements.\n      - Empty input must yield nothing (empty iterator).\n      - Error cases (must be raised eagerly, before iteration begins,\n        except where noted):\n        - If `iterable` is not iterable: raise `TypeError`.\n        - If `maxlen` is provided but is not an integer type: raise `TypeError`.\n        - If `maxlen` is provided and equals 0 (or is negative): raise `ValueError`.\n        - If elements of the iterable are not orderable (e.g., complex numbers):\n          raise `TypeError` during iteration.\n        - If elements of the iterable do not support the division required to\n          compute an even-window median (e.g., strings): raise `TypeError`\n          during iteration.\n\n      Signature: `running_median(iterable, maxlen=None) -> Iterator`",
+          "acceptance_tests": "tests/test_recipes.py::RunningMedianTests::test_vs_statistics_median\n      tests/test_recipes.py::RunningMedianTests::test_vs_statistics_median_windowed\n      tests/test_recipes.py::RunningMedianTests::test_error_cases"
+        },
+        {
+          "id": "5",
+          "location": "code/more_itertools/more.py — module-level functions `argmin` and `argmax`;\n      also add 'argmin' and 'argmax' to `__all__` list in the same file.",
+          "description": "The functions `argmin` and `argmax` are entirely absent from\n      `more_itertools.more`. Accessing either raises `AttributeError`.\n      Both tests in `ArgMinArgMaxTests` fail because all subtests raise\n      AttributeError (caught by `with self.subTest()`), causing the overall\n      test to be reported as failed.",
+          "contract": "Define `argmin(iterable, *, key=None)` and `argmax(iterable, *, key=None)`.\n\n      `argmin(iterable, *, key=None) -> int`:\n      - Return the index of the minimum element in `iterable`.\n      - If `key` is provided, the minimum is determined by `key(element)`.\n      - If multiple elements are equal minimums, return the index of the\n        first occurrence.\n\n      `argmax(iterable, *, key=None) -> int`:\n      - Return the index of the maximum element in `iterable`.\n      - If `key` is provided, the maximum is determined by `key(element)`.\n      - If multiple elements are equal maximums, return the index of the\n        first occurrence.\n\n      Both functions must work with any finite iterable. The `key` parameter\n      is keyword-only (consistent with Python's built-in `min`/`max`).\n\n      Signatures:\n        `argmin(iterable, *, key=None) -> int`\n        `argmax(iterable, *, key=None) -> int`",
+          "acceptance_tests": "tests/test_more.py::ArgMinArgMaxTests::test_basic\n      tests/test_more.py::ArgMinArgMaxTests::test_key"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 2,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 0
+    },
+    "complexity": "medium"
+  },
+  "last_updated": "2026-03-28T12:10:29",
+  "batch": "rll_full_batch_15",
+  "evoscore_detail": {
+    "m1": 0.9348,
+    "m2": 0.8696,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.7609
+  },
+  "evoscore": 0.7609,
+  "fix_rate": 87.0
+}

@@ -1,19 +1,19 @@
 {
-  "task_id": "modelcontextprotocol__python-sdk__998f0e__5983a6",
-  "repo_name": "modelcontextprotocol/python-sdk",
-  "repo_url": "https://github.com/modelcontextprotocol/python-sdk.git",
+  "task_id": "more-itertools__more-itertools__3c1e75__b469c1",
+  "repo_name": "more-itertools/more-itertools",
+  "repo_url": "https://github.com/more-itertools/more-itertools.git",
   "licence": "MIT License",
-  "initial_gap": 161,
-  "final_gap": 161,
+  "initial_gap": 140,
+  "final_gap": 140,
   "num_epochs": 1,
   "status": "pending",
   "gap_curve": [
     {
       "epoch": 0,
-      "gap": 161,
-      "passed": 654,
-      "failed": 16,
-      "total": 672
+      "gap": 140,
+      "passed": 392,
+      "failed": 140,
+      "total": 532
     }
   ],
   "dialogue": "",
