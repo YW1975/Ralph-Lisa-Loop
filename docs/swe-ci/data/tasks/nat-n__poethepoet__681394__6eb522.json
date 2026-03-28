@@ -1,19 +1,19 @@
 {
-  "task_id": "modelcontextprotocol__python-sdk__281fd4__a9cc82",
-  "repo_name": "modelcontextprotocol/python-sdk",
-  "repo_url": "https://github.com/modelcontextprotocol/python-sdk.git",
+  "task_id": "nat-n__poethepoet__681394__6eb522",
+  "repo_name": "nat-n/poethepoet",
+  "repo_url": "https://github.com/nat-n/poethepoet.git",
   "licence": "MIT License",
-  "initial_gap": 159,
-  "final_gap": 159,
+  "initial_gap": 8,
+  "final_gap": 8,
   "num_epochs": 1,
   "status": "pending",
   "gap_curve": [
     {
       "epoch": 0,
-      "gap": 159,
-      "passed": 945,
-      "failed": 30,
-      "total": 1071
+      "gap": 8,
+      "passed": 192,
+      "failed": 72,
+      "total": 266
     }
   ],
   "dialogue": "",
@@ -32,10 +32,10 @@
       "test_fix": 0,
       "config": 0
     },
-    "complexity": "high"
+    "complexity": "low"
   },
   "last_updated": "2026-03-28T15:18:34",
-  "batch": "rll_full_batch_15",
+  "batch": "rll_full_batch_17",
   "evoscore_detail": {
     "m1": 0.5,
     "m2": 0.0,
