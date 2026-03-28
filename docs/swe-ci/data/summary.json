@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 67,
-  "solved": 61,
-  "improving": 1,
+  "solved": 62,
+  "improving": 2,
   "stuck": 0,
-  "pending": 5,
-  "total_completed": 62,
-  "solve_rate": 98.4,
-  "zero_regression_rate": 93.5,
-  "zero_regression_count": 58,
-  "avg_fix_rate": 92.4,
-  "avg_evoscore": 0.9509,
-  "avg_evoscore_completed": 0.9872,
+  "pending": 3,
+  "total_completed": 64,
+  "solve_rate": 96.9,
+  "zero_regression_rate": 93.8,
+  "zero_regression_count": 60,
+  "avg_fix_rate": 95.2,
+  "avg_evoscore": 0.9624,
+  "avg_evoscore_completed": 0.9841,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -180,8 +180,8 @@
     {
       "batch": "rll_full_batch_14",
       "total": 5,
-      "solved": 0,
-      "avg_evoscore": 0.5,
+      "solved": 1,
+      "avg_evoscore": 0.6552,
       "tasks": [
         "mkdocstrings__griffe__22a44a__9b98da",
         "mkdocstrings__griffe__a26ccd__439f65",
@@ -888,22 +888,22 @@
       "task_id": "mkdocstrings__griffe__22a44a__9b98da",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 74,
-      "final_gap": 74,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
       "batch": "rll_full_batch_14"
     },
     {
       "task_id": "mkdocstrings__griffe__a26ccd__439f65",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 21,
-      "final_gap": 21,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
+      "final_gap": 3,
+      "num_epochs": 3,
+      "fix_rate": 85.7,
+      "evoscore": 0.7762,
+      "status": "improving",
       "batch": "rll_full_batch_14"
     },
     {
@@ -940,7 +940,7 @@
       "batch": "rll_full_batch_14"
     }
   ],
-  "last_updated": "2026-03-28T00:21:49",
+  "last_updated": "2026-03-28T00:51:54",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
