@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/marshmallow-code/marshmallow.git",
   "licence": "MIT License",
   "initial_gap": 21,
-  "final_gap": 21,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 2,
+  "num_epochs": 3,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,119 @@
       "passed": 907,
       "failed": 19,
       "total": 926
+    },
+    {
+      "epoch": 1,
+      "gap": 4,
+      "passed": 924,
+      "failed": 2,
+      "total": 926,
+      "programmer_time": 4846.953450202942
+    },
+    {
+      "epoch": 2,
+      "gap": 2,
+      "passed": 926,
+      "failed": 0,
+      "total": 926,
+      "programmer_time": 431.9308066368103
     }
   ],
-  "dialogue": "",
-  "diff_summary": [],
-  "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "dialogue": "**Task**: Read <workspace>/ENVIRONMENT.md first — it explains the test setup and how to run tests. Then read <workspace>/requirement.xml and implement the requirements. Work only in <workspace>/code/. Run tests with: docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q\n**Started**: 2026-03-28 20:51:46\n\n---\n\n## [Ralph] [PLAN] Round 1 | Step: planning\n**Time**: 2026-03-28 20:54:15\n**Summary**: \n\n[PLAN]\n\n## Task Understanding\n\nImplement 5 fixes in the marshmallow library:\n\n1. **`Schema.from_dict` classmethod** — Add a new classmethod that creates a Schema subclass from a dict of fields, without registering it in the class registry.\n2. **Nested schema instance handling** — Fix `Nested.schema` property to apply `only`/`exclude` to schema instances, and respect the instance's `many` attribute.\n3. **`Field.fail()` deprecation warning** — Emit `DeprecationWarning` before raising `ValidationError`.\n4. **`Field.__init__` validators as list** — Ensure `self.validators` is always a `list`, even when `validate` is passed as a tuple or other non-list iterable.\n5. **Empty string `data_key`** — Fix truthiness checks on `data_key` in `_deserialize()` to use `is not None` instead.\n\n## Proposed Approach\n\n### Requirement 1: `Schema.from_dict`\n- Add classmethod to `BaseSchema` (so `Schema` inherits it)\n- Use `type()` to dynamically create a subclass with the provided fields dict\n- Pass `register=False` via an inner `class Meta` to prevent registry registration — actually, registration is controlled by `SchemaMeta.__init__`. I'll check how `register` works. The simplest approach: create the class with `type(name, (cls,), fields_dict)` but we need to prevent registration. Looking at `SchemaMeta`, I'll set `class_registry.register` to be skipped by including `Meta.register = False` in the attrs dict.\n\n### Requirement 2: Nested schema instance\n- In `Nested.schema` property: when `self.nested` is a SchemaABC instance, instead of returning it directly, create a copy with `only`/`exclude`/`many` applied.\n- In `Nested._serialize`: use `schema.many` (which reflects the instance's setting) instead of `self.many` when the nested arg is an instance.\n- Ensure `_normalize_nested_options` / `__apply_nested_option` works for instance-based nested fields.\n\n### Requirement 3: `Field.fail()` deprecation\n- Add `import warnings` and call `warnings.warn(...)` with `DeprecationWarning` before the existing `raise self.make_error(...)`.\n\n### Requirement 4: validators list coercion\n- In `Field.__init__`, change `self.validators = validate` to `self.validators = list(validate)` for the non-generator iterable branch.\n\n### Requirement 5: Empty string `data_key`\n- Line 616: change `if field_obj.data_key:` to `if field_obj.data_key is not None:`\n- Line 651: change `field_obj.data_key or field_name` to `field_obj.data_key if field_obj.data_key is not None else field_name`\n\n## Expected Deliverables\n- Modified `code/src/marshmallow/schema.py` (requirements 1, 5)\n- Modified `code/src/marshmallow/fields.py` (requirements 2, 3, 4)\n\n## Test Plan\n- **Test command:** `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- **Expected coverage:** All 13 acceptance tests pass, plus full regression suite\n- Acceptance tests:\n  - Req 1: 4 tests in TestFromDict\n  - Req 2: 6 tests across test_schema.py and test_fields.py\n  - Req 3: 4 parametrized test_fail tests\n  - Req 4: 2 tests (email/url non-list validators)\n  - Req 5: 1 test (empty string data_key)\n\n## Quality Gate Commands\n- `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n\n\n---\n\n## [Lisa] [NEEDS_WORK] Round 1 | Step: planning\n**Time**: 2026-03-28 20:55:29\n**Summary**: Direction is aligned with the task, but the work is not complete because only a `[PLAN]` was submitted and the required code changes are still absent in the source.\n\n[NEEDS_WORK] Direction is aligned with the task, but the work is not complete because only a `[PLAN]` was submitted and the required code changes are still absent in the source.\n\nEvidence:\n- `code/src/marshmallow/schema.py:616` still uses `if field_obj.data_key:` and `code/src/marshmallow/schema.py:651` still uses `field_obj.data_key or field_name`, so the empty-string `data_key` bug is still present.\n- `code/src/marshmallow/fields.py:255` still has `Field.fail()` raising directly without emitting the required `DeprecationWarning`.\n- `code/src/marshmallow/fields.py:158` still assigns `self.validators = validate` for non-generator iterables, so validators are not normalized to a list.\n- `code/src/marshmallow/fields.py:443` still returns a passed schema instance directly in `Nested.schema`, so instance-provided `only`/`exclude` and `many` handling has not been fixed.\n- `code/src/marshmallow/schema.py:1151` defines `class Schema(...)` but there is still no `from_dict` classmethod on `Schema` or `BaseSchema`.\n\nBecause there is no `[CODE]`/`[FIX]` submission, there are also no test results to verify yet. Please implement the planned changes, run the required container test command, and resubmit with actual test output.\n\n",
+  "diff_summary": [
+    "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests src/marshmallow/fields.py src/marshmallow/fields.py",
+    "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests src/marshmallow/schema.py src/marshmallow/schema.py"
+  ],
+  "code_diff": "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests src/marshmallow/fields.py src/marshmallow/fields.py\n--- src/marshmallow/fields.py\t2026-03-28 18:22:15\n+++ src/marshmallow/fields.py\t2026-03-28 22:10:15\n@@ -7,6 +7,7 @@\n import uuid\n import decimal\n import math\n+import warnings\n from collections.abc import Mapping as _Mapping\n \n from marshmallow import validate, utils, class_registry\n@@ -155,7 +156,7 @@\n         self.validate = validate\n         if utils.is_iterable_but_not_string(validate):\n             if not utils.is_generator(validate):\n-                self.validators = validate\n+                self.validators = list(validate)\n             else:\n                 self.validators = list(validate)\n         elif callable(validate):\n@@ -255,6 +256,10 @@\n     def fail(self, key: str, **kwargs):\n         \"\"\"A helper method that simply raises a `ValidationError`.\n         \"\"\"\n+        warnings.warn(\n+            \"Field.fail is deprecated. Use Field.make_error instead.\",\n+            DeprecationWarning,\n+        )\n         raise self.make_error(key=key, **kwargs)\n \n     def _validate_missing(self, value):\n@@ -450,8 +455,26 @@\n             # Inherit context from parent.\n             context = getattr(self.parent, \"context\", {})\n             if isinstance(self.nested, SchemaABC):\n-                self._schema = self.nested\n-                self._schema.context.update(context)\n+                schema_class = type(self.nested)\n+                # Merge only: intersection if both set\n+                only = self.only\n+                nested_only = self.nested.only\n+                if only is not None and nested_only is not None:\n+                    only = set(only) & set(nested_only)\n+                elif nested_only is not None:\n+                    only = nested_only\n+                # Merge exclude: union\n+                exclude = set(self.exclude) | set(self.nested.exclude)\n+                # Respect instance's many\n+                many = self.many or self.nested.many\n+                self._schema = schema_class(\n+                    many=many,\n+                    only=only,\n+                    exclude=exclude,\n+                    context=context,\n+                    load_only=self._nested_normalized_option(\"load_only\"),\n+                    dump_only=self._nested_normalized_option(\"dump_only\"),\n+                )\n             else:\n                 if isinstance(self.nested, type) and issubclass(self.nested, SchemaABC):\n                     schema_class = self.nested\n@@ -491,7 +514,8 @@\n         schema = self.schema\n         if nested_obj is None:\n             return None\n-        return schema.dump(nested_obj, many=self.many)\n+        many = self.many or schema.many\n+        return schema.dump(nested_obj, many=many)\n \n     def _test_collection(self, value):\n         if self.many and not utils.is_collection(value):\ndiff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests src/marshmallow/schema.py src/marshmallow/schema.py\n--- src/marshmallow/schema.py\t2026-03-28 18:22:15\n+++ src/marshmallow/schema.py\t2026-03-28 22:11:28\n@@ -613,7 +613,7 @@\n                 if field_obj.dump_only:\n                     continue\n                 field_name = attr_name\n-                if field_obj.data_key:\n+                if field_obj.data_key is not None:\n                     field_name = field_obj.data_key\n                 raw_value = data.get(field_name, missing)\n                 if raw_value is missing:\n@@ -648,7 +648,7 @@\n                     set_value(ret, key, value)\n             if unknown != EXCLUDE:\n                 fields = {\n-                    field_obj.data_key or field_name\n+                    field_obj.data_key if field_obj.data_key is not None else field_name\n                     for field_name, field_obj in fields_dict.items()\n                     if not field_obj.dump_only\n                 }\n@@ -1150,3 +1150,12 @@\n \n class Schema(BaseSchema, metaclass=SchemaMeta):\n     __doc__ = BaseSchema.__doc__\n+\n+    @classmethod\n+    def from_dict(cls, fields, *, name=\"GeneratedSchema\"):\n+        attrs = fields.copy()\n+        # Inherit Meta from the calling class but ensure register=False\n+        parent_meta = getattr(cls, \"Meta\", None)\n+        bases = (parent_meta,) if parent_meta is not None else ()\n+        attrs[\"Meta\"] = type(\"Meta\", bases, {\"register\": False})\n+        return type(name, (cls,), attrs)\n",
+  "test_results": {
+    "passed": 924,
+    "failed": 2,
+    "total": 926
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-28-22-12-33",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/marshmallow/schema.py — class Schema (line 1151) or its base class BaseSchema",
+          "description": "The Schema class is missing a classmethod `from_dict`. Four tests in TestFromDict all fail\n      with `AttributeError: type object 'Schema' has no attribute 'from_dict'`. This is a\n      completely absent feature: the method does not exist anywhere in the class hierarchy.",
+          "contract": "Add a classmethod `from_dict(fields, *, name=\"GeneratedSchema\")` to the Schema class\n      (or its base class) that:\n      - Accepts a dict mapping field names (str) to Field instances.\n      - Accepts an optional `name` keyword argument (str, default `\"GeneratedSchema\"`) that\n        becomes the `__name__` of the generated class.\n      - Returns a new Schema subclass (type) whose declared fields are exactly the provided\n        dict entries.\n      - The generated class MUST NOT be registered in the class registry\n        (class_registry._registry must remain unchanged after calling from_dict).\n      - The generated class inherits Meta options from the calling class (the class on which\n        from_dict is invoked as a classmethod), so that subclasses of Schema that define\n        Meta options see those options applied in the generated schema.\n      - Signature: `classmethod from_dict(cls, fields: dict, *, name: str = \"GeneratedSchema\") -> type`",
+          "acceptance_tests": "tests/test_schema.py::TestFromDict::test_generates_schema\n      tests/test_schema.py::TestFromDict::test_name\n      tests/test_schema.py::TestFromDict::test_generated_schemas_are_not_registered\n      tests/test_schema.py::TestFromDict::test_meta_options_are_applied"
+        },
+        {
+          "id": "2",
+          "location": "code/src/marshmallow/fields.py — Field.schema property (lines 442-478) and\n      Field._serialize / Field._load / Nested class (lines 388-540)",
+          "description": "When a Schema *instance* (rather than a Schema class) is passed as the `nested` argument\n      to `fields.Nested`, the `Nested.schema` property currently returns that instance verbatim\n      without applying the `only`, `exclude`, or `many` options declared on the Nested field\n      itself, and without reading the `many` attribute from the schema instance. This causes\n      multiple failures:\n\n      1. `test_nested_instance_only` / `test_nested_instance_exclude`: `only` and `exclude`\n         passed to `Nested(ArtistSchema(), only=(\"last\",))` are silently ignored; the full\n         schema is used.\n\n      2. `test_nested_instance_many`: `Nested(BookSchema(many=True))` serializes a list\n         as a single dict `{}` instead of a list, because `_serialize` calls\n         `schema.dump(nested_obj, many=self.many)` where `self.many=False` (Nested's own\n         attribute), ignoring the schema instance's `many=True`.\n\n      3. `TestListNested::test_list_nested_instance_multiple_dumps` and\n         `test_list_nested_instance_only_and_exclude_merged_with_nested`: When `only`/`exclude`\n         is applied at the parent Schema level with dot-notation (e.g., `only=(\"children.age\",)`),\n         the nested schema instance is not updated to reflect the intersection/union of the\n         parent-level filter and the instance-level filter.",
+          "contract": "When a Schema instance is passed as `self.nested`:\n\n      1. The `Nested.schema` property must apply `self.only` and `self.exclude` to the\n         schema instance. Because the same schema instance may be shared across multiple\n         `Nested` usages, the property must create an appropriately configured schema\n         (either a copy or a freshly constructed schema of the same class) that reflects\n         the current effective `only` and `exclude` rather than mutating the original.\n\n      2. The effective `many` for serialization/deserialization must consider the `many`\n         attribute of the nested schema instance. When `Nested` itself does not set\n         `many=True` (i.e., `self.many` is False) but the passed schema instance has\n         `many=True`, the serialization/deserialization must treat the value as a collection.\n         Concretely: `_serialize` should use the schema instance's own `many` attribute\n         when the nested argument is a schema instance and `self.many` is False.\n\n      3. When `_normalize_nested_options` propagates dot-notation `only`/`exclude` from\n         the parent schema into nested fields (via `__apply_nested_option`), the update\n         must also take effect for Nested fields whose `nested` argument is a schema\n         instance. The resulting effective `only`/`exclude` visible on the inner schema\n         (e.g., `schema.fields[\"children\"].inner.schema.only`) must be the\n         intersection (for `only`) or union (for `exclude`) of the field-level and\n         parent-level filters.\n\n      Behavioral invariants:\n      - `Nested(SomeSchema(), only=(\"x\",)).schema.only` must reflect `{\"x\"}` (or equivalent).\n      - `Nested(BookSchema(many=True)).schema.many` must be `True`.\n      - Multiple instantiations of the parent Schema with different `only`/`exclude`\n        must not pollute each other (no shared mutable state on the passed schema instance).",
+          "acceptance_tests": "tests/test_schema.py::test_nested_instance_only\n      tests/test_schema.py::test_nested_instance_exclude\n      tests/test_schema.py::test_nested_instance_many\n      tests/test_fields.py::TestListNested::test_list_nested_instance_multiple_dumps\n      tests/test_fields.py::TestListNested::test_list_nested_instance_only_and_exclude_merged_with_nested[only-expected_attribute0-expected_dump0]\n      tests/test_fields.py::TestListNested::test_list_nested_instance_only_and_exclude_merged_with_nested[exclude-expected_attribute1-expected_dump1]"
+        },
+        {
+          "id": "3",
+          "location": "code/src/marshmallow/fields.py — Field.fail() method (line 255)",
+          "description": "The `Field.fail()` method currently raises a `ValidationError` directly without emitting\n      any deprecation warning. Four parametrized tests in `TestErrorMessages::test_fail` all\n      fail because they wrap `field.fail(key)` in `pytest.warns(DeprecationWarning)` and no\n      such warning is ever emitted.",
+          "contract": "The `fail` method must emit a `DeprecationWarning` via `warnings.warn` before (or as\n      part of) raising the `ValidationError`. The warning must be of type `DeprecationWarning`.\n      The method's existing behavior of raising `ValidationError` with the correct message for\n      the given key must be preserved. After this change:\n      - Calling `field.fail(key)` must emit at least one `DeprecationWarning`.\n      - The raised exception must still be a `ValidationError` with `args[0]` equal to the\n        expected error message for the given key (as verified by `make_error`).\n\n      Signature remains: `def fail(self, key: str, **kwargs) -> None` (always raises).",
+          "acceptance_tests": "tests/test_fields.py::TestErrorMessages::test_fail[custom-Custom error message.]\n      tests/test_fields.py::TestErrorMessages::test_fail[required-Missing data for required field.]\n      tests/test_fields.py::TestErrorMessages::test_fail[validator_failed-Invalid value.]\n      tests/test_fields.py::TestErrorMessages::test_fail[null-Field may not be null.]"
+        },
+        {
+          "id": "4",
+          "location": "code/src/marshmallow/fields.py — Field.__init__() (lines 156-164), specifically the\n      validators assignment block",
+          "description": "When `validate` is passed as a non-list iterable (e.g., a tuple), `Field.__init__` at\n      line 158 assigns `self.validators = validate` directly, preserving the tuple type.\n      Subclasses `Email` (line 1493) and `Url` (line 1468) later call\n      `self.validators.insert(0, ...)`, which raises `AttributeError: 'tuple' object has no\n      attribute 'insert'`. The tests `test_email_field_non_list_validators` and\n      `test_url_field_non_list_validators` both construct these fields with a tuple validator\n      and both crash.",
+          "contract": "`self.validators` must always be a mutable list after `Field.__init__` completes,\n      regardless of whether `validate` was passed as a list, tuple, generator, single callable,\n      or None. Specifically:\n      - If `validate` is a non-string iterable (and not a generator), convert it to a list\n        before assigning to `self.validators`.\n      - If `validate` is a generator, continue converting to list (already done).\n      - If `validate` is a single callable, wrap in a list (already done).\n      - If `validate` is None, assign an empty list (already done).\n\n      Post-condition: `isinstance(self.validators, list)` is always True after `__init__`.\n      The existing validation behavior (all validators are called during deserialization) must\n      be preserved.",
+          "acceptance_tests": "tests/test_deserialization.py::TestFieldDeserialization::test_email_field_non_list_validators\n      tests/test_deserialization.py::TestFieldDeserialization::test_url_field_non_list_validators"
+        },
+        {
+          "id": "5",
+          "location": "code/src/marshmallow/schema.py — _deserialize() method, lines 616 and 650-651",
+          "description": "When a field is declared with `data_key=\"\"` (an empty string), two guard expressions\n      treat the empty string as falsy:\n      - Line 616: `if field_obj.data_key:` — empty string is falsy, so the data_key is ignored\n        and the field's own name is used to look up values in the input dict.\n      - Line 651: `field_obj.data_key or field_name` — empty string is falsy, so `field_name`\n        is used instead of `\"\"` when building the set of known keys.\n      As a result, when `schema.load({\"\": \"Grace\"})` is called with `name = fields.Field(data_key=\"\")`,\n      the key `\"\"` is not recognized as a valid field key and `ValidationError: {'': ['Unknown field.']}`\n      is raised.",
+          "contract": "The check for whether `data_key` should override `field_name` must treat empty string as\n      a valid (non-None) data_key value. Replace truthiness checks on `data_key` with explicit\n      `is not None` guards:\n      - When deciding whether to use `data_key` as the lookup key into the input data dict,\n        use `if field_obj.data_key is not None:` instead of `if field_obj.data_key:`.\n      - When building the set of known/expected keys for unknown-field detection,\n        use `field_obj.data_key if field_obj.data_key is not None else field_name` instead\n        of `field_obj.data_key or field_name`.\n\n      Post-condition: `schema.load({\"\": value})` succeeds (returns `{\"name\": value}`) when\n      a field is declared as `name = fields.Field(data_key=\"\")`.",
+          "acceptance_tests": "tests/test_deserialization.py::TestSchemaDeserialization::test_deserialize_with_data_key_as_empty_string"
+        }
+      ]
+    },
+    {
+      "epoch": "2026-03-28-22-24-30",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "<file>src/marshmallow/fields.py</file>\n      <scope>Tuple._bind_to_schema</scope>",
+          "description": "In the current implementation, when Tuple._bind_to_schema binds each element of\n      tuple_fields (line 707), it invokes field._bind_to_schema(field_name, self), passing\n      self (the Tuple field instance) as the schema argument. When an inner field such as\n      DateTime or Date then calls _bind_to_schema, it attempts to access schema.opts\n      (to read datetimeformat or dateformat from the schema Meta options). Because a Tuple\n      field instance does not have an opts attribute, this raises AttributeError:\n      'Tuple' object has no attribute 'opts'.",
+          "contract": "Tuple._bind_to_schema(field_name, schema) must forward the actual parent schema\n      object (the schema parameter it received) — not self — when it calls\n      _bind_to_schema on each of its inner tuple_fields. The corrected call for each\n      inner field should be: field._bind_to_schema(field_name, schema).\n\n      Post-condition: after schema instantiation, every DateTime or Date field nested\n      inside a Tuple's tuple_fields must have its format attribute resolved from the\n      schema's Meta options (e.g. datetimeformat, dateformat) if the field was created\n      without an explicit format argument, exactly the same as List inner fields behave.",
+          "acceptance_tests": "tests/test_fields.py::TestParentAndName::test_datetime_list_inner_format\n\n      The test creates a schema with:\n        foo = fields.List(fields.DateTime())\n        bar = fields.Tuple((fields.DateTime(),))\n        baz = fields.List(fields.Date())\n        qux = fields.Tuple((fields.Date(),))\n      and sets class Meta: datetimeformat = \"iso8601\", dateformat = \"iso8601\".\n      Schema instantiation must succeed without AttributeError, and:\n        - schema.fields[\"bar\"].tuple_fields[0].format == \"iso8601\"\n        - schema.fields[\"qux\"].tuple_fields[0].format == \"iso8601\""
+        },
+        {
+          "id": "2",
+          "location": "<file>src/marshmallow/schema.py</file>\n      <scope>Schema._bind_field</scope>",
+          "description": "The current implementation of _bind_field wraps its body in a try/except TypeError\n      block (lines 974–989). The except block is intended only to convert the error that\n      occurs when a Field is declared as a class instead of an instance into a helpful\n      message. However, when field_obj is a proper Field instance (not a class), the\n      except clause runs but does NOT re-raise the exception, silently discarding any\n      TypeError that was legitimately raised during _bind_to_schema or on_bind_field.\n      As a result, a user-defined on_bind_field hook that intentionally raises TypeError\n      has its exception swallowed, and the schema is created without error.",
+          "contract": "_bind_field must only suppress (and replace) a TypeError when it is caused by\n      field_obj being a bare FieldABC subclass (i.e., a class, not an instance) — the\n      \"Did you mean fields.Foo()?\" scenario. In all other cases, any TypeError raised\n      inside the try block (including from on_bind_field or _bind_to_schema) must\n      propagate to the caller unchanged.\n\n      Concretely: if isinstance(field_obj, type) and issubclass(field_obj, base.FieldABC)\n      is False, the caught TypeError must be re-raised rather than silently dropped.",
+          "acceptance_tests": "tests/test_schema.py::test_bind_field_does_not_swallow_typeerror\n\n      The test defines a schema with an on_bind_field that unconditionally raises\n      TypeError(\"boom\"). Instantiating the schema must propagate that TypeError with\n      message matching \"boom\", i.e., pytest.raises(TypeError, match=\"boom\") must succeed."
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 7,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 7,
+      "new_feature": 4,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 7,
       "test_fix": 0,
-      "config": 0
+      "config": 3
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-28T22:09:20",
+  "last_updated": "2026-03-28T22:39:24",
   "batch": "rll_full_batch_12",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.9476,
+    "m2": 0.9048,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7705
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7705,
+  "fix_rate": 90.5
 }
