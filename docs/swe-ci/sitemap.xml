@@ -319,12 +319,6 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/marshmallow-code__marshmallow__3c7816__3db174.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/matoking__protontricks__42ba1e__ff2381.html</loc>
     <lastmod>2026-03-28</lastmod>
     <changefreq>daily</changefreq>
@@ -385,37 +379,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mkdocstrings__griffe__a26ccd__439f65.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mkdocstrings__griffe__ce1dce__72c8fc.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/mkdocstrings__griffe__f6650b__0bab0c.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/modelcontextprotocol__python-sdk__116c13__b19fa6.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/modelcontextprotocol__python-sdk__281fd4__a9cc82.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/modelcontextprotocol__python-sdk__998f0e__5983a6.html</loc>
     <lastmod>2026-03-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
@@ -427,25 +391,7 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/more-itertools__more-itertools__3c1e75__b469c1.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
     <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/more-itertools__more-itertools__d2d104__4dc5e8.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/nat-n__poethepoet__681394__6eb522.html</loc>
-    <lastmod>2026-03-28</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/nbqa-dev__nbqa__baa36f__9d140b.html</loc>
     <lastmod>2026-03-28</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>

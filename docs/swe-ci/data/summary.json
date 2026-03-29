@@ -1,17 +1,17 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 74,
+  "total_evaluated": 65,
   "solved": 65,
-  "improving": 5,
+  "improving": 0,
   "stuck": 0,
-  "pending": 4,
-  "total_completed": 70,
-  "solve_rate": 92.9,
-  "zero_regression_rate": 92.9,
-  "zero_regression_count": 65,
-  "avg_fix_rate": 94.1,
-  "avg_evoscore": 0.9532,
-  "avg_evoscore_completed": 0.9791,
+  "pending": 0,
+  "total_completed": 65,
+  "solve_rate": 100.0,
+  "zero_regression_rate": 93.8,
+  "zero_regression_count": 61,
+  "avg_fix_rate": 100.0,
+  "avg_evoscore": 0.9911,
+  "avg_evoscore_completed": 0.9911,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -153,11 +153,10 @@
     },
     {
       "batch": "rll_full_batch_12",
-      "total": 5,
+      "total": 4,
       "solved": 4,
-      "avg_evoscore": 0.9513,
+      "avg_evoscore": 0.9962,
       "tasks": [
-        "marshmallow-code__marshmallow__3c7816__3db174",
         "matoking__protontricks__42ba1e__ff2381",
         "mayitzin__ahrs__503d4e__c83bd1",
         "mdbloice__augmentor__c182f1__cab8b0",
@@ -179,38 +178,22 @@
     },
     {
       "batch": "rll_full_batch_14",
-      "total": 5,
+      "total": 2,
       "solved": 2,
-      "avg_evoscore": 0.8561,
+      "avg_evoscore": 0.9976,
       "tasks": [
         "mkdocstrings__griffe__22a44a__9b98da",
-        "mkdocstrings__griffe__a26ccd__439f65",
-        "mkdocstrings__griffe__ce1dce__72c8fc",
-        "mkdocstrings__griffe__f6650b__0bab0c",
-        "modelcontextprotocol__python-sdk__116c13__b19fa6"
+        "mkdocstrings__griffe__f6650b__0bab0c"
       ]
     },
     {
       "batch": "rll_full_batch_15",
-      "total": 5,
-      "solved": 2,
-      "avg_evoscore": 0.752,
-      "tasks": [
-        "modelcontextprotocol__python-sdk__281fd4__a9cc82",
-        "modelcontextprotocol__python-sdk__998f0e__5983a6",
-        "more-itertools__more-itertools__3250ca__8c1a6e",
-        "more-itertools__more-itertools__3c1e75__b469c1",
-        "more-itertools__more-itertools__d2d104__4dc5e8"
-      ]
-    },
-    {
-      "batch": "rll_full_batch_17",
       "total": 2,
-      "solved": 0,
-      "avg_evoscore": 0.6435,
+      "solved": 2,
+      "avg_evoscore": 0.9957,
       "tasks": [
-        "nat-n__poethepoet__681394__6eb522",
-        "nbqa-dev__nbqa__baa36f__9d140b"
+        "more-itertools__more-itertools__3250ca__8c1a6e",
+        "more-itertools__more-itertools__d2d104__4dc5e8"
       ]
     },
     {
@@ -798,17 +781,6 @@
       "batch": "rll_full_batch_11"
     },
     {
-      "task_id": "marshmallow-code__marshmallow__3c7816__3db174",
-      "repo_name": "marshmallow-code/marshmallow",
-      "initial_gap": 21,
-      "final_gap": 2,
-      "num_epochs": 11,
-      "fix_rate": 90.5,
-      "evoscore": 0.7714,
-      "status": "improving",
-      "batch": "rll_full_batch_12"
-    },
-    {
       "task_id": "matoking__protontricks__42ba1e__ff2381",
       "repo_name": "Matoking/protontricks",
       "initial_gap": 15,
@@ -919,28 +891,6 @@
       "batch": "rll_full_batch_14"
     },
     {
-      "task_id": "mkdocstrings__griffe__a26ccd__439f65",
-      "repo_name": "mkdocstrings/griffe",
-      "initial_gap": 21,
-      "final_gap": 2,
-      "num_epochs": 11,
-      "fix_rate": 90.5,
-      "evoscore": 1.0,
-      "status": "improving",
-      "batch": "rll_full_batch_14"
-    },
-    {
-      "task_id": "mkdocstrings__griffe__ce1dce__72c8fc",
-      "repo_name": "mkdocstrings/griffe",
-      "initial_gap": 46,
-      "final_gap": 2,
-      "num_epochs": 15,
-      "fix_rate": 95.7,
-      "evoscore": 0.7852,
-      "status": "improving",
-      "batch": "rll_full_batch_14"
-    },
-    {
       "task_id": "mkdocstrings__griffe__f6650b__0bab0c",
       "repo_name": "mkdocstrings/griffe",
       "initial_gap": 21,
@@ -950,39 +900,6 @@
       "evoscore": 0.9952,
       "status": "solved",
       "batch": "rll_full_batch_14"
-    },
-    {
-      "task_id": "modelcontextprotocol__python-sdk__116c13__b19fa6",
-      "repo_name": "modelcontextprotocol/python-sdk",
-      "initial_gap": 85,
-      "final_gap": 85,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
-      "batch": "rll_full_batch_14"
-    },
-    {
-      "task_id": "modelcontextprotocol__python-sdk__281fd4__a9cc82",
-      "repo_name": "modelcontextprotocol/python-sdk",
-      "initial_gap": 159,
-      "final_gap": 159,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
-      "batch": "rll_full_batch_15"
-    },
-    {
-      "task_id": "modelcontextprotocol__python-sdk__998f0e__5983a6",
-      "repo_name": "modelcontextprotocol/python-sdk",
-      "initial_gap": 161,
-      "final_gap": 161,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
-      "batch": "rll_full_batch_15"
     },
     {
       "task_id": "more-itertools__more-itertools__3250ca__8c1a6e",
@@ -996,17 +913,6 @@
       "batch": "rll_full_batch_15"
     },
     {
-      "task_id": "more-itertools__more-itertools__3c1e75__b469c1",
-      "repo_name": "more-itertools/more-itertools",
-      "initial_gap": 140,
-      "final_gap": 5,
-      "num_epochs": 8,
-      "fix_rate": 96.4,
-      "evoscore": 0.7688,
-      "status": "improving",
-      "batch": "rll_full_batch_15"
-    },
-    {
       "task_id": "more-itertools__more-itertools__d2d104__4dc5e8",
       "repo_name": "more-itertools/more-itertools",
       "initial_gap": 61,
@@ -1016,31 +922,9 @@
       "evoscore": 0.9926,
       "status": "solved",
       "batch": "rll_full_batch_15"
-    },
-    {
-      "task_id": "nat-n__poethepoet__681394__6eb522",
-      "repo_name": "nat-n/poethepoet",
-      "initial_gap": 8,
-      "final_gap": 8,
-      "num_epochs": 1,
-      "fix_rate": 0.0,
-      "evoscore": 0.5,
-      "status": "pending",
-      "batch": "rll_full_batch_17"
-    },
-    {
-      "task_id": "nbqa-dev__nbqa__baa36f__9d140b",
-      "repo_name": "nbQA-dev/nbQA",
-      "initial_gap": 23,
-      "final_gap": 2,
-      "num_epochs": 2,
-      "fix_rate": 91.3,
-      "evoscore": 0.787,
-      "status": "improving",
-      "batch": "rll_full_batch_17"
     }
   ],
-  "last_updated": "2026-03-28T17:44:30",
+  "last_updated": "2026-03-28T18:19:47",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
