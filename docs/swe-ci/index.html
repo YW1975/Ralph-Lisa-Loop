@@ -360,7 +360,7 @@
         { name: "DeepSeek-V3.2", score: 0.20 },
         { name: "Most others (12 models)", score: 0.13 },
     ];
-    let currentSort = { key: "status", asc: true };
+    let currentSort = { key: "_idx", asc: true };
     let summaryData = null;
 
     async function loadData() {
@@ -379,9 +379,10 @@
 
         const pct = (data.solved / data.total_benchmark_tasks * 100).toFixed(1);
         document.getElementById("progress-fill").style.width = pct + "%";
+        const envLimitPart = data.env_limit ? ` \u00b7 ${data.env_limit} env limit` : '';
         document.getElementById("hero-sub").textContent =
             `${data.total_evaluated} evaluated \u00b7 ${data.solved} solved \u00b7 ` +
-            `${data.pending || 0} in progress \u00b7 Ralph: ${data.model} \u00b7 Lisa: ${data.lisa_model || 'codex-gpt-5.4'}`;
+            `${data.pending || 0} in progress${envLimitPart} \u00b7 Ralph: ${data.model} \u00b7 Lisa: ${data.lisa_model || 'codex-gpt-5.4'}`;
 
         // Render Zero-Regression chart
         const ourZR = (data.zero_regression_rate || 0) / 100;
@@ -402,13 +403,10 @@
     }
 
     function renderTable(tasks) {
+        tasks.forEach((t, i) => { if (t._idx === undefined) t._idx = i; });
         tasks.sort((a, b) => {
             let va = a[currentSort.key], vb = b[currentSort.key];
             if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
-            if (currentSort.key === "status") {
-                const order = { solved: 0, improving: 1, pending: 2, stuck: 3, env_limit: 4 };
-                va = order[a.status] ?? 4; vb = order[b.status] ?? 4;
-            }
             return currentSort.asc ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0);
         });
         document.getElementById("task-tbody").innerHTML = tasks.map(t => {

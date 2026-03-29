@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 46,
-  "final_gap": 46,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 14,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 751,
       "failed": 46,
       "total": 797
+    },
+    {
+      "epoch": 1,
+      "gap": 14,
+      "passed": 785,
+      "failed": 12,
+      "total": 797,
+      "programmer_time": 3570.3247952461243
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 751,
+    "failed": 46,
+    "total": 797
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-29-07-12-54",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/griffe/dataclasses.py — Object.has_labels()（约第522行）和 Alias.has_labels()（约第1071行）",
+          "description": "当前 has_labels() 方法签名为 has_labels(self, labels: set[str]) -> bool，只接受单个集合参数。\n      但测试代码以可变参数形式调用该方法，例如：\n        module[\"A.f\"].has_labels(*labels)        # labels 是 tuple\n        module[\"A.thing\"].has_labels(\"property\", \"writable\", \"deletable\")\n      这导致 TypeError: Object.has_labels() takes 2 positional arguments but 3 or 4 were given。",
+          "contract": "将 Object 类和 Alias 类中 has_labels() 的签名改为接受可变位置参数 *labels: str，\n      使其能被零个或多个字符串参数调用。行为语义不变：当对象的 labels 集合包含所有传入标签时返回 True，否则返回 False。\n      方法签名应为：has_labels(self, *labels: str) -> bool\n      调用示例：\n        obj.has_labels(\"property\", \"writable\")  →  True（若均包含）\n        obj.has_labels(*some_tuple)              →  同上\n        obj.has_labels()                         →  True（无参数时，空集合被全包含）",
+          "acceptance_tests": "tests/test_visitor.py::test_set_function_labels_using_decorators[property-labels0]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[staticmethod-labels1]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[classmethod-labels2]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.cache-labels3]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[cache-labels4]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.cached_property-labels5]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[cached_property-labels6]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.lru_cache-labels7]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[functools.lru_cache(maxsize=8)-labels8]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[lru_cache-labels9]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[lru_cache(maxsize=8)-labels10]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[abstractmethod-labels12]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[abc.abstractmethod-labels11]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[dataclasses.dataclass-labels13]\n      tests/test_visitor.py::test_set_function_labels_using_decorators[dataclass-labels14]\n      tests/test_visitor.py::test_set_class_labels_using_decorators[dataclasses.dataclass-labels0]\n      tests/test_visitor.py::test_set_class_labels_using_decorators[dataclass-labels1]\n      tests/test_visitor.py::test_handle_property_setter_and_deleter"
+        },
+        {
+          "id": "2",
+          "location": "code/src/griffe/extensions/base.py — load_extensions()（约第458行）",
+          "description": "当前 load_extensions() 的签名为：\n        load_extensions(exts: Sequence[...] | None = None) -> Extensions\n      但测试代码以单个非序列对象调用该函数，例如：\n        load_extensions(extension)  # extension 是单个字符串、dict、Extension 实例或 Extension 类\n      当传入字符串时，for ... in exts 会逐字符迭代（导致 \"accessing 't'\" 的 ModuleNotFoundError）；\n      当传入 Extension 实例或类时，直接抛出 TypeError: 'ExtensionTest' object is not iterable 或\n      TypeError: 'type' object is not iterable。\n      当传入 dict 时，迭代 dict 只取到键（选项丢失），导致加载结果不含预期的 kwargs。",
+          "contract": "修改 load_extensions() 使其能够接受以下任意一种形式的输入：\n      1. 一个 Sequence（当前行为，包含多个扩展配置项）；\n      2. 一个单独的扩展配置项（字符串、dict、Extension 实例或 Extension 子类）——此时应将其包装后再处理，\n         等价于 load_extensions([exts])。\n\n      判断是否为\"单个配置项\"的依据：若 exts 为 str、dict、Extension 实例或 Extension 子类，\n      则视为单个配置项；若为列表/元组等可迭代序列，则按当前逻辑处理。\n      函数返回值类型不变，仍为 Extensions 对象。\n\n      注意：不得修改 _load_extension() 的逻辑，只在 load_extensions() 入口处做归一化处理。",
+          "acceptance_tests": "tests/test_extensions.py::test_loading_extensions[extension1]\n      tests/test_extensions.py::test_loading_extensions[extension3]\n      tests/test_extensions.py::test_loading_extensions[extension5]\n      tests/test_extensions.py::test_loading_extensions[extension7]\n      tests/test_extensions.py::test_loading_extensions[extension8]\n      tests/test_extensions.py::test_loading_extensions[ExtensionTest]\n      tests/test_extensions.py::test_extension_events"
+        },
+        {
+          "id": "3",
+          "location": "code/src/griffe/mixins.py — ObjectAliasMixin.is_public()（约第317行）",
+          "description": "当前 is_public 被定义为普通方法（def is_public(self, *, strict: bool = False, check_name: bool = True)），\n      但测试代码以属性方式访问它，不传任何参数：\n        assert not module[\"ABC\"].is_public\n        assert module[\"func\"].is_public\n      由于没有加 @property，module[\"ABC\"].is_public 返回的是一个绑定方法对象（始终为真值），\n      导致 assert not module[\"ABC\"].is_public 断言失败（负断言对真值取反后为 False）。",
+          "contract": "将 is_public 转换为 @property，使其使用默认参数（strict=False, check_name=True）直接返回布尔值。\n      原来带参数调用的内部逻辑保持不变，只是外部接口从\"可选参数方法\"变为\"无参属性\"。\n      is_public 属性在以下情况返回 False：\n      - 对象为 Alias（alias）且既非继承自基类也非从父 alias 成员中来，且不在 __all__ 中；\n      - 对象名称以下划线开头（私有约定）；\n      否则在 __all__ 存在时按导出规则判断，不存在时默认为 True。",
+          "acceptance_tests": "tests/test_public_api.py::test_not_detecting_imported_objects_as_public"
+        },
+        {
+          "id": "4",
+          "location": "code/src/griffe/loader.py — GriffeLoader.__init__()（约第48行）",
+          "description": "当前 GriffeLoader.__init__() 没有 force_inspection 参数，只有 allow_inspection: bool = True。\n      测试代码使用 force_inspection=False 和 force_inspection=True 构造 GriffeLoader：\n        static_loader = GriffeLoader(force_inspection=False, search_paths=[pkg.tmpdir])\n        dynamic_loader = GriffeLoader(force_inspection=True, search_paths=[pkg.tmpdir])\n      传入未知参数导致 TypeError: GriffeLoader.__init__() got an unexpected keyword argument 'force_inspection'。\n      force_inspection 与 allow_inspection 的语义不同：前者强制使用动态分析（inspection），后者仅表示允许。",
+          "contract": "在 GriffeLoader.__init__() 的关键字参数中添加 force_inspection: bool = False。\n      语义规定：\n      - force_inspection=True：强制对所有模块使用动态分析（importlib/inspect），即使存在源代码也如此；\n      - force_inspection=False（默认）：按当前策略，优先使用静态 AST 分析，仅在无法获取源码时才回退到动态分析（受 allow_inspection 控制）。\n      当 force_inspection=True 时，loader 在加载模块时应跳过静态分析，直接进行动态 inspection。\n      实例属性 self.force_inspection: bool 应被存储，供 load() 等方法查询以决定分析策略。",
+          "acceptance_tests": "tests/test_loader.py::test_forcing_inspection"
+        },
+        {
+          "id": "5",
+          "location": "code/src/griffe/dataclasses.py — Object 类（或其基类/mixin），建议在 Object 类中添加 is_wildcard_exposed 属性",
+          "description": "当前 Module、Attribute 等 Object 子类均没有 is_wildcard_exposed 属性。\n      测试代码在判断一个成员是否会通过 from module import * 被导出时使用该属性：\n        assert not sub.is_wildcard_exposed        # 子模块未被显式导入时不暴露\n        root.imports[\"sub\"] = \"root.sub\"\n        assert sub.is_wildcard_exposed            # 子模块出现在父模块 imports 中后则暴露\n        assert not private.is_wildcard_exposed    # 私有属性默认不暴露\n        root.exports = {\"_private\"}\n        assert private.is_wildcard_exposed        # 出现在父模块 exports 中后则暴露\n      该属性用于判断父模块在执行 import * 时是否会将该对象对外暴露。",
+          "contract": "在 Object 类（或合适的基类/mixin）上添加 is_wildcard_exposed 只读属性（@property）。\n      计算逻辑应满足以下合约（通过 self.parent 访问父容器）：\n      1. 若对象没有父容器（parent 为 None），返回 False；\n      2. 若父容器的 exports 集合不为 None，且对象名称在 exports 中，则返回 True；\n      3. 若父容器的 imports 字典中包含该对象名称（即该对象被父模块显式 import 并在成员中存在），则返回 True；\n      4. 否则返回 False。\n      规则说明：第2条（显式 exports）优先于第3条（imports 检查）；两者均不满足时，以 underscore 开头的名称\n      和其他未显式导出的成员均不通过通配符暴露。",
+          "acceptance_tests": "tests/test_dataclasses.py::test_submodule_exports"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
+      "bug_fix": 3,
       "new_feature": 0,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 2,
       "test_fix": 0,
       "config": 0
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-29T05:58:34",
+  "last_updated": "2026-03-29T07:53:31",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.8696,
+    "m2": 0.7391,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.7217
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.7217,
+  "fix_rate": 69.6
 }
