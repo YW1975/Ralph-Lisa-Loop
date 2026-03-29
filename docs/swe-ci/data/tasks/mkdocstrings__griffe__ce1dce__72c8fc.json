@@ -6,7 +6,7 @@
   "initial_gap": 46,
   "final_gap": 2,
   "num_epochs": 11,
-  "status": "improving",
+  "status": "env_limit",
   "gap_curve": [
     {
       "epoch": 0,
@@ -327,7 +327,7 @@
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-29T16:40:54",
+  "last_updated": "2026-03-29T16:46:35",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
     "m1": 0.9837,
@@ -339,5 +339,5 @@
   },
   "evoscore": 0.9967,
   "fix_rate": 95.7,
-  "env_limit_reason": null
+  "env_limit_reason": "Absolute path /app/codes/ vs /app/code/ in test_loading_extensions parametrize IDs: 2 test IDs not collected in current environment"
 }

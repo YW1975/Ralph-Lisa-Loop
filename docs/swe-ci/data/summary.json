@@ -2,8 +2,8 @@
   "total_benchmark_tasks": 137,
   "total_evaluated": 70,
   "solved": 65,
-  "env_limit": 2,
-  "improving": 1,
+  "env_limit": 3,
+  "improving": 0,
   "stuck": 0,
   "pending": 2,
   "total_completed": 68,
@@ -928,8 +928,9 @@
       "num_epochs": 11,
       "fix_rate": 95.7,
       "evoscore": 0.9967,
-      "status": "improving",
-      "batch": "rll_full_batch_14"
+      "status": "env_limit",
+      "batch": "rll_full_batch_14",
+      "env_limit_reason": "Absolute path /app/codes/ vs /app/code/ in test_loading_extensions parametrize IDs: 2 test IDs not collected in current environment"
     },
     {
       "task_id": "mkdocstrings__griffe__f6650b__0bab0c",
@@ -987,7 +988,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-29T16:40:54",
+  "last_updated": "2026-03-29T16:46:35",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
