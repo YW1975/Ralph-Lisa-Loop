@@ -375,8 +375,8 @@
                 <div class="label">Repository</div>
             </div>
             <div class="info-card">
-                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status}</div>
-                <div class="label">Status</div>
+                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status === 'env_limit' ? 'env limit' : t.status}</div>
+                <div class="label">Status${t.env_limit_reason ? `<br><span style="font-size:11px;color:#8884d8;font-weight:normal">${t.env_limit_reason}</span>` : ''}</div>
             </div>
         `;
 

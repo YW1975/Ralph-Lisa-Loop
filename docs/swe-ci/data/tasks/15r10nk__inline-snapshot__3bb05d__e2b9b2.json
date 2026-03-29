@@ -77,7 +77,7 @@
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-29T07:53:31",
+  "last_updated": "2026-03-29T08:44:29",
   "batch": "rll_host_v3_mini",
   "evoscore_detail": {
     "m1": 1.0,
@@ -88,5 +88,6 @@
     "overall": 1.0
   },
   "evoscore": 1.0,
-  "fix_rate": 100.0
+  "fix_rate": 100.0,
+  "env_limit_reason": null
 }

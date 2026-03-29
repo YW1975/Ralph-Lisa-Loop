@@ -2,7 +2,8 @@
   "total_benchmark_tasks": 137,
   "total_evaluated": 68,
   "solved": 65,
-  "improving": 3,
+  "env_limit": 2,
+  "improving": 1,
   "stuck": 0,
   "pending": 0,
   "total_completed": 68,
@@ -791,8 +792,9 @@
       "num_epochs": 11,
       "fix_rate": 90.5,
       "evoscore": 0.7705,
-      "status": "improving",
-      "batch": "rll_full_batch_12"
+      "status": "env_limit",
+      "batch": "rll_full_batch_12",
+      "env_limit_reason": "dt.datetime.now() in parametrize IDs: target/current environments produce different timestamp-based test IDs"
     },
     {
       "task_id": "matoking__protontricks__42ba1e__ff2381",
@@ -912,8 +914,9 @@
       "num_epochs": 11,
       "fix_rate": 90.5,
       "evoscore": 1.0,
-      "status": "improving",
-      "batch": "rll_full_batch_14"
+      "status": "env_limit",
+      "batch": "rll_full_batch_14",
+      "env_limit_reason": "Absolute path test IDs differ between target report and current environment"
     },
     {
       "task_id": "mkdocstrings__griffe__ce1dce__72c8fc",
@@ -960,7 +963,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-29T07:53:31",
+  "last_updated": "2026-03-29T08:44:29",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

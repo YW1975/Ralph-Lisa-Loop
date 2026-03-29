@@ -6,7 +6,7 @@
   "initial_gap": 21,
   "final_gap": 2,
   "num_epochs": 11,
-  "status": "improving",
+  "status": "env_limit",
   "gap_curve": [
     {
       "epoch": 0,
@@ -276,7 +276,7 @@
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-29T07:53:31",
+  "last_updated": "2026-03-29T08:44:29",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
     "m1": 1.0,
@@ -287,5 +287,6 @@
     "overall": 1.0
   },
   "evoscore": 1.0,
-  "fix_rate": 90.5
+  "fix_rate": 90.5,
+  "env_limit_reason": "Absolute path test IDs differ between target report and current environment"
 }

@@ -129,7 +129,7 @@
     },
     "complexity": "high"
   },
-  "last_updated": "2026-03-29T07:53:30",
+  "last_updated": "2026-03-29T08:44:28",
   "batch": "rll_full_batch_01",
   "evoscore_detail": {
     "m1": 0.9952,
@@ -140,5 +140,6 @@
     "overall": 0.999
   },
   "evoscore": 0.999,
-  "fix_rate": 100.0
+  "fix_rate": 100.0,
+  "env_limit_reason": null
 }

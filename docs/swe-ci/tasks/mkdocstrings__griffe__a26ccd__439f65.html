@@ -254,7 +254,7 @@
         <h1>mkdocstrings__griffe__a26ccd__439f65</h1>
         <p><strong>Repository:</strong> <a href="https://github.com/mkdocstrings/griffe" target="_blank">mkdocstrings/griffe</a></p>
         <p><strong>License:</strong> ISC License</p>
-        <p><strong>Status:</strong> improving</p>
+        <p><strong>Status:</strong> env_limit</p>
         <p><strong>Test Gap:</strong> 21 → 2</p>
         <p><strong>Epochs:</strong> 10</p>
         <p><strong>Fix Rate:</strong> 90%</p>
@@ -375,8 +375,8 @@
                 <div class="label">Repository</div>
             </div>
             <div class="info-card">
-                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status}</div>
-                <div class="label">Status</div>
+                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status === 'env_limit' ? 'env limit' : t.status}</div>
+                <div class="label">Status${t.env_limit_reason ? `<br><span style="font-size:11px;color:#8884d8;font-weight:normal">${t.env_limit_reason}</span>` : ''}</div>
             </div>
         `;
 
