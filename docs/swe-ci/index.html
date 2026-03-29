@@ -83,6 +83,8 @@
         .status-improving { background: rgba(210,153,34,0.15); color: var(--yellow); }
         .status-stuck { background: rgba(248,81,73,0.15); color: var(--red); }
         .status-pending { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+        .status-env_limit { background: rgba(136,132,216,0.15); color: #8884d8; }
+        .env-limit-icon { cursor: pointer; margin-left: 4px; font-size: 13px; text-decoration: none; }
         .gap-arrow { color: var(--text-muted); }
         .gap-zero { color: var(--green); font-weight: 600; }
         .task-link { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }
@@ -404,7 +406,7 @@
             let va = a[currentSort.key], vb = b[currentSort.key];
             if (typeof va === "string") { va = va.toLowerCase(); vb = vb.toLowerCase(); }
             if (currentSort.key === "status") {
-                const order = { solved: 0, improving: 1, pending: 2, stuck: 3 };
+                const order = { solved: 0, improving: 1, pending: 2, stuck: 3, env_limit: 4 };
                 va = order[a.status] ?? 4; vb = order[b.status] ?? 4;
             }
             return currentSort.asc ? (va < vb ? -1 : va > vb ? 1 : 0) : (va > vb ? -1 : va < vb ? 1 : 0);
@@ -417,7 +419,7 @@
                 <td>${t.initial_gap} <span class="gap-arrow">&rarr;</span> ${fg}</td>
                 <td>${t.num_epochs - 1 || 0}</td>
                 <td>${t.fix_rate.toFixed(0)}%</td>
-                <td><span class="status-badge status-${t.status}">${t.status}</span></td>
+                <td><span class="status-badge status-${t.status}">${t.status === 'env_limit' ? 'env limit' : t.status}</span>${t.env_limit_reason ? `<a class="env-limit-icon" href="tasks/${t.task_id}.html" title="${t.env_limit_reason}" onclick="event.stopPropagation()">&#x26A0;&#xFE0F;</a>` : ''}</td>
             </tr>`;
         }).join("");
     }
