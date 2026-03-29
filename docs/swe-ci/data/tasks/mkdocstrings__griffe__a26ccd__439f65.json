@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/mkdocstrings/griffe.git",
   "licence": "ISC License",
   "initial_gap": 21,
-  "final_gap": 21,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 2,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,89 @@
       "passed": 553,
       "failed": 24,
       "total": 577
+    },
+    {
+      "epoch": 1,
+      "gap": 2,
+      "passed": 574,
+      "failed": 3,
+      "total": 577,
+      "programmer_time": 1038.7604100704193
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 553,
+    "failed": 24,
+    "total": 577
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-29-00-37-20",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "src/griffe/finder.py — module level (new class definition) and functions\n      _handle_pth_file (line 376) and _handle_editable_module (line 399)",
+          "description": "`_handle_pth_file` and `_handle_editable_module` currently return `list[Path]`.\n      The tests access `.path` on each element returned by these functions (e.g.,\n      `[sp.path for sp in _handle_pth_file(...)]`), but `pathlib.Path` objects have no `.path`\n      attribute, causing `AttributeError: 'PosixPath' object has no attribute 'path'` in 7 tests.\n      A dedicated `SearchPath` wrapper type is missing.",
+          "contract": "Define a `SearchPath` class (or named tuple / dataclass) in `src/griffe/finder.py` with at\n      minimum the following interface:\n        - `path: Path` — the filesystem path this search entry represents\n        - `always_scan_for: str | None` — optional package name that must always be scanned for in\n          this search path (used by meson-python editable installs); defaults to `None`\n\n      Update the return type annotations of both `_handle_pth_file` and `_handle_editable_module`\n      from `list[Path]` to `list[SearchPath]`.\n\n      Each `Path` value that was previously returned directly must now be wrapped in a\n      `SearchPath(path=..., always_scan_for=None)`.  The externally visible behavior of the path\n      resolution logic itself must not change; only the wrapping layer changes.\n\n      `SearchPath` (or its equivalent) must be exported in `__all__` if it is intended to be part\n      of the public API, and must be importable from `griffe.finder`.",
+          "acceptance_tests": "tests/test_finder.py::test_pth_file_handling\n      tests/test_finder.py::test_pth_file_handling_with_semi_colon\n      tests/test_finder.py::test_editables_file_handling[__editables_whatever.py]\n      tests/test_finder.py::test_editables_file_handling[_editable_impl_whatever.py]\n      tests/test_finder.py::test_setuptools_file_handling\n      tests/test_finder.py::test_setuptools_file_handling_multiple_paths\n      tests/test_finder.py::test_scikit_build_core_file_handling"
+        },
+        {
+          "id": "2",
+          "location": "src/griffe/docstrings/numpy.py — `_section_kind` dict (line 68) and `parse` function\n      (line 740)",
+          "description": "The numpy docstring parser does not recognise \"see also\", \"notes\", and \"warnings\" as named\n      sections. These titles are absent from the `_section_kind` mapping.  As a result, content\n      under \"See Also\", \"Notes\", and \"Warnings\" headings is never split into its own section object;\n      it is silently merged into the preceding text section.  Five tests that expect 2 sections\n      (text + admonition) receive only 1 section (combined text) and fail with\n      `assert 1 == 2`.",
+          "contract": "Add handling for at least the following section titles in the numpy parser:\n        - \"see also\"  → parsed as a `DocstringSectionAdmonition` with `kind=\"see-also\"` and the\n          body lines as `description`; the section `title` must be `\"See Also\"` (original case).\n        - \"notes\"     → parsed as a `DocstringSectionAdmonition` with `kind=\"note\"` and the body\n          as `description`; title `\"Notes\"`.\n        - \"warnings\"  → parsed as a `DocstringSectionAdmonition` with `kind=\"warning\"` and the\n          body as `description`; title `\"Warnings\"`.\n\n      Behavioral requirements:\n        - The body of such an admonition section is everything between the dash line and the next\n          recognised section header (or end of docstring), with leading/trailing blank lines\n          stripped.  Multi-paragraph bodies (separated by blank lines) must be preserved verbatim\n          (e.g. `\"some_function\\n\\nmore text\"`).\n        - An empty body (nothing between the dash line and EOF/next section) must produce a\n          `DocstringSectionAdmonition` whose `value.description == \"\"`.\n        - A dash-line (`---`) that appears in body text (i.e. not immediately below a valid\n          section title) must NOT create a new section; it must be treated as literal content.\n        - `sections[0].value` must equal the summary text (unchanged).\n        - `sections[1].title` must equal the original-case section title (e.g. `\"See Also\"`).\n        - `sections[1].value` must be a `DocstringAdmonition` with the correct `kind` and\n          `description` as described above.",
+          "acceptance_tests": "tests/test_docstrings/test_numpy.py::test_admonition_see_also\n      tests/test_docstrings/test_numpy.py::test_admonition_empty\n      tests/test_docstrings/test_numpy.py::test_admonition_warnings_special_case\n      tests/test_docstrings/test_numpy.py::test_admonition_notes_special_case\n      tests/test_docstrings/test_numpy.py::test_isolated_dash_lines_do_not_create_sections"
+        },
+        {
+          "id": "3",
+          "location": "src/griffe/agents/nodes/_values.py — `_extract_yield` function (line 292) and `_node_map`\n      dict (line 298)",
+          "description": "Two related bugs exist in the AST value extraction module:\n\n      1. `_extract_yield` (line 292) returns `repr(None)` (i.e. the string `\"None\"`) when\n         `node.value is None` (bare `yield`), and returns only the value expression string when\n         `node.value` is present (e.g. `\"a\"` for `yield a`). Both cases omit the `\"yield\"` keyword,\n         so `get_value` returns `\"None\"` instead of `\"yield\"`, and `\"a\"` instead of `\"yield a\"`.\n\n      2. `ast.YieldFrom` is entirely absent from `_node_map`, causing a `KeyError` whenever a\n         `yield from` expression is encountered (affects both `get_value` and `safe_get_value`\n         paths, and thus also `safe_get_expression` in `expressions.py`).",
+          "contract": "Fix `_extract_yield` so that:\n        - `yield` (bare, `node.value is None`) → returns the string `\"yield\"`\n        - `yield a` (`node.value` present) → returns `\"yield \" + _extract(node.value)`\n\n      Add a new handler `_extract_yield_from` and register it in `_node_map` under `ast.YieldFrom`:\n        - `yield from a` → returns `\"yield from \" + _extract(node.value)`\n\n      The function signatures should mirror the existing extractor pattern:\n        `def _extract_yield_from(node: ast.YieldFrom, **kwargs: Any) -> str`\n\n      No changes to the public `get_value` or `safe_get_value` interfaces are needed.",
+          "acceptance_tests": "tests/test_nodes.py::test_building_value_from_nodes[yield]\n      tests/test_nodes.py::test_building_value_from_nodes[yield a]\n      tests/test_nodes.py::test_building_value_from_nodes[yield from a]\n      tests/test_nodes.py::test_building_expressions_from_nodes[yield from a]"
+        },
+        {
+          "id": "4",
+          "location": "src/griffe/tests.py — `temporary_pypackage` function (line 58)",
+          "description": "`temporary_pypackage` accepts only `init: bool` to control whether the leaf package's\n      `__init__.py` is created. Tests now call it with an additional keyword argument\n      `inits: bool` (e.g. `temporary_pypackage(\"pkg\", [...], init=False, inits=False)`), which\n      is intended to control whether `__init__.py` files are created inside subdirectories that\n      are generated while creating the listed module files. The missing parameter causes\n      `TypeError: temporary_pypackage() got an unexpected keyword argument 'inits'` in 3 tests.",
+          "contract": "Add an `inits: bool = True` keyword-only parameter to `temporary_pypackage`.\n\n      Behavioral contract:\n        - When `inits=True` (default, backward-compatible): behaviour is unchanged; subdirectories\n          created for module path components receive `__init__.py` files as today.\n        - When `inits=False`: subdirectories created while processing entries in the `modules`\n          sequence must NOT receive `__init__.py` files (making them namespace packages or plain\n          directories).\n\n      The parameter only affects intermediate subdirectories generated for module paths; it does\n      not affect whether the root package itself gets an `__init__.py` (that remains controlled by\n      the existing `init` parameter).\n\n      The yielded `TmpPackage` object's interface is unchanged.",
+          "acceptance_tests": "tests/test_finder.py::test_scanning_package_and_module_with_same_names[True]\n      tests/test_finder.py::test_scanning_package_and_module_with_same_names[False]\n      tests/test_finder.py::test_not_finding_namespace_package_twice"
+        },
+        {
+          "id": "5",
+          "location": "src/griffe/dataclasses.py — `Class.parameters` property (line 1554)",
+          "description": "When a `Class` object carries the `\"dataclass\"` label and has no `__init__` member,\n      `Class.parameters` builds parameter objects from `self.attributes.values()`. This includes\n      attributes whose labels contain `\"property\"` or `\"cached_property\"`, which represent\n      `@property` and `@cached_property` decorated methods. These are not dataclass fields and\n      must not be included as constructor parameters. The test asserts `\"a\" not in params` and\n      `\"b\" not in params` (where `a` is a `@property` and `b` is a `@cached_property`) but both\n      currently appear in the parameter list.",
+          "contract": "In the `\"dataclass\"` branch of `Class.parameters`, filter out attributes that carry a\n      `\"property\"` or `\"cached_property\"` label before constructing the `Parameters` object.\n\n      Expected behavior:\n        - Only genuine dataclass fields (i.e. attributes without `\"property\"` or\n          `\"cached_property\"` in their `labels`) are returned as parameters.\n        - The relative order of the remaining parameters is preserved.\n        - No change to the function signature or return type (`Parameters`).\n        - The `__init__`-based path (when `__init__` IS present) is unaffected.",
+          "acceptance_tests": "tests/test_dataclasses.py::test_dataclass_parameters"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 4,
+      "new_feature": 3,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 4,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "medium"
   },
-  "last_updated": "2026-03-29T00:26:52",
+  "last_updated": "2026-03-29T01:05:26",
   "batch": "rll_full_batch_14",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 1.0,
+    "m2": 1.0,
     "m3": 1.0,
-    "m4": 0.0,
+    "m4": 1.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 1.0
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 1.0,
+  "fix_rate": 90.5
 }
