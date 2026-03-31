@@ -1,13 +1,13 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 71,
-  "solved": 66,
+  "solved": 67,
   "env_limit": 3,
-  "improving": 2,
+  "improving": 1,
   "stuck": 0,
   "pending": 1,
   "total_completed": 71,
-  "solve_rate": 93.0,
+  "solve_rate": 94.4,
   "zero_regression_rate": 94.4,
   "zero_regression_count": 67,
   "avg_fix_rate": 98.9,
@@ -194,7 +194,7 @@
     {
       "batch": "rll_full_batch_15",
       "total": 4,
-      "solved": 2,
+      "solved": 3,
       "avg_evoscore": 0.8402,
       "tasks": [
         "modelcontextprotocol__python-sdk__281fd4__a9cc82",
@@ -959,11 +959,11 @@
       "task_id": "modelcontextprotocol__python-sdk__281fd4__a9cc82",
       "repo_name": "modelcontextprotocol/python-sdk",
       "initial_gap": 159,
-      "final_gap": 2,
-      "num_epochs": 6,
-      "fix_rate": 98.7,
+      "final_gap": 0,
+      "num_epochs": 7,
+      "fix_rate": 100.0,
       "evoscore": 0.7282,
-      "status": "improving",
+      "status": "solved",
       "batch": "rll_full_batch_15"
     },
     {
@@ -1000,7 +1000,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-31T00:11:03",
+  "last_updated": "2026-03-31T00:23:52",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
