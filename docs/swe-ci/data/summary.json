@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 72,
-  "solved": 67,
+  "solved": 68,
   "env_limit": 3,
-  "improving": 2,
+  "improving": 1,
   "stuck": 0,
   "pending": null,
   "total_completed": 72,
-  "solve_rate": 93.1,
+  "solve_rate": 94.4,
   "zero_regression_rate": 94.4,
   "zero_regression_count": 68,
-  "avg_fix_rate": 98.0,
-  "avg_evoscore": 0.9696,
-  "avg_evoscore_completed": 0.9696,
+  "avg_fix_rate": 99.0,
+  "avg_evoscore": 0.9716,
+  "avg_evoscore_completed": 0.9716,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -194,8 +194,8 @@
     {
       "batch": "rll_full_batch_15",
       "total": 5,
-      "solved": 3,
-      "avg_evoscore": 0.7912,
+      "solved": 4,
+      "avg_evoscore": 0.8207,
       "tasks": [
         "modelcontextprotocol__python-sdk__281fd4__a9cc82",
         "modelcontextprotocol__python-sdk__998f0e__5983a6",
@@ -971,11 +971,11 @@
       "task_id": "modelcontextprotocol__python-sdk__998f0e__5983a6",
       "repo_name": "modelcontextprotocol/python-sdk",
       "initial_gap": 161,
-      "final_gap": 110,
-      "num_epochs": 2,
-      "fix_rate": 31.7,
-      "evoscore": 0.595,
-      "status": "improving",
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.7427,
+      "status": "solved",
       "batch": "rll_full_batch_15"
     },
     {
@@ -1012,7 +1012,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-31T02:14:21",
+  "last_updated": "2026-03-31T02:21:31",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
