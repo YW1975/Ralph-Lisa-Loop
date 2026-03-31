@@ -4,8 +4,8 @@
   "repo_url": "https://github.com/more-itertools/more-itertools.git",
   "licence": "MIT License",
   "initial_gap": 140,
-  "final_gap": 103,
-  "num_epochs": 2,
+  "final_gap": 73,
+  "num_epochs": 3,
   "status": "improving",
   "gap_curve": [
     {
@@ -22,14 +22,24 @@
       "failed": 103,
       "total": 532,
       "programmer_time": 5828.366342782974
+    },
+    {
+      "epoch": 2,
+      "gap": 73,
+      "passed": 459,
+      "failed": 73,
+      "total": 532,
+      "programmer_time": 4560.499264955521
     }
   ],
-  "dialogue": "",
-  "diff_summary": [],
-  "code_diff": "",
+  "dialogue": "**Task**: Read <workspace>/ENVIRONMENT.md first — it explains the test setup and how to run tests. Then read <workspace>/requirement.xml and implement the requirements. Work only in <workspace>/code/. Run tests with: docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q\n**Started**: 2026-03-29 19:24:10\n\n---\n\n## [Ralph] [PLAN] Round 1 | Step: planning\n**Time**: 2026-03-29 19:25:57\n**Summary**: \n\n[PLAN]\n\n## Task Understanding\n\nImplement 5 new functions in `more_itertools/more.py` and add them to `__all__`:\n\n1. **`interleave_evenly(iterables, lengths=None)`** — Evenly distribute items from multiple iterables using a Bresenham-like scheduling algorithm\n2. **`chunked_even(iterable, n)`** — Split iterable into chunks where sizes differ by at most 1, with bounded look-ahead for infinite iterables\n3. **`combination_index(element, iterable)`** — Return 0-based index of a combination in `itertools.combinations` output\n4. **`permutation_index(element, iterable)`** — Return 0-based index of a permutation in `itertools.permutations` output\n5. **`product_index(element, *iterables)`** — Return 0-based index of an element in `itertools.product` output\n\n## Proposed Approach\n\n### `interleave_evenly`\n- Use Bresenham-style error accumulation: assign each iterable a \"weight\" proportional to its length vs total length\n- Track accumulated error per iterable; yield from the iterable with the highest accumulated error\n- Validate `lengths` vs `iterables` count; auto-detect via `len()` or raise `ValueError`\n- Skip empty iterables\n\n### `chunked_even`\n- For finite iterables with `__len__`: compute `q, r = divmod(N, ceil(N/n))` to determine chunk sizes\n- For iterables without `__len__` (including infinite): use bounded look-ahead of O(n²) — read up to n² items ahead, determine chunk count and sizes from what's available, yield chunks, repeat\n- Each chunk has at least 1 element, max size n, and `max - min <= 1`\n\n### `combination_index`\n- Convert iterable to list of positions\n- For each element position, count how many combinations come before it using C(n,k) combinatorial formula\n- Validate ordering (must be non-decreasing positional order) and membership\n\n### `permutation_index`\n- Similar to combination_index but for permutations\n- Use factorial number system: for each position, count how many available items come before the chosen one, multiply by P(remaining, remaining_r)\n- Validate membership and availability\n\n### `product_index`\n- Mixed-radix number: index = sum of (position_in_iterable_i * product_of_later_iterable_lengths)\n- Validate element length matches number of iterables and each component exists in its iterable\n\n## Expected Deliverables\n- All 5 functions implemented in `code/more_itertools/more.py`\n- All 5 function names added to `__all__`\n- All 40 acceptance tests passing (10 + 8 + 8 + 7 + 7)\n\n## Test Plan\n- **Test command:** `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests/test_more.py -k \"InterleaveEvenlyTests or ChunkedEvenTests or CombinationIndexTests or PermutationIndexTests or ProductIndexTests\" --tb=short -q`\n- **Regression command:** `docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\n- Expected: all 40 new tests pass, no regression in existing tests\n\n## Quality Gate\n- `docker exec -w /app/code <container>_rll python -m pytest tests --tb=short -q` (full test suite)\n\n\n---\n\n## [Lisa] [NEEDS_WORK] Round 1 | Step: planning\n**Time**: 2026-03-29 19:27:14\n**Summary**: The submission is incomplete. `.dual-agent/work.md:3` shows this round is still a `[PLAN]`, and `.dual-agent/work.md:47`-`.dual-agent/work.md:55` lists expected deliverables and test commands but does not include any implemented code, files changed, or actual test results. That means the requested work in `more_itertools/more.py` was not delivered for review.\n\n[NEEDS_WORK] The submission is incomplete. `.dual-agent/work.md:3` shows this round is still a `[PLAN]`, and `.dual-agent/work.md:47`-`.dual-agent/work.md:55` lists expected deliverables and test commands but does not include any implemented code, files changed, or actual test results. That means the requested work in `more_itertools/more.py` was not delivered for review.\n\nI re-ran the required test command from the task/environment on the current tree:\n`docker exec -w /app/code -e PYTHONPATH=src:. <container>_rll python -m pytest tests --tb=short -q`\nResult: exit code 1, `243 failed, 406 passed` in 16.68s. The required acceptance targets are still failing, including `tests/test_more.py::InterleaveEvenlyTests::test_equal_lengths`, `tests/test_more.py::ChunkedEvenTests::test_0`, `tests/test_more.py::CombinationIndexTests::test_r_less_than_n`, `tests/test_more.py::PermutationIndexTests::test_r_less_than_n`, and `tests/test_more.py::ProductIndexTests::test_basic`, all due to the missing APIs described in the requirement.\n\nPlease resubmit with actual changes in `<workspace>/code/more_itertools/more.py`, the new exports added, and real test output matching the plan.\n\n",
+  "diff_summary": [
+    "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests more_itertools/more.py more_itertools/more.py"
+  ],
+  "code_diff": "diff -ru --exclude=__pycache__ --exclude=.git --exclude=*.pyc --exclude=.dual-agent --exclude=.pytest_cache --exclude=tests more_itertools/more.py more_itertools/more.py\n--- more_itertools/more.py\t2026-03-29 18:09:56\n+++ more_itertools/more.py\t2026-03-29 19:28:26\n@@ -17,7 +17,7 @@\n     tee,\n     zip_longest,\n )\n-from math import exp, floor, log\n+from math import comb, exp, factorial, floor, log, perm\n from random import random, randrange, uniform\n from operator import itemgetter, sub, gt, lt\n from sys import maxsize\n@@ -96,6 +96,11 @@\n     'UnequalIterablesError',\n     'zip_equal',\n     'zip_offset',\n+    'interleave_evenly',\n+    'chunked_even',\n+    'combination_index',\n+    'permutation_index',\n+    'product_index',\n ]\n \n _marker = object()\n@@ -3179,3 +3184,203 @@\n     else:\n         weights = iter(weights)\n         return _sample_weighted(iterable, k, weights)\n+\n+\n+def interleave_evenly(iterables, lengths=None):\n+    \"\"\"Interleave multiple iterables into a single sequence, spacing items\n+    from each iterable as evenly as possible (Bresenham-style scheduling).\n+\n+    If *lengths* is not provided, ``len()`` is called on each iterable;\n+    a ``ValueError`` is raised if any iterable lacks ``__len__``.\n+    If *lengths* is provided, its length must match the number of iterables.\n+    \"\"\"\n+    iterables = list(iterables)\n+    if lengths is None:\n+        try:\n+            lengths = [len(it) for it in iterables]\n+        except TypeError:\n+            raise ValueError(\n+                'One or more iterables has no len(); '\n+                'specify lengths manually'\n+            )\n+    else:\n+        lengths = list(lengths)\n+        if len(lengths) != len(iterables):\n+            raise ValueError(\n+                'Mismatch between number of iterables and lengths'\n+            )\n+\n+    # Filter out empty iterables\n+    pairs = [\n+        (iter(it), length)\n+        for it, length in zip(iterables, lengths)\n+        if length > 0\n+    ]\n+    if not pairs:\n+        return\n+\n+    total = sum(length for _, length in pairs)\n+    iters = [it for it, _ in pairs]\n+    weights = [length for _, length in pairs]\n+    n = len(iters)\n+\n+    # Bresenham-style: each iterable accumulates error proportional to its weight\n+    errors = [0.0] * n\n+    for _ in range(total):\n+        # Accumulate\n+        for i in range(n):\n+            errors[i] += weights[i]\n+        # Pick the one with highest accumulated error (ties broken by order)\n+        best = max(range(n), key=lambda i: errors[i])\n+        errors[best] -= total\n+        yield next(iters[best])\n+\n+\n+def chunked_even(iterable, n):\n+    \"\"\"Break *iterable* into lists such that no two chunks differ in length\n+    by more than 1, with each chunk having at most *n* elements.\n+\n+    Works with iterables lacking ``__len__`` and with infinite iterables\n+    using bounded look-ahead (O(n²) per step).\n+    \"\"\"\n+    it = iter(iterable)\n+\n+    # Try to determine length\n+    has_len = hasattr(iterable, '__len__')\n+    if has_len:\n+        N = len(iterable)\n+        if N == 0:\n+            return\n+        # Number of chunks: ceil(N / n)\n+        num_chunks = -(-N // n)\n+        # q = base chunk size, r = number of larger chunks\n+        q, r = divmod(N, num_chunks)\n+        for i in range(num_chunks):\n+            size = q + (1 if i < r else 0)\n+            chunk = list(islice(it, size))\n+            if not chunk:\n+                break\n+            yield chunk\n+    else:\n+        # Bounded look-ahead for iterables without __len__ (including infinite)\n+        # Read up to n*n items at a time\n+        while True:\n+            buf = list(islice(it, n * n))\n+            if not buf:\n+                break\n+            N = len(buf)\n+            buf_iter = iter(buf)\n+            num_chunks = -(-N // n)\n+            q, r = divmod(N, num_chunks)\n+            for i in range(num_chunks):\n+                size = q + (1 if i < r else 0)\n+                yield list(islice(buf_iter, size))\n+\n+\n+def combination_index(element, iterable):\n+    \"\"\"Return the 0-based index of *element* in\n+    ``itertools.combinations(iterable, r)`` where ``r = len(element)``.\n+    \"\"\"\n+    pool = list(iterable)\n+    n = len(pool)\n+    r = len(element)\n+\n+    if r > n:\n+        raise ValueError(\n+            'element length exceeds iterable length'\n+        )\n+\n+    if r == 0:\n+        return 0\n+\n+    # Map element values to positions in pool\n+    # For multiplicity: track which positions are used\n+    k = 0\n+    result = 0\n+    prev_pos = -1\n+\n+    for i, val in enumerate(element):\n+        # Find val in pool starting from prev_pos + 1\n+        found = False\n+        for pos in range(prev_pos + 1, n):\n+            if pool[pos] == val:\n+                # Count combinations skipped: for each position j between\n+                # prev_pos+1 and pos-1, we skip C(n - j - 1, r - i - 1)\n+                for j in range(prev_pos + 1, pos):\n+                    result += comb(n - j - 1, r - i - 1)\n+                prev_pos = pos\n+                found = True\n+                break\n+        if not found:\n+            raise ValueError(\n+                f'{val!r} not found in expected position in iterable'\n+            )\n+\n+    return result\n+\n+\n+def permutation_index(element, iterable):\n+    \"\"\"Return the 0-based index of *element* in\n+    ``itertools.permutations(iterable, r)`` where ``r = len(element)``.\n+    \"\"\"\n+    pool = list(iterable)\n+    n = len(pool)\n+    r = len(element)\n+\n+    if r > n:\n+        raise ValueError(\n+            'element length exceeds iterable length'\n+        )\n+\n+    if r == 0:\n+        return 0\n+\n+    result = 0\n+    available = list(range(n))  # available position indices\n+\n+    for i, val in enumerate(element):\n+        # Find val among available positions (in order)\n+        found = False\n+        for rank, pos in enumerate(available):\n+            if pool[pos] == val:\n+                # Skip rank * P(remaining-1, remaining_r-1) permutations\n+                result += rank * perm(n - i - 1, r - i - 1)\n+                available.pop(rank)\n+                found = True\n+                break\n+        if not found:\n+            raise ValueError(\n+                f'{val!r} not found in available positions'\n+            )\n+\n+    return result\n+\n+\n+def product_index(element, *iterables):\n+    \"\"\"Return the 0-based index of *element* in\n+    ``itertools.product(*iterables)``.\n+    \"\"\"\n+    if len(element) != len(iterables):\n+        raise ValueError(\n+            'element length does not match number of iterables'\n+        )\n+\n+    pools = [list(it) for it in iterables]\n+    n = len(pools)\n+\n+    index = 0\n+    for i, (val, pool) in enumerate(zip(element, pools)):\n+        # Find first occurrence of val in pool\n+        try:\n+            pos = pool.index(val)\n+        except ValueError:\n+            raise ValueError(\n+                f'{val!r} not found in iterable {i}'\n+            )\n+        # Mixed-radix: multiply by product of remaining pool sizes\n+        tail = 1\n+        for j in range(i + 1, n):\n+            tail *= len(pools[j])\n+        index += pos * tail\n+\n+    return index\n",
   "test_results": {
-    "passed": 392,
-    "failed": 140,
+    "passed": 429,
+    "failed": 103,
     "total": 532
   },
   "requirements": [
@@ -72,13 +82,53 @@
           "acceptance_tests": "tests/test_more.py::ProductIndexTests::test_basic\n      tests/test_more.py::ProductIndexTests::test_multiplicity\n      tests/test_more.py::ProductIndexTests::test_long\n      tests/test_more.py::ProductIndexTests::test_invalid_empty\n      tests/test_more.py::ProductIndexTests::test_invalid_small\n      tests/test_more.py::ProductIndexTests::test_invalid_large\n      tests/test_more.py::ProductIndexTests::test_invalid_match"
         }
       ]
+    },
+    {
+      "epoch": "2026-03-29-22-35-35",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/more_itertools/more.py — 顶层函数 duplicates_justseen，需同步在 __all__ 列表中导出",
+          "description": "当前 more.py 中不存在 duplicates_justseen 函数，导致所有相关测试因\n      \"AttributeError: module 'more_itertools' has no attribute 'duplicates_justseen'\"\n      而失败（属于缺失接口类问题）。共影响 7 个测试用例。",
+          "contract": "函数签名：duplicates_justseen(iterable, key=None) -> Iterator\n\n      行为目标：\n      - 对 iterable 进行逐元素遍历，当某元素与其紧邻的前一个元素相等（即\"刚刚出现过\"），则将该元素产出。\n      - 与 unique_justseen 相对：unique_justseen 保留首次出现项，本函数保留第 2+ 次重复项。\n      - 若提供了 key 函数，则通过 key(element) 的返回值来判断相等性，而不是直接比较元素本身。\n      - 必须正确处理不可哈希对象（如列表）：不得因 TypeError 而崩溃，应当使用相等比较（==）而非集合或字典。\n      - 必须正确处理混合可哈希/不可哈希元素的迭代器（部分可哈希场景）。\n      - 对空 iterable 返回空迭代器。\n\n      输入/输出示例：\n      - duplicates_justseen([1, 2, 3, 3, 2, 2]) -> [3, 2]   （仅第二个 3 和第二个 2 被输出）\n      - duplicates_justseen([1, 1]) -> [1]\n      - duplicates_justseen([1, 2, 1, 2]) -> []              （交替出现，无相邻重复）\n      - duplicates_justseen([[3,4],[3,4],[3,4]]) -> [[3,4],[3,4]]  （每个非首次相邻重复均输出）\n      - duplicates_justseen('HEheHHHhEheeEe', str.lower) -> list('HHheEe')\n\n      注意：对于 [[3,4],[3,4],[3,4]] 这样的输入，第 2 个和第 3 个 [3,4] 均是对前一元素的重复，均应被产出。",
+          "acceptance_tests": "tests/test_more.py::DuplicatesJustSeenTests::test_basic\n      tests/test_more.py::DuplicatesJustSeenTests::test_non_hashable\n      tests/test_more.py::DuplicatesJustSeenTests::test_partially_hashable\n      tests/test_more.py::DuplicatesJustSeenTests::test_key_hashable\n      tests/test_more.py::DuplicatesJustSeenTests::test_key_non_hashable\n      tests/test_more.py::DuplicatesJustSeenTests::test_key_partially_hashable\n      tests/test_more.py::DuplicatesJustSeenTests::test_nested"
+        },
+        {
+          "id": "2",
+          "location": "code/more_itertools/more.py — 顶层函数 repeat_each，需同步在 __all__ 列表中导出",
+          "description": "当前 more.py 中不存在 repeat_each 函数，导致所有相关测试因\n      \"AttributeError: module 'more_itertools' has no attribute 'repeat_each'\"\n      而失败（属于缺失接口类问题）。共影响 6 个测试用例。",
+          "contract": "函数签名：repeat_each(iterable, n=2) -> Iterator\n\n      行为目标：\n      - 对 iterable 中的每一个元素，将该元素连续重复产出 n 次，然后再移到下一个元素。\n      - 默认 n=2，即每个元素重复 2 次。\n      - 若 n 为 0 或负整数，则该元素不被产出（等效于 0 次）。\n      - 支持无限 iterable（惰性求值，不得预先消耗整个输入）。\n      - 对空 iterable 返回空迭代器。\n\n      输入/输出示例：\n      - repeat_each('ABC') -> ['A','A','B','B','C','C']   （默认 n=2）\n      - repeat_each('ABC', 3) -> ['A','A','A','B','B','B','C','C','C']\n      - repeat_each('ABC', 0) -> []\n      - repeat_each('ABC', -1) -> []\n      - repeat_each('') -> []\n      - repeat_each(cycle('AB'), n=2)，前 6 项 -> ['A','A','B','B','A','A']",
+          "acceptance_tests": "tests/test_more.py::RepeatEachTests::test_default\n      tests/test_more.py::RepeatEachTests::test_basic\n      tests/test_more.py::RepeatEachTests::test_empty\n      tests/test_more.py::RepeatEachTests::test_no_repeat\n      tests/test_more.py::RepeatEachTests::test_negative_repeat\n      tests/test_more.py::RepeatEachTests::test_infinite_input"
+        },
+        {
+          "id": "3",
+          "location": "code/more_itertools/more.py — 顶层函数 duplicates_everseen，需同步在 __all__ 列表中导出",
+          "description": "当前 more.py 中不存在 duplicates_everseen 函数，导致所有相关测试因\n      \"AttributeError: module 'more_itertools' has no attribute 'duplicates_everseen'\"\n      而失败（属于缺失接口类问题）。共影响 6 个测试用例。",
+          "contract": "函数签名：duplicates_everseen(iterable, key=None) -> Iterator\n\n      行为目标：\n      - 对 iterable 进行遍历，记录历史上已出现过的元素；当某元素是曾经（全局意义上）出现过的重复项，则将该元素产出。\n      - 与 unique_everseen 相对：unique_everseen 只保留首次出现项，本函数保留第 2+ 次出现的项目（无论是否相邻）。\n      - 若提供了 key 函数，则通过 key(element) 的返回值判断相等性。\n      - 必须正确处理不可哈希对象（如列表），使用线性扫描历史列表而非集合。\n      - 必须正确处理混合可哈希/不可哈希元素的迭代器（部分可哈希场景）。\n      - 对空 iterable 返回空迭代器。\n\n      输入/输出示例：\n      - duplicates_everseen([1, 2, 3]) -> []\n      - duplicates_everseen([1, 1]) -> [1]\n      - duplicates_everseen([1, 2, 1, 2]) -> [1, 2]  （第二次出现的 1 和 2 均被产出）\n      - duplicates_everseen([[1,2],[3,4],[1,2]]) -> [[1,2]]\n      - duplicates_everseen('HEheHEhe') -> list('HEhe')\n      - duplicates_everseen('HEheHEhe', str.lower) -> list('heHEhe')",
+          "acceptance_tests": "tests/test_more.py::DuplicatesEverSeenTests::test_basic\n      tests/test_more.py::DuplicatesEverSeenTests::test_non_hashable\n      tests/test_more.py::DuplicatesEverSeenTests::test_partially_hashable\n      tests/test_more.py::DuplicatesEverSeenTests::test_key_hashable\n      tests/test_more.py::DuplicatesEverSeenTests::test_key_non_hashable\n      tests/test_more.py::DuplicatesEverSeenTests::test_key_partially_hashable"
+        },
+        {
+          "id": "4",
+          "location": "code/more_itertools/more.py — 顶层类 callback_iter 及异常类 AbortThread，\n      需同步在 __all__ 列表中导出 callback_iter 和 AbortThread",
+          "description": "当前 more.py 中不存在 callback_iter 函数/类及 AbortThread 异常类，导致所有相关测试因\n      \"AttributeError: module 'more_itertools' has no attribute 'callback_iter'\"\n      而失败（属于缺失接口类问题）。共影响 6 个测试用例。",
+          "contract": "接口设计：\n\n      1. AbortThread 异常类\n         - 继承自 RuntimeError\n         - 当使用者中途放弃消费迭代器（即提前退出 with 块）时，在工作线程中被抛出以中止执行\n\n      2. callback_iter 类\n         签名：callback_iter(func, callback_kwd='callback', wait_seconds=0.0)\n         - func：一个接受 callback 关键字参数的可调用对象；\n                 func 中的用户代码通过调用 callback(*args, **kwargs) 来产出数据\n         - callback_kwd：传入 func 的关键字参数名称，默认为 'callback'\n         - wait_seconds：每次轮询回调队列的等待时间（秒），默认 0.0\n\n         协议：callback_iter 是一个上下文管理器（支持 with 语句）：\n         - 进入 with 块后（__enter__）返回自身\n         - 退出 with 块后（__exit__）关闭 ThreadPoolExecutor\n\n         迭代行为：\n         - callback_iter 是一个迭代器（支持 __iter__ 和 __next__）\n         - 每当 func 内部调用 callback(*args, **kwargs) 时，\n           迭代器产出一个元组：(args_tuple, kwargs_dict)\n         - 在 func 执行完成（或抛出异常）之前，迭代器会持续阻塞等待下一个回调数据或终止信号\n\n         属性：\n         - done (bool)：func 是否已完成执行（包含正常完成和异常终止）\n         - result：返回 func 的执行结果；若 func 尚未完成则抛出 RuntimeError；\n                   若执行被中止（AbortThread）则重新抛出 AbortThread\n\n         内部实现要点（作为契约的一部分）：\n         - 必须使用 ThreadPoolExecutor 在后台线程中执行 func\n         - 迭代器对象必须有 _executor 属性（指向 ThreadPoolExecutor 实例），\n           退出上下文后 _executor._shutdown 应为 True（测试直接检查此内部状态）\n\n         边界条件：\n         - 若使用者在消费所有数据之前退出 with 块，工作线程应通过 AbortThread 被中止\n         - func 内若抛出普通异常（非 AbortThread），下次调用 next() 时该异常应传播给调用者\n\n      输入/输出示例（来自测试）：\n        func = lambda callback=None: target(cb=callback)\n        with callback_iter(func) as it:\n            list(it)  # -> [((1,'a'),{'intermediate_total':1}), ((2,'b'),...), ((3,'c'),...)]\n            it.done   # -> True\n            it.result # -> 6（即 func 的返回值）",
+          "acceptance_tests": "tests/test_more.py::CallbackIterTests::test_basic\n      tests/test_more.py::CallbackIterTests::test_callback_kwd\n      tests/test_more.py::CallbackIterTests::test_partial_consumption\n      tests/test_more.py::CallbackIterTests::test_abort\n      tests/test_more.py::CallbackIterTests::test_no_result\n      tests/test_more.py::CallbackIterTests::test_exception"
+        },
+        {
+          "id": "5",
+          "location": "code/more_itertools/more.py — 顶层函数 strictly_n，需同步在 __all__ 列表中导出",
+          "description": "当前 more.py 中不存在 strictly_n 函数，导致所有相关测试因\n      \"AttributeError: module 'more_itertools' has no attribute 'strictly_n'\"\n      而失败（属于缺失接口类问题）。共影响 5 个测试用例。",
+          "contract": "函数签名：strictly_n(iterable, n, too_short=None, too_long=None) -> Iterator\n\n      行为目标：\n      - 对 iterable 进行迭代，要求其恰好包含 n 个元素，并将这些元素逐一产出。\n      - 若 iterable 元素不足 n 个（too short）：\n        - 若 too_short 为 None（默认），则在迭代结束后抛出 ValueError，\n          消息格式为：'Too few items in iterable (got {actual_count})'\n        - 若 too_short 是一个可调用对象，则调用 too_short(actual_count) 代替抛出异常，\n          迭代器继续正常结束（不抛出），已产出的元素不回撤\n      - 若 iterable 元素超过 n 个（too long）：\n        - 若 too_long 为 None（默认），则在产出第 n+1 个元素时抛出 ValueError，\n          消息格式为：'Too many items in iterable (got at least {n+1})'\n        - 若 too_long 是一个可调用对象，则调用 too_long(n+1) 代替抛出异常，\n          迭代器在产出恰好 n 个元素后停止\n      - 若元素恰好为 n 个，则正常产出所有元素，不抛出异常。\n\n      输入/输出示例：\n      - strictly_n(['a','b','c','d'], 4) -> ['a','b','c','d']\n      - strictly_n(['a','b','c','d'], 5) -> 抛出 ValueError('Too few items in iterable (got 4)')\n      - strictly_n(['a','b','c','d'], 3) -> 抛出 ValueError('Too many items in iterable (got at least 4)')\n      - strictly_n(['a','b','c','d'], 6, too_short=handler) -> ['a','b','c','d']，并调用 handler(4)\n      - strictly_n(['a','b','c','d'], 2, too_long=handler) -> ['a','b']，并调用 handler(3)",
+          "acceptance_tests": "tests/test_more.py::StrictlyNTests::test_basic\n      tests/test_more.py::StrictlyNTests::test_too_short_default\n      tests/test_more.py::StrictlyNTests::test_too_long_default\n      tests/test_more.py::StrictlyNTests::test_too_short_custom\n      tests/test_more.py::StrictlyNTests::test_too_long_custom"
+        }
+      ]
     }
   ],
   "task_analysis": {
-    "total_requirements": 5,
+    "total_requirements": 10,
     "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 5,
+      "bug_fix": 10,
       "new_feature": 1,
       "refactor": 0,
       "api_change": 5,
@@ -87,17 +137,17 @@
     },
     "complexity": "high"
   },
-  "last_updated": "2026-03-29T22:35:18",
+  "last_updated": "2026-03-30T23:28:09",
   "batch": "rll_full_batch_15",
   "evoscore_detail": {
-    "m1": 0.6321,
-    "m2": 0.2643,
+    "m1": 0.7286,
+    "m2": 0.4786,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5793
+    "overall": 0.6414
   },
-  "evoscore": 0.5793,
-  "fix_rate": 26.4,
+  "evoscore": 0.6414,
+  "fix_rate": 47.9,
   "env_limit_reason": null
 }
