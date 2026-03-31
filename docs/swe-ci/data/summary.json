@@ -10,9 +10,9 @@
   "solve_rate": 94.4,
   "zero_regression_rate": 94.4,
   "zero_regression_count": 68,
-  "avg_fix_rate": 99.0,
-  "avg_evoscore": 0.9716,
-  "avg_evoscore_completed": 0.9716,
+  "avg_fix_rate": 99.2,
+  "avg_evoscore": 0.9723,
+  "avg_evoscore_completed": 0.9723,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -195,7 +195,7 @@
       "batch": "rll_full_batch_15",
       "total": 5,
       "solved": 4,
-      "avg_evoscore": 0.8207,
+      "avg_evoscore": 0.8303,
       "tasks": [
         "modelcontextprotocol__python-sdk__281fd4__a9cc82",
         "modelcontextprotocol__python-sdk__998f0e__5983a6",
@@ -993,10 +993,10 @@
       "task_id": "more-itertools__more-itertools__3c1e75__b469c1",
       "repo_name": "more-itertools/more-itertools",
       "initial_gap": 140,
-      "final_gap": 73,
-      "num_epochs": 3,
-      "fix_rate": 47.9,
-      "evoscore": 0.6414,
+      "final_gap": 49,
+      "num_epochs": 5,
+      "fix_rate": 65.0,
+      "evoscore": 0.6894,
       "status": "improving",
       "batch": "rll_full_batch_15"
     },
@@ -1012,7 +1012,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-31T02:21:31",
+  "last_updated": "2026-03-31T02:44:26",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
