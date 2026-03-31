@@ -1025,14 +1025,14 @@
       "repo_name": "nat-n/poethepoet",
       "initial_gap": 8,
       "final_gap": 3,
-      "num_epochs": 2,
+      "num_epochs": 3,
       "fix_rate": 62.5,
       "evoscore": 0.725,
       "status": "improving",
       "batch": "rll_full_batch_17"
     }
   ],
-  "last_updated": "2026-03-31T10:36:28",
+  "last_updated": "2026-03-31T11:38:16",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
