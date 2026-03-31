@@ -994,7 +994,7 @@
       "repo_name": "more-itertools/more-itertools",
       "initial_gap": 140,
       "final_gap": 4,
-      "num_epochs": 10,
+      "num_epochs": 11,
       "fix_rate": 97.1,
       "evoscore": 0.7696,
       "status": "improving",
@@ -1012,7 +1012,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-31T07:09:43",
+  "last_updated": "2026-03-31T08:39:47",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
