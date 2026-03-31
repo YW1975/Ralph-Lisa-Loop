@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/modelcontextprotocol/python-sdk.git",
   "licence": "MIT License",
   "initial_gap": 161,
-  "final_gap": 161,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 110,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,37 +14,90 @@
       "passed": 655,
       "failed": 15,
       "total": 672
+    },
+    {
+      "epoch": 1,
+      "gap": 110,
+      "passed": 706,
+      "failed": 2,
+      "total": 710,
+      "programmer_time": 4233.4268181324005
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 655,
+    "failed": 15,
+    "total": 672
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-31-01-57-55",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/src/mcp/shared/tool_name_validation.py (new file)",
+          "description": "The module `mcp.shared.tool_name_validation` does not exist. The test file\n      `tests/shared/test_tool_name_validation.py` imports three functions from it:\n      `validate_tool_name`, `issue_tool_name_warning`, and `validate_and_warn_tool_name`.\n      Pytest fails to collect the entire test module (~22 test cases), causing all of them\n      to be non-passed.",
+          "contract": "Create a new module at `code/src/mcp/shared/tool_name_validation.py` exposing the\n      following public API:\n\n      1. **`ValidationResult`** (or equivalent named tuple / dataclass):\n         - `is_valid: bool` — whether the name passes all hard rules.\n         - `warnings: list[str]` — list of human-readable warning/error messages. An invalid\n           name MUST have at least one warning; a name with only soft issues (e.g. leading\n           dash) may be valid but still carry warnings.\n\n      2. **`validate_tool_name(tool_name: str) -> ValidationResult`**:\n         Hard rules (is_valid → False if violated):\n         - Empty string → warning \"Tool name cannot be empty\".\n         - Length > 128 chars → warning containing \"exceeds maximum length of 128 characters\n           (current: N)\" where N is the actual length.\n         - Any character outside `[a-zA-Z0-9_\\-.]` → invalid; warning must contain\n           \"invalid characters\" and each offending character quoted as e.g. `' '`, `','`,\n           `'/'`, `'@'`.  Multiple distinct invalid chars MUST all appear in the same warning.\n\n         Soft rules (is_valid → True, but warnings list is non-empty):\n         - Name starts or ends with `-` → warning containing \"starts or ends with a dash\".\n         - Name starts or ends with `.` → warning containing \"starts or ends with a dot\".\n\n         Boundary:\n         - A name consisting entirely of dashes (e.g. `\"---\"`) is VALID with a dash warning.\n         - A name consisting entirely of dots (e.g. `\"...\"`) is VALID with a dot warning.\n         - A name consisting entirely of slashes (e.g. `\"///\"`) is INVALID (invalid chars).\n         - Length exactly 128 is valid with no length warning.\n\n      3. **`issue_tool_name_warning(tool_name: str, warnings: list[str]) -> None`**:\n         - If `warnings` is empty → do nothing (no logging).\n         - Otherwise → emit a single WARNING-level log (via the standard `logging` module)\n           that includes:\n           - The phrase `Tool name validation warning for \"{tool_name}\"`.\n           - Each warning prefixed with `\"- \"`.\n           - The phrase `\"Tool registration will proceed\"`.\n           - The reference `\"SEP-986\"`.\n\n      4. **`validate_and_warn_tool_name(tool_name: str) -> bool`**:\n         - Calls `validate_tool_name`.\n         - Calls `issue_tool_name_warning` with the resulting warnings.\n         - Returns `True` if `is_valid`, `False` otherwise.\n         - A clean valid name (no warnings) produces no log output at all.",
+          "acceptance_tests": "All test cases in `tests/shared/test_tool_name_validation.py` must pass, including:\n      - `TestValidateToolName::TestValidNames::*` (7 parametrized cases)\n      - `TestValidateToolName::TestInvalidNames::*` (6 cases)\n      - `TestValidateToolName::TestWarningsForProblematicPatterns::*` (4 cases)\n      - `TestIssueToolNameWarning::*` (2 cases)\n      - `TestValidateAndWarnToolName::*` (4 cases)\n      - `TestEdgeCases::*` (4 parametrized cases)"
+        },
+        {
+          "id": "2",
+          "location": "code/src/mcp/types.py — ElicitRequestParams section (around line 1441)",
+          "description": "The types `ElicitRequestFormParams` and `ElicitRequestURLParams` and the constant\n      `URL_ELICITATION_REQUIRED` do not exist in `mcp.types`.\n\n      Absence of `ElicitRequestFormParams` causes:\n      - `tests/server/fastmcp/test_elicitation.py::test_elicitation_with_default_values` to\n        fail: the elicitation callback executes `isinstance(params, types.ElicitRequestFormParams)`\n        which raises `AttributeError`, which is caught by the shared session receive-loop and\n        surfaced to the tool as \"Invalid request parameters\".\n      - `tests/server/fastmcp/test_url_elicitation.py` form-mode assertions to fail.\n\n      Absence of `ElicitRequestURLParams` prevents url-elicitation tests from type-checking\n      responses.\n\n      Absence of `URL_ELICITATION_REQUIRED` causes\n      `tests/shared/test_exceptions.py` and `tests/server/fastmcp/test_url_elicitation.py`\n      to fail to collect / run.",
+          "contract": "In `code/src/mcp/types.py`, make the following additions and modifications:\n\n      1. Add integer constant:\n         ```\n         URL_ELICITATION_REQUIRED: int = -32042\n         ```\n         (This is a JSON-RPC error code per SEP 1036.)\n\n      2. Define `ElicitRequestFormParams(RequestParams)`:\n         - Fields: `mode: Literal[\"form\"] = \"form\"`, `message: str`,\n           `requestedSchema: ElicitRequestedSchema`.\n         - `model_config = ConfigDict(extra=\"allow\")`.\n         - This class represents the existing form-mode elicitation (backward-compatible\n           replacement for the current `ElicitRequestParams` used in form mode).\n\n      3. Define `ElicitRequestURLParams(RequestParams)`:\n         - Fields: `mode: Literal[\"url\"] = \"url\"`, `message: str`, `url: str`,\n           `elicitationId: str`.\n         - `model_config = ConfigDict(extra=\"allow\")`.\n         - No `requestedSchema` field (URL mode carries a redirect URL instead).\n         - No `content` field in the params (content is always `None` in the result).\n\n      4. Update `ElicitRequestParams` to be a discriminated union type alias:\n         ```\n         ElicitRequestParams = Annotated[\n             ElicitRequestFormParams | ElicitRequestURLParams,\n             Field(discriminator=\"mode\")\n         ]\n         ```\n         Existing callers of `ElicitRequestParams(message=..., requestedSchema=...)` (in\n         `ServerSession.elicit()`) must be updated to `ElicitRequestFormParams(...)` so\n         they include `mode=\"form\"` by default.\n\n      5. Update `ElicitRequest.params` field type to `ElicitRequestFormParams | ElicitRequestURLParams`\n         (or keep using `ElicitRequestParams` if Pydantic handles the union annotation correctly).\n\n      Behavioral contracts:\n      - `isinstance(params, ElicitRequestFormParams)` returns True when the elicitation was\n        created via the form-mode path.\n      - `isinstance(params, ElicitRequestURLParams)` returns True when the elicitation was\n        created via the URL-mode path.\n      - `params.mode == \"form\"` for form-mode, `params.mode == \"url\"` for URL-mode.\n      - Pydantic can discriminate and round-trip both variants through JSON serialization.",
+          "acceptance_tests": "- `tests/server/fastmcp/test_elicitation.py::test_elicitation_with_default_values` passes.\n      - `tests/server/fastmcp/test_url_elicitation.py::test_form_mode_still_works` passes\n        (once requirement 4 is also implemented).\n      - `tests/server/fastmcp/test_url_elicitation.py::test_url_elicitation_required_error_code`\n        passes: `types.URL_ELICITATION_REQUIRED == -32042`.\n      - `tests/shared/test_exceptions.py` can be collected without ImportError."
+        },
+        {
+          "id": "3",
+          "location": "code/src/mcp/shared/exceptions.py",
+          "description": "`mcp.shared.exceptions` only defines `McpError`. The class `UrlElicitationRequiredError`\n      is missing, causing `tests/shared/test_exceptions.py` to fail with an `ImportError`\n      (`cannot import name 'UrlElicitationRequiredError' from 'mcp.shared.exceptions'`),\n      which prevents all 9 test cases in `TestUrlElicitationRequiredError` from running.",
+          "contract": "Add `UrlElicitationRequiredError` to `code/src/mcp/shared/exceptions.py`:\n\n      Class signature (inherits from `McpError`):\n      ```\n      class UrlElicitationRequiredError(McpError):\n          elicitations: list[ElicitRequestURLParams]\n      ```\n\n      Constructor:\n      - `__init__(self, elicitations: list[ElicitRequestURLParams], message: str | None = None)`\n      - If `message` is None:\n        - Use `\"URL elicitation required\"` when `len(elicitations) == 1`.\n        - Use `\"URL elicitations required\"` when `len(elicitations) > 1`.\n      - Calls `super().__init__(ErrorData(code=URL_ELICITATION_REQUIRED, message=message,\n        data={\"elicitations\": [e.model_dump(by_alias=True, mode=\"json\", exclude_none=True)\n                               for e in elicitations]}))`.\n      - Stores `elicitations` as an instance attribute.\n      - `str(error)` must equal the message string (inherited from `McpError.__init__` via\n        `super().__init__(error.message)` → `Exception.__init__`).\n\n      Class method:\n      - `from_error(cls, error_data: ErrorData) -> UrlElicitationRequiredError`\n        - If `error_data.code != URL_ELICITATION_REQUIRED`, raise\n          `ValueError(f\"Expected error code {URL_ELICITATION_REQUIRED}, got {error_data.code}\")`.\n        - Otherwise parse `error_data.data[\"elicitations\"]` as a list of\n          `ElicitRequestURLParams` and construct a new instance.\n\n      Imports needed: `URL_ELICITATION_REQUIRED` and `ElicitRequestURLParams` from\n      `mcp.types`, `ErrorData` is already imported.",
+          "acceptance_tests": "All 9 test cases in `tests/shared/test_exceptions.py::TestUrlElicitationRequiredError`\n      must pass:\n      - `test_create_with_single_elicitation`\n      - `test_create_with_multiple_elicitations`\n      - `test_custom_message`\n      - `test_from_error_data`\n      - `test_from_error_data_wrong_code`\n      - `test_serialization_roundtrip`\n      - `test_error_data_contains_elicitations`\n      - `test_inherits_from_mcp_error`\n      - `test_exception_message`"
+        },
+        {
+          "id": "4",
+          "location": "code/src/mcp/server/session.py — class ServerSession;\n      code/src/mcp/server/elicitation.py — module-level;\n      code/src/mcp/server/fastmcp/server.py — class Context",
+          "description": "`ServerSession` has no `elicit_url` or `send_elicit_complete` methods.\n      `mcp.server.elicitation` has no `AcceptedUrlElicitation` class and no `elicit_url`\n      helper function. The `Context` class in `fastmcp/server.py` has no `elicit_url`\n      convenience method.\n\n      All 10 test cases in `tests/server/fastmcp/test_url_elicitation.py` fail with\n      `'ServerSession' object has no attribute 'elicit_url'`.\n\n      This requirement depends on Requirement 2 being implemented first (so that\n      `ElicitRequestURLParams` exists in `mcp.types`).",
+          "contract": "**A. `ServerSession.elicit_url` (in `code/src/mcp/server/session.py`)**\n\n      Add an async method:\n      ```\n      async def elicit_url(\n          self,\n          message: str,\n          url: str,\n          elicitation_id: str,\n          related_request_id: types.RequestId | None = None,\n      ) -> types.ElicitResult:\n      ```\n      - Sends a `types.ElicitRequest` using `types.ElicitRequestURLParams(mode=\"url\",\n        message=message, url=url, elicitationId=elicitation_id)` as params.\n      - Returns `types.ElicitResult` (the raw result with `.action` and `.content` fields).\n      - `.content` will be `None` for URL-mode responses (the client does not send form data).\n\n      Additionally, update `ServerSession.elicit()` (the existing form-mode method) to use\n      `types.ElicitRequestFormParams(mode=\"form\", message=message, requestedSchema=requestedSchema)`\n      so it sets `mode=\"form\"` explicitly (required by the discriminated union introduced in\n      Requirement 2).\n\n      **B. `ServerSession.send_elicit_complete` (in `code/src/mcp/server/session.py`)**\n\n      Add an async method:\n      ```\n      async def send_elicit_complete(\n          self,\n          elicitation_id: str,\n          related_request_id: types.RequestId | None = None,\n      ) -> None:\n      ```\n      - Sends a server notification indicating that an elicitation identified by\n        `elicitation_id` has completed (e.g. user finished the external OAuth/payment flow).\n      - The notification type and exact wire format should follow the MCP spec / SEP 1036\n        for `elicitation/complete`. If such a notification type does not yet exist in\n        `mcp.types`, add a minimal `ElicitCompleteNotification` + params class to `mcp.types`\n        and include it in `ServerNotification`.\n\n      **C. `AcceptedUrlElicitation` and `elicit_url` helper (in `code/src/mcp/server/elicitation.py`)**\n\n      1. Add class:\n         ```\n         class AcceptedUrlElicitation(BaseModel):\n             action: Literal[\"accept\"] = \"accept\"\n             content: None = None\n         ```\n\n      2. Add async helper function:\n         ```\n         async def elicit_url(\n             session: ServerSession,\n             message: str,\n             url: str,\n             elicitation_id: str,\n             related_request_id: RequestId | None = None,\n         ) -> AcceptedUrlElicitation | DeclinedElicitation | CancelledElicitation:\n         ```\n         - Calls `session.elicit_url(message=message, url=url, elicitation_id=elicitation_id,\n           related_request_id=related_request_id)`.\n         - Maps result.action:\n           - `\"accept\"` → returns `AcceptedUrlElicitation()`.\n           - `\"decline\"` → returns `DeclinedElicitation()`.\n           - `\"cancel\"` → returns `CancelledElicitation()`.\n\n      **D. `Context.elicit_url` (in `code/src/mcp/server/fastmcp/server.py`)**\n\n      Add a convenience async method to the `Context` class:\n      ```\n      async def elicit_url(\n          self,\n          message: str,\n          url: str,\n          elicitation_id: str,\n      ) -> AcceptedUrlElicitation | DeclinedElicitation | CancelledElicitation:\n      ```\n      - Delegates to `elicit_url(session=self.session, message=message, url=url,\n        elicitation_id=elicitation_id, related_request_id=self.request_id)` from\n        `mcp.server.elicitation`.",
+          "acceptance_tests": "All 10 test cases in `tests/server/fastmcp/test_url_elicitation.py` must pass:\n      - `test_url_elicitation_accept`\n      - `test_url_elicitation_decline`\n      - `test_url_elicitation_cancel`\n      - `test_url_elicitation_helper_function`\n      - `test_url_no_content_in_response`\n      - `test_form_mode_still_works`\n      - `test_elicit_complete_notification`\n      - `test_url_elicitation_required_error_code`\n      - `test_elicit_url_typed_results`\n      - `test_deprecated_elicit_method`\n      - `test_ctx_elicit_url_convenience_method`"
+        },
+        {
+          "id": "5",
+          "location": "code/src/mcp/client/streamable_http.py — method `StreamableHTTPTransport._handle_sse_event`\n      (around line 162)",
+          "description": "When a Server-Sent Event with an empty `data` field (keep-alive ping) is received,\n      the current implementation unconditionally calls\n      `JSONRPCMessage.model_validate_json(sse.data)` which raises a Pydantic\n      `ValidationError` for empty input. The error is caught and the exception object is\n      sent to the write stream, polluting it with a parse error instead of silently\n      discarding the keep-alive event.\n\n      `tests/shared/test_streamable_http.py::test_handle_sse_event_skips_empty_data`\n      asserts that after calling `_handle_sse_event` with an empty-data SSE event, the\n      stream's `current_buffer_used == 0` (nothing was written), but currently it is 1\n      (the ValidationError was enqueued).",
+          "contract": "In the `_handle_sse_event` method of `StreamableHTTPTransport`:\n      - When `sse.event == \"message\"` and `sse.data` is an empty string (or contains only\n        whitespace), the method MUST return `False` immediately without attempting to\n        parse the data and without writing anything to `read_stream_writer`.\n      - This check must occur before the `JSONRPCMessage.model_validate_json(sse.data)` call.\n      - The method's return value remains `False` for keep-alive pings (not complete).\n      - All other existing behaviors (non-empty data parsing, error forwarding, resumption\n        callbacks, etc.) remain unchanged.",
+          "acceptance_tests": "`tests/shared/test_streamable_http.py::test_handle_sse_event_skips_empty_data` must pass:\n      - `result is False` (method returns False for empty data).\n      - `write_stream.statistics().current_buffer_used == 0` (nothing written to stream)."
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
-      "refactor": 0,
-      "api_change": 0,
+      "bug_fix": 5,
+      "new_feature": 5,
+      "refactor": 1,
+      "api_change": 5,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "high"
   },
-  "last_updated": "2026-03-29T18:02:05",
+  "last_updated": "2026-03-31T02:14:21",
   "batch": "rll_full_batch_15",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.6584,
+    "m2": 0.3168,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.595
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0,
+  "evoscore": 0.595,
+  "fix_rate": 31.7,
   "env_limit_reason": null
 }
