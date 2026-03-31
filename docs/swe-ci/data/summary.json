@@ -10,7 +10,7 @@
   "solve_rate": 93.0,
   "zero_regression_rate": 94.4,
   "zero_regression_count": 67,
-  "avg_fix_rate": 98.7,
+  "avg_fix_rate": 98.9,
   "avg_evoscore": 0.9749,
   "avg_evoscore_completed": 0.9749,
   "batches": [
@@ -959,9 +959,9 @@
       "task_id": "modelcontextprotocol__python-sdk__281fd4__a9cc82",
       "repo_name": "modelcontextprotocol/python-sdk",
       "initial_gap": 159,
-      "final_gap": 27,
-      "num_epochs": 5,
-      "fix_rate": 83.0,
+      "final_gap": 2,
+      "num_epochs": 6,
+      "fix_rate": 98.7,
       "evoscore": 0.7282,
       "status": "improving",
       "batch": "rll_full_batch_15"
@@ -1000,7 +1000,7 @@
       "batch": "rll_full_batch_15"
     }
   ],
-  "last_updated": "2026-03-30T23:28:09",
+  "last_updated": "2026-03-31T00:06:50",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
