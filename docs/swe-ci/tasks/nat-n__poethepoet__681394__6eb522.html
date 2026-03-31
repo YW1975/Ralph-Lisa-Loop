@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nat-n/poethepoet — gap 8→8 | SWE-CI RLL Results</title>
-    <meta name="description" content="RLL dual-agent (Ralph + Lisa) working on nat-n/poethepoet — test gap 8→8 in 0 epochs. Category: General. Complexity: LOW.">
-    <meta property="og:title" content="nat-n/poethepoet — gap 8→8 | SWE-CI RLL Results">
-    <meta property="og:description" content="RLL dual-agent (Ralph + Lisa) working on nat-n/poethepoet — test gap 8→8 in 0 epochs. Category: General. Complexity: LOW.">
+    <title>nat-n/poethepoet — gap 8→3 | SWE-CI RLL Results</title>
+    <meta name="description" content="RLL dual-agent (Ralph + Lisa) working on nat-n/poethepoet — test gap 8→3 in 1 epochs. Category: Bug Fix. Complexity: LOW.">
+    <meta property="og:title" content="nat-n/poethepoet — gap 8→3 | SWE-CI RLL Results">
+    <meta property="og:description" content="RLL dual-agent (Ralph + Lisa) working on nat-n/poethepoet — test gap 8→3 in 1 epochs. Category: Bug Fix. Complexity: LOW.">
     <meta property="og:type" content="article">
     <link rel="canonical" href="https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/nat-n__poethepoet__681394__6eb522.html">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -254,13 +254,13 @@
         <h1>nat-n__poethepoet__681394__6eb522</h1>
         <p><strong>Repository:</strong> <a href="https://github.com/nat-n/poethepoet" target="_blank">nat-n/poethepoet</a></p>
         <p><strong>License:</strong> MIT License</p>
-        <p><strong>Status:</strong> pending</p>
-        <p><strong>Test Gap:</strong> 8 → 8</p>
-        <p><strong>Epochs:</strong> 0</p>
-        <p><strong>Fix Rate:</strong> 0%</p>
+        <p><strong>Status:</strong> improving</p>
+        <p><strong>Test Gap:</strong> 8 → 3</p>
+        <p><strong>Epochs:</strong> 1</p>
+        <p><strong>Fix Rate:</strong> 62%</p>
         <p><strong>Complexity:</strong> LOW</p>
-        <p><strong>Category:</strong> General</p>
-        <p><strong>Requirements:</strong> 0 items</p>
+        <p><strong>Category:</strong> Bug Fix</p>
+        <p><strong>Requirements:</strong> 3 items</p>
         <p>Enable JavaScript to see the full interactive page with gap curve, code diff, and Ralph-Lisa dialogue.</p>
     </div>
     </noscript>
@@ -375,8 +375,8 @@
                 <div class="label">Repository</div>
             </div>
             <div class="info-card">
-                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status}</div>
-                <div class="label">Status</div>
+                <div class="value status-badge status-${t.status}" style="font-size:16px">${t.status === 'env_limit' ? 'env limit' : t.status}</div>
+                <div class="label">Status${t.env_limit_reason ? `<br><span style="font-size:11px;color:#8884d8;font-weight:normal">${t.env_limit_reason}</span>` : ''}</div>
             </div>
         `;
 

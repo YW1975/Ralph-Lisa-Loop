@@ -4,9 +4,9 @@
   "repo_url": "https://github.com/nat-n/poethepoet.git",
   "licence": "MIT License",
   "initial_gap": 8,
-  "final_gap": 8,
-  "num_epochs": 1,
-  "status": "pending",
+  "final_gap": 3,
+  "num_epochs": 2,
+  "status": "improving",
   "gap_curve": [
     {
       "epoch": 0,
@@ -14,36 +14,76 @@
       "passed": 192,
       "failed": 72,
       "total": 266
+    },
+    {
+      "epoch": 1,
+      "gap": 3,
+      "passed": 198,
+      "failed": 66,
+      "total": 266,
+      "programmer_time": 4295.745577096939
     }
   ],
   "dialogue": "",
   "diff_summary": [],
   "code_diff": "",
-  "test_results": {},
-  "requirements": [],
+  "test_results": {
+    "passed": 192,
+    "failed": 72,
+    "total": 266
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-31-10-06-47",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "poethepoet/task/args.py — class PoeTaskArgs (or helper), method parse()\n      and\n      poethepoet/task/base.py — class PoeTask, method get_parsed_arguments()",
+          "description": "When argparse encounters invalid arguments (wrong type, missing required\n      args, unrecognized flags, wrong nargs count), it currently writes the\n      usage/error message directly to sys.stderr and calls sys.exit(2).  This\n      means the error text ends up in result.stderr while result.capture is\n      empty and a bare SystemExit propagates up the call stack.\n\n      The test suite requires:\n        - result.stderr == \"\"\n        - result.capture contains the argparse usage+error block followed by\n          \"Error: Invalid arguments for task '&lt;name&gt;'\\n\"\n        - result.code == 2\n        - No unhandled SystemExit escapes to the caller",
+          "contract": "1. The ArgumentParser used in args.py must NOT write to sys.stderr and\n         must NOT call sys.exit() on error.  Instead, when argparse would\n         normally error, the implementation must:\n           a. Collect the full usage+error text that argparse would have printed\n              (preserving the exact argparse format, including newlines).\n           b. Raise an internal exception (e.g. a new exception class or an\n              existing PoeException subclass) that carries this text as a\n              payload.\n\n      2. In base.py get_parsed_arguments() (or the call site in run()), catch\n         the exception raised in step 1 and:\n           a. Write the argparse usage+error text to the UI output stream\n              (self.ctx.ui) — this text must appear in result.capture.\n           b. Immediately after, write:\n                \"Error: Invalid arguments for task '&lt;task_name&gt;'\\n\"\n              to the same UI output stream (using the same error-formatting\n              path used elsewhere, so the line appears verbatim in capture).\n           c. Return exit code 2 (or raise an ExecutionError / PoeException\n              that ultimately produces exit code 2 without writing anything\n              additional to stderr).\n\n      3. result.stderr must remain empty for all invalid-argument scenarios.\n\n      4. The program_name passed via self.ctx.ui.program_name must be used as\n         the ArgumentParser prog= value so error messages carry the correct\n         prefix (e.g. \"boop async-task: error: …\").\n\n      Boundary conditions:\n        - Missing required named argument  (--greeting, --name)\n        - Wrong type for argument          (--age=lol → expects int)\n        - Missing argument value           (--age with no value)\n        - Unrecognized argument            (--potato, --fail)\n        - Wrong nargs count                (--widgets given 0 instead of 2)\n        - Missing required positional arg  (user is required)\n        - Too many positional args",
+          "acceptance_tests": "tests/test_script_tasks.py::test_wrong_args_passed\n      tests/test_script_tasks.py::test_required_args\n      tests/test_script_tasks.py::test_script_with_positional_args\n      tests/test_script_tasks.py::test_script_with_multi_value_args\n      tests/test_api.py::test_bad_args_doc_with_custom_program_name\n\n      For each of these tests:\n        - result.stderr == \"\"\n        - result.capture contains the argparse usage+error text\n        - result.capture ends with \"Error: Invalid arguments for task '…'\\n\"\n        - result.code == 2"
+        },
+        {
+          "id": "2",
+          "location": "poethepoet/task/sequence.py — class SequenceTask, method _handle_run()\n      (approximately line 148)",
+          "description": "When a subtask in a sequence fails and ignore_fail is set, the code\n      currently does:\n          print(\"Warning:\", error.msg)\n      This routes the Warning message to raw stdout (result.stdout), but the\n      test suite asserts that the Warning text appears in result.capture (the\n      UI output stream), and result.stdout does NOT contain it.\n\n      Two tests are affected:\n        - test_nested_lvl2_return_non_zero: expects\n            \"Warning: Sequence aborted after failed subtask 'task_1'\" in capture\n        - test_nested_both_return_non_zero: expects\n            \"Warning: Subtasks 'task_1', 'task_2' returned non-zero exit status\"\n            in capture\n\n      Both tests also assert that these strings are NOT present in stdout.",
+          "contract": "The Warning message produced when ignore_fail causes a failed subtask to\n      be tolerated must be written to the UI output stream (the same stream\n      that all other poe messages — \"Poe =>\", \"Error:\", etc. — are written to),\n      NOT to raw stdout.\n\n      The message format must be:\n        \"Warning: &lt;message text&gt;\"\n      where &lt;message text&gt; is the same content currently passed to print().\n\n      The warning must appear in result.capture and must NOT appear in\n      result.stdout.\n\n      The implementation must use the UI interface already available on the\n      task context (self.ctx.ui or equivalent) rather than the built-in print().",
+          "acceptance_tests": "tests/test_ignore_fail.py::test_nested_lvl2_return_non_zero\n        - \"Warning: Sequence aborted after failed subtask 'task_1'\" in result.capture\n        - result.stdout does not contain this warning text\n\n      tests/test_ignore_fail.py::test_nested_both_return_non_zero\n        - \"Warning: Subtasks 'task_1', 'task_2' returned non-zero exit status\"\n          in result.capture\n        - result.stdout does not contain this warning text"
+        },
+        {
+          "id": "3",
+          "location": "poethepoet/app.py — method __call__() or get_task(), approximately line 166",
+          "description": "When a user invokes an unknown task name, the error message currently uses\n      the British spelling \"Unrecognised\":\n          f\"Unrecognised task {task_name!r}\"\n      The test asserts the American spelling \"Unrecognized\":\n          \"Error: Unrecognized task 'not_a_task'\" in result.capture\n      This is a simple spelling mismatch that causes the assertion to fail.",
+          "contract": "The error message for an unknown task must use the American English\n      spelling \"Unrecognized\" (not \"Unrecognised\").\n\n      The full error line appearing in result.capture must match:\n          \"Error: Unrecognized task '&lt;task_name&gt;'\"\n\n      All other behavior (exit code 1, help text also shown, etc.) must remain\n      unchanged.",
+          "acceptance_tests": "tests/test_cli.py::test_call_unknown_task\n        - result.code == 1\n        - \"Error: Unrecognized task 'not_a_task'\" in result.capture"
+        }
+      ]
+    }
+  ],
   "task_analysis": {
-    "total_requirements": 0,
-    "primary_category": "general",
+    "total_requirements": 3,
+    "primary_category": "bug_fix",
     "categories": {
-      "bug_fix": 0,
-      "new_feature": 0,
+      "bug_fix": 3,
+      "new_feature": 2,
       "refactor": 0,
-      "api_change": 0,
+      "api_change": 2,
       "test_fix": 0,
-      "config": 0
+      "config": 1
     },
     "complexity": "low"
   },
-  "last_updated": "2026-03-28T17:44:30",
+  "last_updated": "2026-03-31T10:36:28",
   "batch": "rll_full_batch_17",
   "evoscore_detail": {
-    "m1": 0.5,
-    "m2": 0.0,
+    "m1": 0.875,
+    "m2": 0.75,
     "m3": 1.0,
     "m4": 0.0,
     "m5": 1.0,
-    "overall": 0.5
+    "overall": 0.725
   },
-  "evoscore": 0.5,
-  "fix_rate": 0.0
+  "evoscore": 0.725,
+  "fix_rate": 62.5,
+  "env_limit_reason": null
 }
