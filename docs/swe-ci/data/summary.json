@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 78,
+  "total_evaluated": 79,
   "solved": 73,
   "env_limit": 3,
-  "improving": 1,
+  "improving": 2,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 78,
-  "solve_rate": 93.6,
-  "zero_regression_rate": 93.6,
-  "zero_regression_count": 73,
-  "avg_fix_rate": 95.0,
-  "avg_evoscore": 0.9684,
-  "avg_evoscore_completed": 0.9684,
+  "pending": 14,
+  "total_completed": 79,
+  "solve_rate": 92.4,
+  "zero_regression_rate": 93.7,
+  "zero_regression_count": 74,
+  "avg_fix_rate": 94.0,
+  "avg_evoscore": 0.9631,
+  "avg_evoscore_completed": 0.9631,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -227,11 +227,12 @@
     },
     {
       "batch": "rll_full_batch_21",
-      "total": 1,
+      "total": 2,
       "solved": 1,
-      "avg_evoscore": 1.0,
+      "avg_evoscore": 0.7776,
       "tasks": [
-        "pycord-development__pycord__f7047c__510a44"
+        "pycord-development__pycord__f7047c__510a44",
+        "pydantic__pydantic-settings__e16290__0497ef"
       ]
     },
     {
@@ -1106,9 +1107,20 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_21"
+    },
+    {
+      "task_id": "pydantic__pydantic-settings__e16290__0497ef",
+      "repo_name": "pydantic/pydantic-settings",
+      "initial_gap": 76,
+      "final_gap": 62,
+      "num_epochs": 2,
+      "fix_rate": 18.4,
+      "evoscore": 0.5553,
+      "status": "improving",
+      "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-03-31T23:26:19",
+  "last_updated": "2026-04-01T00:26:27",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

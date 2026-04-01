@@ -1,0 +1,103 @@
+{
+  "task_id": "pydantic__pydantic-settings__e16290__0497ef",
+  "repo_name": "pydantic/pydantic-settings",
+  "repo_url": "https://github.com/pydantic/pydantic-settings.git",
+  "licence": "MIT License",
+  "initial_gap": 76,
+  "final_gap": 62,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 76,
+      "passed": 392,
+      "failed": 23,
+      "total": 441
+    },
+    {
+      "epoch": 1,
+      "gap": 62,
+      "passed": 406,
+      "failed": 9,
+      "total": 441,
+      "programmer_time": 3290.7270698547363
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 392,
+    "failed": 23,
+    "total": 441
+  },
+  "requirements": [
+    {
+      "epoch": "2026-04-01-00-09-07",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "pydantic_settings/main.py — CliApp class (currently ends at line ~610, after run_subcommand method)",
+          "description": "CliApp.serialize() static method is completely absent from the CliApp class.\n      Tests call CliApp.serialize(model_instance) to convert a model back into a list of CLI\n      arguments (list[str]) suitable for passing back to CliApp.run(). Without this method,\n      an AttributeError is raised at every call site.\n\n      Affected tests (by direct AttributeError):\n        tests/test_source_cli.py::test_cli_bool_flags[True]\n        tests/test_source_cli.py::test_cli_bool_flags[False]\n        tests/test_source_cli.py::test_cli_alias_arg[True]\n        tests/test_source_cli.py::test_cli_alias_arg[False]\n        tests/test_source_cli.py::test_cli_kebab_case\n        tests/test_source_cli.py::test_cli_serialize_ordering\n        tests/test_source_cli.py::test_cli_serialize_non_default_values\n        tests/test_source_cli.py::test_cli_serialize_positional_args",
+          "contract": "Add a static method to CliApp with the following behavioral contract:\n\n      Signature:\n        CliApp.serialize(model: BaseModel | pydantic_dataclass) -> list[str]\n\n      Behavior:\n      1. Accepts any instance of BaseModel, BaseSettings, or a pydantic dataclass.\n      2. Returns a list of strings representing CLI arguments that encode the model's\n         non-default field values, such that CliApp.run(type(model), cli_args=result)\n         produces a model with an equal model_dump().\n      3. Only serialize fields whose current value differs from the field's default\n         (fields equal to their default are omitted). Required fields with no default\n         are always serialized.\n      4. Argument construction rules per field type:\n         - CliPositionalArg[T]: append str(value) directly (no \"--\" prefix).\n         - CliImplicitFlag[bool] (or fields treated as implicit flags when\n           cli_implicit_flags=True): append '--{field_name}' for True,\n           '--no-{field_name}' for False.\n         - CliExplicitFlag[bool]: append ['--{field_name}', str(value)] (e.g., 'True'/'False').\n         - CliSubCommand[T]: append [subcommand_name] followed by the recursive\n           serialization of the active subcommand model instance.\n         - All other optional fields: append ['--{field_name}', str(value)].\n         If cli_kebab_case is active on the model, field names should be converted\n         to kebab-case in the output (underscores replaced with hyphens).\n      5. Ordering within each nesting level:\n         a. Optional (non-positional, non-subcommand) args first, in field definition order.\n         b. Positional args second, in field definition order.\n         c. Subcommand name and its serialized args last.\n      6. The method must be a @staticmethod on CliApp so it is callable as\n         CliApp.serialize(instance) without instantiating CliApp.\n\n      Round-trip guarantee:\n        CliApp.run(type(model), cli_args=CliApp.serialize(model)).model_dump()\n        must equal model.model_dump() for any model produced by CliApp.run().\n\n      Example contracts extracted from tests:\n        - Cfg(non_default_val=456) with default_val=123 → ['--non_default_val', '456']\n        - Cfg with ExplicitFlag bool=True, ImplicitFlag bool=True →\n            ['--explicit_req', 'True', '--implicit_req']\n        - Cfg with ExplicitFlag bool=False, ImplicitFlag bool=False →\n            ['--explicit_req', 'False', '--no-implicit_req']\n        - Cfg with CliPositionalArg and CliSubCommand →\n            ['--optional', '0', 'pos_1', 'command', '--optional', '2', 'pos_3']",
+          "acceptance_tests": "tests/test_source_cli.py::test_cli_serialize_non_default_values\n      tests/test_source_cli.py::test_cli_serialize_ordering\n      tests/test_source_cli.py::test_cli_serialize_positional_args\n      tests/test_source_cli.py::test_cli_bool_flags[True]\n      tests/test_source_cli.py::test_cli_bool_flags[False]\n      Validation: CliApp.serialize(model) returns list[str] and\n      CliApp.run(type(model), cli_args=CliApp.serialize(model)).model_dump() == model.model_dump()"
+        },
+        {
+          "id": "2",
+          "location": "pydantic_settings/sources/providers/cli.py — CliSettingsSource class (__init__ and\n      argument-registration logic); pydantic_settings/utils.py or env_settings.py where\n      SettingsConfigDict is defined (to add the new cli_shortcuts key).",
+          "description": "The cli_shortcuts configuration option does not exist in SettingsConfigDict and is not\n      handled anywhere in CliSettingsSource. Tests configure it via:\n\n        model_config = SettingsConfigDict(cli_shortcuts={...})\n\n      and expect that alternative argument names (shortcuts) are registered with argparse so\n      that passing --shortcut_name value on the CLI sets the corresponding field(s).\n\n      Currently CliSettingsSource ignores cli_shortcuts entirely, so any shortcut-named\n      arguments are \"unrecognized\" by argparse and cause SystemExit: 2.\n\n      Affected tests:\n        tests/test_source_cli.py::test_cli_shortcuts_on_flat_object\n        tests/test_source_cli.py::test_cli_shortcuts_on_nested_object\n        tests/test_source_cli.py::test_cli_shortcuts_alias_collision_applies_to_first_target_field",
+          "contract": "1. Add cli_shortcuts as a valid optional key in SettingsConfigDict with type\n         dict[str, str | list[str]] | None, defaulting to None.\n\n      2. In CliSettingsSource.__init__, read self.cli_shortcuts from\n         settings_cls.model_config.get('cli_shortcuts', None).\n\n      3. The cli_shortcuts dict maps fully-qualified field paths (using '.' delimiter for\n         nested fields) to one or more shortcut CLI argument names:\n           - Key: 'option' means the top-level field named 'option'.\n           - Key: 'nested.option' means the 'option' field inside the 'nested' sub-model.\n           - Value: str or list[str] — one or more shortcut names for this field.\n\n      4. For each (field_path, shortcut_names) entry, register additional CLI optional\n         arguments in argparse using the shortcut name(s) (with the configured prefix,\n         e.g., '--shortcut_name'). These arguments must map their parsed values to the\n         corresponding field path so the value is correctly applied when settings are loaded.\n\n      5. Collision handling: if two different field paths map to the same shortcut name,\n         the first entry in cli_shortcuts iteration order wins. The shortcut is registered\n         only for the first matching field; subsequent fields that also list the same\n         shortcut name are silently skipped for that shortcut (they retain their own\n         non-shortcut argument name).\n\n      6. Flat object example:\n           cli_shortcuts={'option': 'option2', 'list_option': ['list_option2']}\n           cli_args=['--option2', 'bar', '--list_option2', 'buzz']\n           → Settings(option='bar', list_option='buzz')\n\n      7. Nested object example:\n           cli_shortcuts={'nested.option': 'option2',\n                          'nested.twice_nested_option.option': 'twice_nested_option'}\n           cli_args=['--option2', 'bar', '--twice_nested_option', 'baz']\n           → Settings(nested=Nested(option='bar', twice_nested_option=TwiceNested(option='baz')))\n\n      8. Collision example:\n           cli_shortcuts={'option2': 'abc', 'nested.option': 'abc'}\n           cli_args=['--abc', 'bar']\n           → 'abc' maps to 'nested.option' (the first entry is 'option2': 'abc',\n             so the FIRST field listed wins = 'option2' gets the shortcut 'abc',\n             but test expects nested.option gets 'bar' and option2 stays 'foo2')\n           NOTE: re-read test — cli_shortcuts={'option2': 'abc', 'nested.option': 'abc'}\n           and result has nested.option='bar', option2='foo2', so 'nested.option' wins.\n           This means the collision rule is: first in dict iteration order that maps to\n           the same shortcut gets that shortcut registered. If the dict is\n           {'option2': 'abc', 'nested.option': 'abc'}, and after registration the test\n           shows nested.option gets the value while option2 stays default — this implies\n           the first registrant (option2→abc) owns the shortcut but the test shows the\n           opposite. Implementors should verify which field path wins by reading the test\n           at line 2699-2712 carefully. The behavior must match exactly what the test asserts.",
+          "acceptance_tests": "tests/test_source_cli.py::test_cli_shortcuts_on_flat_object\n      tests/test_source_cli.py::test_cli_shortcuts_on_nested_object\n      tests/test_source_cli.py::test_cli_shortcuts_alias_collision_applies_to_first_target_field"
+        },
+        {
+          "id": "3",
+          "location": "pydantic_settings/sources/providers/cli.py — CliSettingsSource.__init__ (lines 253-260)",
+          "description": "When an external root_parser is explicitly provided by the caller, CliSettingsSource.__init__\n      still automatically calls:\n        self._load_env_vars(parsed_args=self._parse_args(self.root_parser, self.cli_parse_args))\n\n      at line 260. Because this external parser only knows about the settings fields registered\n      by CliSettingsSource, it does not know about arguments added to the parser AFTER this call,\n      nor about arguments that came from a previous parse. This causes SystemExit: 2 when the\n      external parser encounters unrecognized arguments in sys.argv.\n\n      The test (test_cli_app_with_separate_parser) demonstrates:\n        1. Create external parser = argparse.ArgumentParser()\n        2. cli_settings = CliSettingsSource(Cfg, root_parser=parser)  ← fails here\n        3. parser.add_argument('-e', '--extra', ...)  ← would add extra arg AFTER\n        4. parsed_args = parser.parse_args()  ← caller does the actual parsing\n        5. CliApp.run(Cfg, cli_args=parsed_args, cli_settings_source=cli_settings)\n\n      Step 2 currently triggers an immediate sys.argv parse through the external parser,\n      which fails if sys.argv contains arguments unknown to that parser at that moment.",
+          "contract": "When root_parser is provided by the caller (i.e., the root_parser parameter to __init__\n      is not None), CliSettingsSource.__init__ MUST NOT automatically call _parse_args /\n      _load_env_vars during initialization. The automatic parse-on-init block (lines 253-260)\n      should be conditional on the internal parser being used (root_parser was None and was\n      constructed internally).\n\n      The deferred-parse contract:\n      - When root_parser is provided externally, initialization completes without parsing.\n      - Arguments are registered on the provided parser (via _connect_root_parser / _add_parser_args)\n        so the caller can call parser.parse_args() with the full argument set.\n      - When __call__(parsed_args=namespace_or_dict) is later invoked with pre-parsed args,\n        those args are used directly to load env vars.\n\n      No change is needed to the case where root_parser is None (internal parser created\n      automatically) — in that case the existing auto-parse behavior is correct and must be\n      preserved.",
+          "acceptance_tests": "tests/test_source_cli.py::test_cli_app_with_separate_parser\n      Validation: CliSettingsSource(Cfg, root_parser=external_parser) must not raise or\n      exit during construction; CliApp.run(Cfg, cli_args=parsed_args, cli_settings_source=cli_settings)\n      must return Cfg(pet='dog')."
+        },
+        {
+          "id": "4",
+          "location": "pydantic_settings/sources/utils.py (or wherever _annotation_is_complex is defined) —\n      the _annotation_is_complex function",
+          "description": "_annotation_is_complex does not handle TypeAliasType (PEP 695 / typing_extensions).\n      When a field annotation is a TypeAliasType instance such as:\n        MinLenList = TypeAliasType('MinLenList', Annotated[Union[list[str], list[int]], MinLen(2)])\n\n      the function does not unwrap the TypeAliasType to inspect its underlying __value__.\n      As a result, the field is not recognized as complex, so its string value\n      '[\"russet\", \"granny smith\"]' is NOT passed through json.loads() before validation,\n      causing a ValidationError (Input should be a valid list, but input_value is a str).\n\n      The same issue affects generic TypeAliasType with type parameters:\n        MinLenList = TypeAliasType('MinLenList', Annotated[Union[list[T], tuple[T]], MinLen(2)], type_params=(T,))\n        class Cfg(BaseSettings):\n            apples: MinLenList[str]",
+          "contract": "Extend _annotation_is_complex to handle TypeAliasType:\n\n      1. Before the existing checks, detect whether the annotation is a TypeAliasType\n         instance (importable from typing_extensions for Python &lt; 3.12, or from typing\n         for Python 3.12+; use a try/except or version guard).\n      2. If annotation is a TypeAliasType:\n         a. Extract its underlying value via annotation.__value__ (this is the actual type\n            alias, e.g., Annotated[Union[list[str], list[int]], MinLen(2)]).\n         b. Call _annotation_is_complex recursively on that __value__ and return the result.\n      3. For generic TypeAliasType (those with type_params), the __value__ may contain\n         TypeVars. The recursive call on __value__ (which is Annotated[Union[list[T], tuple[T]], ...])\n         should still correctly detect complexity because Union[list[T], ...] has origin=Union\n         and args containing list[T], which has origin=list — a complex type.\n      4. No changes are needed to the EnvSettingsSource.field_is_complex() method or\n         decode_complex_value(); the fix is entirely within _annotation_is_complex.\n\n      Expected outcome for the test:\n        env var APPLES='[\"russet\", \"granny smith\"]'\n        with field apples: MinLenList (where MinLenList wraps Union[list[str], list[int]])\n        → the field is recognized as complex → json.loads is applied → ['russet', 'granny smith']\n        → validation passes.",
+          "acceptance_tests": "tests/test_settings.py::test_annotated_with_type"
+        },
+        {
+          "id": "5",
+          "location": "pydantic_settings/main.py — BaseSettings._settings_build_values method (or\n      BaseSettings.__init__, after sources are assembled)",
+          "description": "When a user sets source-specific config keys in model_config (e.g., json_file,\n      yaml_file, toml_file, pyproject_toml_depth, yaml_config_section) but does NOT include\n      the corresponding source class in the active settings sources, no warning is emitted.\n      The config keys are silently ignored, which can confuse users.\n\n      The test expects that instantiating such a Settings class emits 5 UserWarnings (one\n      per mis-configured key), each with a precise message explaining which key is ignored\n      and which source class the user needs to add.",
+          "contract": "After the active sources list is assembled (after settings_customise_sources returns),\n      check for each of the following (config_key, source_class_name) pairs:\n        ('json_file',          'JsonConfigSettingsSource')\n        ('pyproject_toml_depth','PyprojectTomlConfigSettingsSource')\n        ('toml_file',          'TomlConfigSettingsSource')\n        ('yaml_file',          'YamlConfigSettingsSource')\n        ('yaml_config_section','YamlConfigSettingsSource')\n\n      For each pair where BOTH conditions hold:\n        a. model_config.get(config_key) is not None (the key is set by the user), AND\n        b. no source in the active sources list is an instance of (or a subclass of)\n           the named source class\n\n      emit a warnings.warn() call with:\n        category: UserWarning\n        message: exactly\n          f'Config key `{config_key}` is set in model_config but will be ignored because no '\n          f'{source_class_name} source is configured. To use this config key, add a {source_class_name} '\n          f'source to the settings sources via the settings_customise_sources hook.'\n\n      Warnings must be emitted in the order of the pairs listed above (json_file first,\n      yaml_config_section last). Emit exactly one warning per listed (config_key, source_class_name)\n      pair that meets both conditions.\n\n      No warnings should be emitted when the corresponding source IS present in the sources list,\n      or when the config key is not set (None or absent).",
+          "acceptance_tests": "tests/test_settings.py::test_warns_if_config_keys_are_set_but_source_is_missing\n      Validation: instantiating Settings with json_file, pyproject_toml_depth, toml_file,\n      yaml_file, yaml_config_section set but no custom sources must produce exactly 5\n      UserWarnings matching the expected messages in the specified order."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "api_change",
+    "categories": {
+      "bug_fix": 4,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 5
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-04-01T00:26:27",
+  "batch": "rll_full_batch_21",
+  "evoscore_detail": {
+    "m1": 0.5921,
+    "m2": 0.1842,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.5553
+  },
+  "evoscore": 0.5553,
+  "fix_rate": 18.4,
+  "env_limit_reason": null
+}
