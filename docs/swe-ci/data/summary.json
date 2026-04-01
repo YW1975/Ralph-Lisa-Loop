@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 79,
-  "solved": 74,
+  "total_evaluated": 80,
+  "solved": 75,
   "env_limit": 3,
   "improving": 1,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 79,
-  "solve_rate": 93.7,
-  "zero_regression_rate": 93.7,
-  "zero_regression_count": 74,
+  "pending": 14,
+  "total_completed": 80,
+  "solve_rate": 93.8,
+  "zero_regression_rate": 93.8,
+  "zero_regression_count": 75,
   "avg_fix_rate": 95.1,
-  "avg_evoscore": 0.9636,
-  "avg_evoscore_completed": 0.9636,
+  "avg_evoscore": 0.964,
+  "avg_evoscore_completed": 0.964,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -227,12 +227,13 @@
     },
     {
       "batch": "rll_full_batch_21",
-      "total": 2,
-      "solved": 2,
-      "avg_evoscore": 0.7963,
+      "total": 3,
+      "solved": 3,
+      "avg_evoscore": 0.8614,
       "tasks": [
         "pycord-development__pycord__f7047c__510a44",
-        "pydantic__pydantic-settings__e16290__0497ef"
+        "pydantic__pydantic-settings__e16290__0497ef",
+        "pyfilesystem__pyfilesystem2__75cf00__77a856"
       ]
     },
     {
@@ -1118,9 +1119,20 @@
       "evoscore": 0.5926,
       "status": "solved",
       "batch": "rll_full_batch_21"
+    },
+    {
+      "task_id": "pyfilesystem__pyfilesystem2__75cf00__77a856",
+      "repo_name": "PyFilesystem/pyfilesystem2",
+      "initial_gap": 202,
+      "final_gap": 0,
+      "num_epochs": 3,
+      "fix_rate": 100.0,
+      "evoscore": 0.9916,
+      "status": "solved",
+      "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-04-01T03:26:59",
+  "last_updated": "2026-04-01T03:55:03",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
