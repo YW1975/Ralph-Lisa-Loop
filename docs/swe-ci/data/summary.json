@@ -5,7 +5,7 @@
   "env_limit": 3,
   "improving": 1,
   "stuck": 1,
-  "pending": 14,
+  "pending": 15,
   "total_completed": 81,
   "solve_rate": 93.8,
   "zero_regression_rate": 93.8,
@@ -1144,7 +1144,7 @@
       "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-04-01T06:14:42",
+  "last_updated": "2026-04-01T06:44:45",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
