@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 81,
+  "total_evaluated": 82,
   "solved": 76,
   "env_limit": 3,
-  "improving": 1,
+  "improving": 2,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 81,
-  "solve_rate": 93.8,
-  "zero_regression_rate": 93.8,
-  "zero_regression_count": 76,
-  "avg_fix_rate": 95.2,
-  "avg_evoscore": 0.9643,
-  "avg_evoscore_completed": 0.9643,
+  "pending": 14,
+  "total_completed": 82,
+  "solve_rate": 92.7,
+  "zero_regression_rate": 93.9,
+  "zero_regression_count": 77,
+  "avg_fix_rate": 94.8,
+  "avg_evoscore": 0.9609,
+  "avg_evoscore_completed": 0.9609,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -227,14 +227,15 @@
     },
     {
       "batch": "rll_full_batch_21",
-      "total": 4,
+      "total": 5,
       "solved": 4,
-      "avg_evoscore": 0.8933,
+      "avg_evoscore": 0.8517,
       "tasks": [
         "pycord-development__pycord__f7047c__510a44",
         "pydantic__pydantic-settings__e16290__0497ef",
         "pyfilesystem__pyfilesystem2__75cf00__77a856",
-        "pyfilesystem__pyfilesystem2__f239fc__486cf3"
+        "pyfilesystem__pyfilesystem2__f239fc__486cf3",
+        "pygments__pygments__eeb568__35732f"
       ]
     },
     {
@@ -1142,9 +1143,20 @@
       "evoscore": 0.9892,
       "status": "solved",
       "batch": "rll_full_batch_21"
+    },
+    {
+      "task_id": "pygments__pygments__eeb568__35732f",
+      "repo_name": "pygments/pygments",
+      "initial_gap": 60,
+      "final_gap": 23,
+      "num_epochs": 2,
+      "fix_rate": 61.7,
+      "evoscore": 0.685,
+      "status": "improving",
+      "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-04-01T06:44:45",
+  "last_updated": "2026-04-01T09:08:55",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

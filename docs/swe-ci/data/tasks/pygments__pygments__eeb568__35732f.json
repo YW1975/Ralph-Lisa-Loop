@@ -1,0 +1,103 @@
+{
+  "task_id": "pygments__pygments__eeb568__35732f",
+  "repo_name": "pygments/pygments",
+  "repo_url": "https://github.com/pygments/pygments.git",
+  "licence": "BSD 2-Clause \"Simplified\" License",
+  "initial_gap": 60,
+  "final_gap": 23,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 60,
+      "passed": 4987,
+      "failed": 48,
+      "total": 5051
+    },
+    {
+      "epoch": 1,
+      "gap": 23,
+      "passed": 5024,
+      "failed": 19,
+      "total": 5059,
+      "programmer_time": 5843.74896979332
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 4987,
+    "failed": 48,
+    "total": 5051
+  },
+  "requirements": [
+    {
+      "epoch": "2026-04-01-08-03-11",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/pygments/formatters/rtf.py — RtfFormatter.format_unencoded method",
+          "description": "The RTF formatter's format_unencoded method currently closes the document\n      by writing a bare closing brace (\"}\") with no trailing newline. All RTF\n      formatter tests use result.endswith(...foot) where foot = r'\\par' + '\\n' + '}' + '\\n',\n      which requires the document to end with a newline character after the closing brace.\n      Currently the output ends with \"}\" instead of \"}\\n\", causing all endswith\n      assertions to fail.",
+          "contract": "The format_unencoded method MUST write a trailing newline character ('\\n')\n      after the final closing brace \"}\" that ends the RTF document. The resulting\n      output must end with the sequence \"\\par\\n}\\n\" for non-empty input, and with\n      \"}\\n\" in all cases. No other aspect of the formatter's output should change.",
+          "acceptance_tests": "tests/test_rtf_formatter.py::test_rtf_footer\n      tests/test_rtf_formatter.py::test_ascii_characters\n      tests/test_rtf_formatter.py::test_escape_characters\n      tests/test_rtf_formatter.py::test_single_characters\n      tests/test_rtf_formatter.py::test_double_characters\n      tests/test_rtf_formatter.py::test_linenos_all_defaults"
+        },
+        {
+          "id": "2",
+          "location": "code/pygments/formatters/rtf.py — RtfFormatter class (new static/class method)",
+          "description": "The RtfFormatter class is missing a publicly accessible class-level method\n      hex_to_rtf_color. Tests call RtfFormatter.hex_to_rtf_color(hex_string) directly\n      as a type-level call (not on an instance). This causes AttributeError in 6 tests\n      that use this utility to validate that color table entries are correctly formed.\n      Additionally, this method is required internally by the linenos and hl_lines\n      features (requirements 3 and 4) to convert hex color option values into RTF\n      color table entry strings.",
+          "contract": "Add a static method (or class method) hex_to_rtf_color to RtfFormatter.\n\n      Signature: hex_to_rtf_color(hex_color: str) -> str\n\n      Input: a hex color string, optionally prefixed with \"#\" (e.g. \"abcdef\" or\n      \"#abcdef\"). The meaningful content is 6 hex characters representing RGB.\n\n      Output: an RTF color table entry string of the form \\redR\\greenG\\blueB; where\n      R, G, B are decimal integers (0–255) derived from the respective hex pairs.\n\n      Example: hex_to_rtf_color(\"abcdef\") → r'\\red171\\green205\\blue239;'\n      Example: hex_to_rtf_color(\"#123456\") → r'\\red18\\green52\\blue86;'\n\n      The method must be callable as RtfFormatter.hex_to_rtf_color(s) without\n      instantiating the class. Both forms (with and without leading \"#\") must be\n      accepted.",
+          "acceptance_tests": "tests/test_rtf_formatter.py::test_lineno_color_style_specify_hex\n      tests/test_rtf_formatter.py::test_lineno_color_style_specify_inherit\n      tests/test_rtf_formatter.py::test_lineno_color_from_cli_option\n      tests/test_rtf_formatter.py::test_hl_color_style\n      tests/test_rtf_formatter.py::test_hl_color_style_no_linenos\n      tests/test_rtf_formatter.py::test_hl_color_option"
+        },
+        {
+          "id": "3",
+          "location": "code/pygments/formatters/rtf.py — RtfFormatter.__init__ and format_unencoded methods",
+          "description": "The RTF formatter does not support line numbering. Tests for linenos, linenostart,\n      linenostep, lineno_padding, lineno_color, and lineno_fontsize options all fail\n      because those options are not recognized or handled. When linenos=True, each\n      output line must be prefixed with a formatted line-number span using the first\n      color table entry (\\cf1) and padded with spaces. The formatter also needs to\n      handle hl_lines (highlighted lines) by wrapping matching lines in a \\highlight\n      color group, and support the hl_linenostart option that shifts highlight line\n      numbering to match linenostart.",
+          "contract": "Extend RtfFormatter.__init__ to accept and store the following options:\n        - linenos (bool, default False): enable line number display\n        - lineno_padding (int, default 0): extra spaces after line number\n        - linenostart (int, default 1): starting line number\n        - linenostep (int, default 1): only display numbers on multiples of this step;\n          blank space placeholder for skipped lines\n        - lineno_color (str, optional hex): override line number color; falls back to\n          the Style.line_number_color attribute, and if that is \"inherit\" falls back to\n          the _ansimap['ansibrightblack'] color\n        - lineno_fontsize (int, optional): font size for line numbers in half-points\n        - hl_lines (str, default \"\"): space-separated line numbers to highlight\n        - hl_color (str, optional hex): override highlight background color; falls back\n          to Style.highlight_color\n        - hl_linenostart (bool, default False): when True, treat hl_lines numbers as\n          absolute line numbers starting from linenostart\n\n      When linenos=True:\n        - The line number color MUST be the FIRST entry in the RTF color table (\\cf1)\n        - Each output line must be prefixed with: {\\cf1 N  } where N is the right-aligned\n          line number padded on the left with spaces so that the field width equals\n          len(str(last_line_number)), followed by lineno_padding spaces\n        - If linenostep > 1 and the current line number is not a multiple of\n          linenostep, output blank spaces instead of the number\n\n      When hl_lines is non-empty:\n        - If linenos=True, the highlight color MUST be the SECOND entry in the color\n          table; if linenos=False, it MUST be the FIRST entry\n        - Each highlighted line (including its \\par) must be wrapped:\n          {\\highlightN content\\par}\n        - If hl_linenostart=True, treat the numbers in hl_lines as absolute line\n          numbers; otherwise treat them as 1-based offsets from the start of the text\n\n      The format of output lines must follow: [line_number_prefix][content]\\par\\n\n      with highlighted lines wrapped: {\\highlightN [line_number_prefix][content]\\par}\\n\n\n      The full output for test_linenos_python must match the expected header/body/footer\n      format that includes the color table entries on separate lines, followed by \\f0\\sa0,\n      \\dntblnsbdb, content lines, and the closing } on its own line with trailing newline.",
+          "acceptance_tests": "tests/test_rtf_formatter.py::test_linenos_text\n      tests/test_rtf_formatter.py::test_linenos_newline_characters\n      tests/test_rtf_formatter.py::test_linenos_python\n      tests/test_rtf_formatter.py::test_linenos_left_padding\n      tests/test_rtf_formatter.py::test_lineno_padding\n      tests/test_rtf_formatter.py::test_linenostep\n      tests/test_rtf_formatter.py::test_linenostart\n      tests/test_rtf_formatter.py::test_linenostart_left_padding\n      tests/test_rtf_formatter.py::test_linenos_hl_lines\n      tests/test_rtf_formatter.py::test_linenos_off_hl_lines\n      tests/test_rtf_formatter.py::test_hl_linenostart_no_lines_highlighted\n      tests/test_rtf_formatter.py::test_hl_linenostart_lines_highlighted"
+        },
+        {
+          "id": "4",
+          "location": "code/pygments/lexers/mojo.py (new file) and\n      code/pygments/lexers/_mapping.py",
+          "description": "There is no MojoLexer in the codebase. Tests for Mojo snippets fail with\n      \"pygments.util.ClassNotFound: no lexer for alias 'mojo' found\", and related\n      basic API tests are not collected because the class does not exist.\n      Mojo is a systems programming language with Python-like syntax extended with\n      fn declarations, struct/trait definitions, and specific keyword handling.",
+          "contract": "Create a MojoLexer class in code/pygments/lexers/mojo.py with:\n        - name = 'Mojo'\n        - aliases = ['mojo']\n        - filenames = ['*.mojo']\n\n      The lexer must produce the following token types for the given constructs:\n        Keywords (Keyword token): fn, struct, class, elif, else, with, match, assert,\n          and, or, not, in, is, pass, break, continue, return, yield, raise, del, lambda,\n          import, from, as, global, nonlocal, try, except, finally, for, while, async,\n          await, decorator-related keywords\n        Name.Function token: def (context-sensitive: treated as identifier/Name.Function\n          when appearing standalone without a following name)\n        Name.Struct token: trait (when appearing standalone)\n        Name.Class token: if (when appearing standalone as soft keyword)\n        Keyword.Constant: True, False, None\n        Name.Builtin: print and other Python built-ins\n        Literal.Number.Integer: decimal integers with optional single underscores as\n          separators (e.g. 5_6 valid, 5__6 invalid — double underscore is not a numeric\n          separator); hexadecimal integers (0x...)\n        Literal.Number.Float: floats matching digit.digit, .digit, digit., digit e digit\n          patterns; exponent notation (e.g. 2e1, 11.2e-3)\n        Operator: arithmetic, comparison, assignment operators including @, +=, =, -, +, .\n        Punctuation: (, ), [, ], {, }, :, ,\n        Literal.String.Double / Literal.String: double-quoted strings\n        Literal.String.Affix: f-string prefix f before a string literal\n        Literal.String.Interpol: { and } delimiters within f-strings\n        Comment.Single: # line comments\n        Text.Whitespace: spaces, tabs, newlines\n\n      Register the lexer in _mapping.py:\n        'MojoLexer': ('pygments.lexers.mojo', 'Mojo', ('mojo',), ('*.mojo',), ())\n\n      The lexer must also handle the examplefiles/mojo/sample.mojo without generating\n      Error tokens.",
+          "acceptance_tests": "tests/snippets/mojo/test_kw.txt::\n      tests/snippets/mojo/test_floats.txt::\n      tests/snippets/mojo/test_needs_name.txt::\n      tests/snippets/mojo/test_soft_kwds.txt::\n      tests/examplefiles/mojo/sample.mojo::\n      tests/test_guess.py::test_filename_matching[mojo/sample.mojo]\n      tests/test_basic_api.py::test_lexer_classes[MojoLexer]\n      tests/test_basic_api.py::test_lexer_options[MojoLexer]\n      tests/test_basic_api.py::test_random_input[MojoLexer]\n      tests/test_basic_api.py::test_lexer_instantiate_all[MojoLexer]"
+        },
+        {
+          "id": "5",
+          "location": "code/pygments/lexers/soong.py (new file) and\n      code/pygments/lexers/_mapping.py",
+          "description": "There is no SoongLexer in the codebase. Tests for Soong snippets fail with\n      \"pygments.util.ClassNotFound: no lexer for alias 'soong' found\", and related\n      basic API tests are not collected. Soong is the Android build system language\n      (Blueprint files) with a JSON-like syntax supporting C++-style comments,\n      module declarations, property assignments, lists, maps, and operators.",
+          "contract": "Create a SoongLexer class in code/pygments/lexers/soong.py with:\n        - name = 'Soong'\n        - aliases = ['soong']\n        - filenames = [] (no standard file extension; Blueprint files can be added if desired)\n\n      The lexer must produce the following token types:\n        Name.Function: bare identifiers used as module type names at the start of a\n          block (e.g. \"package\", \"module_name\" before \"{\")\n        Name.Variable: bare identifiers used as top-level variable names on the left\n          side of \"=\" or \"+=\" assignments\n        Name: bare identifiers used as property names (key in key: value pairs inside\n          blocks) or as unquoted value references\n        Operator: =, +=\n        Punctuation: {, }, [, ], :, ,\n        Literal.String: double-quoted string literals (entire quoted string as one token)\n        Literal.Number.Integer: decimal integers\n        Literal.Number.Hex: hexadecimal integers (0x...)\n        Comment.Single: // line comments\n        Comment.Multiline: /* ... */ block comments\n        Text.Whitespace: spaces, tabs, and newline sequences (including indentation)\n\n      Key behavioral details from test snippets:\n        - Module declarations: an identifier followed by \"{\" — the identifier is Name.Function\n        - Variable assignments at top level: identifier before \"=\" or \"+=\" is Name.Variable\n        - Property names inside a block (identifier before \":\") are Name\n        - Unquoted identifiers used as values (not before \":\" or \"{\") are Name\n        - Nested blocks are allowed; inner block property names follow the same rules\n        - \"package\" at the start of a block declaration tokenizes as Name.Function\n\n      Register the lexer in _mapping.py:\n        'SoongLexer': ('pygments.lexers.soong', 'Soong', ('soong',), (), ())",
+          "acceptance_tests": "tests/snippets/soong/test_modules.txt::\n      tests/snippets/soong/test_variable_assignments.txt::\n      tests/snippets/soong/test_variable_assignment_after_module.txt::\n      tests/snippets/soong/test_comments.txt::\n      tests/test_guess.py::test_lexer_fixtures[snippets]\n      tests/test_basic_api.py::test_lexer_classes[SoongLexer]\n      tests/test_basic_api.py::test_lexer_options[SoongLexer]\n      tests/test_basic_api.py::test_random_input[SoongLexer]\n      tests/test_basic_api.py::test_lexer_instantiate_all[SoongLexer]"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 5,
+      "refactor": 0,
+      "api_change": 4,
+      "test_fix": 0,
+      "config": 3
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-04-01T09:08:55",
+  "batch": "rll_full_batch_21",
+  "evoscore_detail": {
+    "m1": 0.8083,
+    "m2": 0.6167,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.685
+  },
+  "evoscore": 0.685,
+  "fix_rate": 61.7,
+  "env_limit_reason": null
+}
