@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
   "total_evaluated": 77,
-  "solved": 71,
+  "solved": 72,
   "env_limit": 3,
-  "improving": 2,
+  "improving": 1,
   "stuck": 1,
   "pending": 14,
   "total_completed": 77,
-  "solve_rate": 92.2,
+  "solve_rate": 93.5,
   "zero_regression_rate": 93.5,
   "zero_regression_count": 72,
-  "avg_fix_rate": 94.7,
-  "avg_evoscore": 0.9648,
-  "avg_evoscore_completed": 0.9648,
+  "avg_fix_rate": 95.0,
+  "avg_evoscore": 0.968,
+  "avg_evoscore_completed": 0.968,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -216,8 +216,8 @@
     {
       "batch": "rll_full_batch_20",
       "total": 4,
-      "solved": 3,
-      "avg_evoscore": 0.9381,
+      "solved": 4,
+      "avg_evoscore": 0.9996,
       "tasks": [
         "openai__openai-python__75a3aa__86aaa1",
         "parcadei__continuous-claude-v2__584031__6cb087",
@@ -1080,15 +1080,15 @@
       "task_id": "prompt-toolkit__python-prompt-toolkit__3753ee__490cf9",
       "repo_name": "prompt-toolkit/python-prompt-toolkit",
       "initial_gap": 63,
-      "final_gap": 10,
-      "num_epochs": 2,
-      "fix_rate": 84.1,
-      "evoscore": 0.7524,
-      "status": "improving",
+      "final_gap": 0,
+      "num_epochs": 4,
+      "fix_rate": 100.0,
+      "evoscore": 0.9983,
+      "status": "solved",
       "batch": "rll_full_batch_20"
     }
   ],
-  "last_updated": "2026-03-31T22:10:07",
+  "last_updated": "2026-03-31T22:31:39",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
