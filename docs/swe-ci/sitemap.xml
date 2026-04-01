@@ -444,4 +444,10 @@
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
+  <url>
+    <loc>https://yw1975.github.io/Ralph-Lisa-Loop/swe-ci/tasks/openai__openai-python__75a3aa__86aaa1.html</loc>
+    <lastmod>2026-03-31</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

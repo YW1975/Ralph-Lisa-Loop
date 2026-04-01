@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 73,
-  "solved": 68,
+  "total_evaluated": 74,
+  "solved": 69,
   "env_limit": 3,
   "improving": 1,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 73,
+  "pending": 14,
+  "total_completed": 74,
   "solve_rate": 93.2,
   "zero_regression_rate": 93.2,
-  "zero_regression_count": 68,
+  "zero_regression_count": 69,
   "avg_fix_rate": 94.7,
-  "avg_evoscore": 0.9662,
-  "avg_evoscore_completed": 0.9662,
+  "avg_evoscore": 0.9667,
+  "avg_evoscore_completed": 0.9667,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -211,6 +211,15 @@
       "avg_evoscore": 0.4482,
       "tasks": [
         "nat-n__poethepoet__681394__6eb522"
+      ]
+    },
+    {
+      "batch": "rll_full_batch_20",
+      "total": 1,
+      "solved": 1,
+      "avg_evoscore": 1.0,
+      "tasks": [
+        "openai__openai-python__75a3aa__86aaa1"
       ]
     },
     {
@@ -1030,9 +1039,20 @@
       "evoscore": 0.4482,
       "status": "stuck",
       "batch": "rll_full_batch_17"
+    },
+    {
+      "task_id": "openai__openai-python__75a3aa__86aaa1",
+      "repo_name": "openai/openai-python",
+      "initial_gap": 32,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_20"
     }
   ],
-  "last_updated": "2026-03-31T17:40:58",
+  "last_updated": "2026-03-31T19:27:49",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
