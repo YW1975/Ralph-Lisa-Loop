@@ -10,9 +10,9 @@
   "solve_rate": 92.4,
   "zero_regression_rate": 93.7,
   "zero_regression_count": 74,
-  "avg_fix_rate": 94.0,
-  "avg_evoscore": 0.9631,
-  "avg_evoscore_completed": 0.9631,
+  "avg_fix_rate": 94.1,
+  "avg_evoscore": 0.9634,
+  "avg_evoscore_completed": 0.9634,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -229,7 +229,7 @@
       "batch": "rll_full_batch_21",
       "total": 2,
       "solved": 1,
-      "avg_evoscore": 0.7776,
+      "avg_evoscore": 0.7891,
       "tasks": [
         "pycord-development__pycord__f7047c__510a44",
         "pydantic__pydantic-settings__e16290__0497ef"
@@ -1112,15 +1112,15 @@
       "task_id": "pydantic__pydantic-settings__e16290__0497ef",
       "repo_name": "pydantic/pydantic-settings",
       "initial_gap": 76,
-      "final_gap": 62,
-      "num_epochs": 2,
-      "fix_rate": 18.4,
-      "evoscore": 0.5553,
+      "final_gap": 56,
+      "num_epochs": 3,
+      "fix_rate": 26.3,
+      "evoscore": 0.5782,
       "status": "improving",
       "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-04-01T00:26:27",
+  "last_updated": "2026-04-01T01:11:42",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
