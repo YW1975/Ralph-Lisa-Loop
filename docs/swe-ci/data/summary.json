@@ -3,16 +3,16 @@
   "total_evaluated": 73,
   "solved": 68,
   "env_limit": 3,
-  "improving": 2,
-  "stuck": 0,
-  "pending": null,
+  "improving": 1,
+  "stuck": 1,
+  "pending": 15,
   "total_completed": 73,
   "solve_rate": 93.2,
   "zero_regression_rate": 93.2,
   "zero_regression_count": 68,
-  "avg_fix_rate": 98.6,
-  "avg_evoscore": 0.9665,
-  "avg_evoscore_completed": 0.9665,
+  "avg_fix_rate": 94.7,
+  "avg_evoscore": 0.9662,
+  "avg_evoscore_completed": 0.9662,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -208,7 +208,7 @@
       "batch": "rll_full_batch_17",
       "total": 1,
       "solved": 0,
-      "avg_evoscore": 0.4722,
+      "avg_evoscore": 0.4482,
       "tasks": [
         "nat-n__poethepoet__681394__6eb522"
       ]
@@ -1024,15 +1024,15 @@
       "task_id": "nat-n__poethepoet__681394__6eb522",
       "repo_name": "nat-n/poethepoet",
       "initial_gap": 8,
-      "final_gap": 6,
-      "num_epochs": 6,
-      "fix_rate": 25.0,
-      "evoscore": 0.4722,
-      "status": "improving",
+      "final_gap": 29,
+      "num_epochs": 7,
+      "fix_rate": -262.5,
+      "evoscore": 0.4482,
+      "status": "stuck",
       "batch": "rll_full_batch_17"
     }
   ],
-  "last_updated": "2026-03-31T15:05:18",
+  "last_updated": "2026-03-31T17:40:58",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
