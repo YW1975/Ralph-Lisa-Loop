@@ -1,0 +1,103 @@
+{
+  "task_id": "pyfilesystem__pyfilesystem2__f239fc__486cf3",
+  "repo_name": "PyFilesystem/pyfilesystem2",
+  "repo_url": "https://github.com/PyFilesystem/pyfilesystem2.git",
+  "licence": "MIT License",
+  "initial_gap": 172,
+  "final_gap": 85,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 172,
+      "passed": 2000,
+      "failed": 123,
+      "total": 2396
+    },
+    {
+      "epoch": 1,
+      "gap": 85,
+      "passed": 2087,
+      "failed": 36,
+      "total": 2396,
+      "programmer_time": 776.8477222919464
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 2000,
+    "failed": 123,
+    "total": 2396
+  },
+  "requirements": [
+    {
+      "epoch": "2026-04-01-04-14-57",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "code/fs/mirror.py — function mirror()",
+          "description": "The mirror() function currently accepts (src_fs, dst_fs, walker=None, copy_if_newer=True, workers=0)\n      but does NOT accept a preserve_time keyword argument. All 32 tests in TestMirror_0/1/2/3 call\n      mirror(..., preserve_time=True) and fail with:\n        TypeError: mirror() got an unexpected keyword argument 'preserve_time'",
+          "contract": "Add a preserve_time=False boolean parameter to mirror(). When preserve_time=True, after copying\n      each file from src_fs to dst_fs, the modification time (mtime) of the destination file must be\n      set to exactly match the source file's modification time (obtained via getinfo with \"details\"\n      namespace, then settimes on the destination). The _mirror() helper should likewise accept and\n      propagate this parameter. The existing copy_if_newer behavior is unaffected when preserve_time\n      is False (the default). No change to the external signature for existing callers is permitted.\n\n      Full updated signature:\n        mirror(src_fs, dst_fs, walker=None, copy_if_newer=True, workers=0, preserve_time=False) -> None",
+          "acceptance_tests": "tests/test_mirror.py::TestMirror_0::test_empty_mirror\n      tests/test_mirror.py::TestMirror_0::test_mirror_one_file\n      tests/test_mirror.py::TestMirror_0::test_mirror_one_file_one_dir\n      tests/test_mirror.py::TestMirror_0::test_mirror_delete_replace\n      tests/test_mirror.py::TestMirror_0::test_mirror_extra_dir\n      tests/test_mirror.py::TestMirror_0::test_mirror_extra_file\n      tests/test_mirror.py::TestMirror_0::test_mirror_update\n      tests/test_mirror.py::TestMirror_0::test_mirror_wrong_type\n      (and the same 8 tests in TestMirror_1, TestMirror_2, TestMirror_3 — 32 tests total)"
+        },
+        {
+          "id": "2",
+          "location": "code/fs/copy.py — new module-level functions copy_file_if(), copy_dir_if(), copy_fs_if()",
+          "description": "The fs.copy module does not expose copy_file_if, copy_dir_if, or copy_fs_if. Approximately\n      30 tests across TestCopyIfNewer, TestCopyIfOlder, TestCopyIfExists, and TestCopyIfNotExists call\n      these functions and fail with:\n        AttributeError: module 'fs.copy' has no attribute 'copy_file_if' (or copy_dir_if / copy_fs_if)",
+          "contract": "Add the following three functions to code/fs/copy.py:\n\n      copy_file_if(src_fs, src_path, dst_fs, dst_path, condition) -> bool\n        Copies the file at src_path to dst_path according to condition. Returns True if the copy\n        was performed, False otherwise.\n\n      copy_dir_if(src_fs, src_path, dst_fs, dst_path, condition,\n                  walker=None, on_copy=None, workers=0) -> None\n        Copies all files from the src directory to dst directory for which the condition is met.\n        on_copy, walker, and workers behave identically to copy_dir().\n\n      copy_fs_if(src_fs, dst_fs, condition, walker=None, on_copy=None, workers=0) -> None\n        Equivalent to copy_dir_if(src_fs, \"/\", dst_fs, \"/\", condition, ...).\n\n      The condition parameter is a string with one of the following values:\n        \"newer\"     — copy file if src does not exist in dst, OR src.mtime > dst.mtime\n        \"older\"     — copy file if src does not exist in dst, OR src.mtime < dst.mtime\n        \"exists\"    — copy file ONLY if the corresponding dst file already exists\n        \"not_exists\"— copy file ONLY if the corresponding dst file does NOT exist\n\n      For \"newer\" and \"older\", if modification times are unavailable (None), perform the copy.\n      For same-filesystem copies, use FS.copy() with overwrite=True when the condition is met.\n      For cross-filesystem copies, use copy_file_internal() via the existing Copier/locking pattern.\n      An unsupported condition value should raise ValueError.",
+          "acceptance_tests": "tests/test_copy.py::TestCopyIfNewer::test_copy_file_if_same_fs\n      tests/test_copy.py::TestCopyIfNewer::test_copy_file_if_dst_doesnt_exists\n      tests/test_copy.py::TestCopyIfNewer::test_copy_file_if_dst_is_newer\n      tests/test_copy.py::TestCopyIfNewer::test_copy_file_if_dst_is_older\n      tests/test_copy.py::TestCopyIfNewer::test_copy_fs_if\n      tests/test_copy.py::TestCopyIfNewer::test_copy_dir_if\n      tests/test_copy.py::TestCopyIfNewer::test_copy_dir_if_same_fs\n      tests/test_copy.py::TestCopyIfNewer::test_copy_dir_if_multiple_files\n      tests/test_copy.py::TestCopyIfOlder::* (8 analogous tests)\n      tests/test_copy.py::TestCopyIfExists::* (7 tests)\n      tests/test_copy.py::TestCopyIfNotExists::* (7 tests)"
+        },
+        {
+          "id": "3",
+          "location": "code/fs/copy.py — functions copy_dir() and copy_fs()",
+          "description": "copy_dir() and copy_fs() do not accept a preserve_time keyword argument. The 9 tests in\n      TestCopySimple (test_copy_dir_0, test_copy_dir_1..3, test_copy_dir0, test_copy_fs_0..3) call\n      them with preserve_time=True and fail with:\n        TypeError: copy_dir() got an unexpected keyword argument 'preserve_time'\n        TypeError: copy_fs() got an unexpected keyword argument 'preserve_time'",
+          "contract": "Add preserve_time=False to the signatures of copy_dir() and copy_fs():\n\n        copy_dir(src_fs, src_path, dst_fs, dst_path, walker=None, on_copy=None,\n                 workers=0, preserve_time=False) -> None\n        copy_fs(src_fs, dst_fs, walker=None, on_copy=None, workers=0,\n                preserve_time=False) -> None\n\n      When preserve_time=True, after each file is successfully copied to dst, the modification time\n      of the destination file is set to the source file's modification time using dst_fs.settimes().\n      The source mtime is retrieved with src_fs.getinfo(src_path, [\"details\"]).modified.\n      If the source mtime is None, skip the settimes call for that file.\n      copy_fs() must forward preserve_time to copy_dir().",
+          "acceptance_tests": "tests/test_copy.py::TestCopySimple::test_copy_dir_0\n      tests/test_copy.py::TestCopySimple::test_copy_dir_1\n      tests/test_copy.py::TestCopySimple::test_copy_dir_2\n      tests/test_copy.py::TestCopySimple::test_copy_dir_3\n      tests/test_copy.py::TestCopySimple::test_copy_dir0\n      tests/test_copy.py::TestCopySimple::test_copy_fs_0\n      tests/test_copy.py::TestCopySimple::test_copy_fs_1\n      tests/test_copy.py::TestCopySimple::test_copy_fs_2\n      tests/test_copy.py::TestCopySimple::test_copy_fs_3"
+        },
+        {
+          "id": "4",
+          "location": "code/fs/move.py — functions move_file(), move_dir(), move_fs()",
+          "description": "(a) move_file(), move_dir(), move_fs() do not accept a preserve_time keyword argument.\n          6 tests in TestMoveCheckTime_0 and TestMoveCheckTime_1 fail with:\n            TypeError: move_file() / move_dir() / move_fs() got an unexpected keyword argument 'preserve_time'\n      (b) move_file() does not accept a cleanup_dst_on_error keyword argument. 2 tests\n          (test_move_file_cleanup_on_error_0, _1) fail with:\n            TypeError: move_file() got an unexpected keyword argument 'cleanup_dst_on_error'\n      (c) move_file() with a read-only source does not clean up the destination file on error.\n          2 tests (test_move_file_read_only_mem_source, test_move_file_same_fs_read_only_source)\n          fail because the file is copied to dst even though src.remove() raises ResourceReadOnly.",
+          "contract": "Update the three move functions with the following new signatures:\n\n        move_file(src_fs, src_path, dst_fs, dst_path,\n                  preserve_time=False, cleanup_dst_on_error=True) -> None\n        move_dir(src_fs, src_path, dst_fs, dst_path,\n                 workers=0, preserve_time=False) -> None\n        move_fs(src_fs, dst_fs, workers=0, preserve_time=False) -> None\n\n      preserve_time behavior: when True, after moving each file, the mtime of the destination is\n      set to match the original source mtime (retrieved before the copy).\n\n      cleanup_dst_on_error behavior for move_file(): if any exception is raised after the copy\n      step but before (or during) the removal of the source (e.g., ResourceReadOnly from\n      src.remove()), AND cleanup_dst_on_error=True, then the destination file must be deleted\n      (if it exists) before re-raising the exception. When cleanup_dst_on_error=False, the\n      destination file is left in place on error.\n\n      move_dir() and move_fs() must forward preserve_time to the underlying copy_dir() call.",
+          "acceptance_tests": "tests/test_move.py::TestMoveCheckTime_0::test_move_file\n      tests/test_move.py::TestMoveCheckTime_0::test_move_dir\n      tests/test_move.py::TestMoveCheckTime_0::test_move_fs\n      tests/test_move.py::TestMoveCheckTime_1::test_move_file\n      tests/test_move.py::TestMoveCheckTime_1::test_move_dir\n      tests/test_move.py::TestMoveCheckTime_1::test_move_fs\n      tests/test_move.py::TestMove::test_move_file_cleanup_on_error_0\n      tests/test_move.py::TestMove::test_move_file_cleanup_on_error_1\n      tests/test_move.py::TestMove::test_move_file_read_only_mem_source\n      tests/test_move.py::TestMove::test_move_file_same_fs_read_only_source"
+        },
+        {
+          "id": "5",
+          "location": "code/fs/base.py — FS.copy() method (line 396) and new FS.getmodified() method;\n      code/fs/osfs.py — OSFS.copy() method (lines 437, 467);\n      code/fs/wrapfs.py — WrapFS.copy() method (line 259)",
+          "description": "(a) The FS.copy() instance method and its overrides (OSFS.copy, WrapFS.copy) do not accept\n          a preserve_time parameter. Tests test_copy_preserve_time in TestOSFS (test_osfs.py,\n          test_subfs.py, test_tempfs.py) and TestSubFS (test_subfs.py) fail with:\n            TypeError: OSFS.copy() got an unexpected keyword argument 'preserve_time'\n            TypeError: WrapFS.copy() got an unexpected keyword argument 'preserve_time'\n      (b) FS.getmodified() does not exist. TestMemoryFS::test_copy_preserve_time (test_memoryfs.py)\n          calls self.fs.getmodified(\"foo/file.txt\") and fails with:\n            AttributeError: 'MemoryFS' object has no attribute 'getmodified'",
+          "contract": "(a) Add preserve_time=False to FS.copy() in base.py, and to any overriding copy() methods\n          in osfs.py and wrapfs.py. When preserve_time=True, after copying the file contents,\n          retrieve the source file's modification time via getinfo(src_path, [\"details\"]).modified\n          and call settimes(dst_path, modified=src_mtime) on the same filesystem (since copy() is\n          an intra-filesystem operation). If src_mtime is None, skip the settimes call.\n\n      (b) Add getmodified(path) -> Optional[datetime] to FS in base.py as a convenience method.\n          It must return the modification datetime of the resource at path, equivalent to:\n            self.getinfo(path, namespaces=[\"details\"]).modified\n          It should raise ResourceNotFound if path does not exist (propagated from getinfo).",
+          "acceptance_tests": "tests/test_memoryfs.py::TestMemoryFS::test_copy_preserve_time\n      tests/test_osfs.py::TestOSFS::test_copy_preserve_time\n      tests/test_subfs.py::TestOSFS::test_copy_preserve_time\n      tests/test_subfs.py::TestSubFS::test_copy_preserve_time\n      tests/test_tempfs.py::TestOSFS::test_copy_preserve_time\n      tests/test_tempfs.py::TestTempFS::test_copy_preserve_time"
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 5,
+      "refactor": 1,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 1
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-04-01T04:27:12",
+  "batch": "rll_full_batch_21",
+  "evoscore_detail": {
+    "m1": 0.7529,
+    "m2": 0.5058,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.6517
+  },
+  "evoscore": 0.6517,
+  "fix_rate": 50.6,
+  "env_limit_reason": null
+}
