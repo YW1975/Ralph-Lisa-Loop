@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 76,
+  "total_evaluated": 77,
   "solved": 71,
   "env_limit": 3,
-  "improving": 1,
+  "improving": 2,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 76,
-  "solve_rate": 93.4,
-  "zero_regression_rate": 93.4,
-  "zero_regression_count": 71,
-  "avg_fix_rate": 94.9,
-  "avg_evoscore": 0.9676,
-  "avg_evoscore_completed": 0.9676,
+  "pending": 14,
+  "total_completed": 77,
+  "solve_rate": 92.2,
+  "zero_regression_rate": 93.5,
+  "zero_regression_count": 72,
+  "avg_fix_rate": 94.7,
+  "avg_evoscore": 0.9648,
+  "avg_evoscore_completed": 0.9648,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -215,13 +215,14 @@
     },
     {
       "batch": "rll_full_batch_20",
-      "total": 3,
+      "total": 4,
       "solved": 3,
-      "avg_evoscore": 1.0,
+      "avg_evoscore": 0.9381,
       "tasks": [
         "openai__openai-python__75a3aa__86aaa1",
         "parcadei__continuous-claude-v2__584031__6cb087",
-        "parcadei__continuous-claude-v2__8659a0__02ba53"
+        "parcadei__continuous-claude-v2__8659a0__02ba53",
+        "prompt-toolkit__python-prompt-toolkit__3753ee__490cf9"
       ]
     },
     {
@@ -1074,9 +1075,20 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_20"
+    },
+    {
+      "task_id": "prompt-toolkit__python-prompt-toolkit__3753ee__490cf9",
+      "repo_name": "prompt-toolkit/python-prompt-toolkit",
+      "initial_gap": 63,
+      "final_gap": 10,
+      "num_epochs": 2,
+      "fix_rate": 84.1,
+      "evoscore": 0.7524,
+      "status": "improving",
+      "batch": "rll_full_batch_20"
     }
   ],
-  "last_updated": "2026-03-31T21:40:01",
+  "last_updated": "2026-03-31T22:10:07",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"

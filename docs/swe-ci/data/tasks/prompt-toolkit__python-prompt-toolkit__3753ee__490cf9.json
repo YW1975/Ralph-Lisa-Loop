@@ -1,0 +1,103 @@
+{
+  "task_id": "prompt-toolkit__python-prompt-toolkit__3753ee__490cf9",
+  "repo_name": "prompt-toolkit/python-prompt-toolkit",
+  "repo_url": "https://github.com/prompt-toolkit/python-prompt-toolkit.git",
+  "licence": "BSD 3-Clause \"New\" or \"Revised\" License",
+  "initial_gap": 63,
+  "final_gap": 10,
+  "num_epochs": 2,
+  "status": "improving",
+  "gap_curve": [
+    {
+      "epoch": 0,
+      "gap": 63,
+      "passed": 87,
+      "failed": 62,
+      "total": 151
+    },
+    {
+      "epoch": 1,
+      "gap": 10,
+      "passed": 140,
+      "failed": 10,
+      "total": 151,
+      "programmer_time": 1223.7057230472565
+    }
+  ],
+  "dialogue": "",
+  "diff_summary": [],
+  "code_diff": "",
+  "test_results": {
+    "passed": 87,
+    "failed": 62,
+    "total": 151
+  },
+  "requirements": [
+    {
+      "epoch": "2026-03-31-22-03-36",
+      "requirements": [
+        {
+          "id": "1",
+          "location": "prompt_toolkit/input/defaults.py — function `create_pipe_input`;\n      prompt_toolkit/input/posix_pipe.py — class `PosixPipeInput`;\n      prompt_toolkit/input/win32_pipe.py — class `Win32PipeInput` (if applicable)",
+          "description": "`create_pipe_input()` currently returns a plain `Input` object (either\n      `PosixPipeInput` or `Win32PipeInput`). Test code uses it as a context manager:\n\n          with create_pipe_input() as pipe_input:\n              ...\n\n      Because neither `create_pipe_input()` nor the returned object implements the\n      context-manager protocol (`__enter__` / `__exit__`), every call inside a\n      `with` statement raises `AttributeError: __enter__`. This single deficiency\n      causes the entire test_cli.py suite (~30 tests) and all tests in\n      test_key_binding.py (~5 tests) to fail.",
+          "contract": "`create_pipe_input()` must return an object that supports the context-manager\n      protocol. When used as a context manager:\n      - `__enter__` must yield (or return) the underlying pipe-input instance.\n      - `__exit__` must call `close()` on the pipe input and suppress no exceptions.\n\n      One acceptable approach: make `create_pipe_input()` a context-manager factory\n      (e.g., using `contextlib.contextmanager`) that creates the appropriate\n      `PosixPipeInput` or `Win32PipeInput`, yields it, and closes it in a `finally`\n      block.\n\n      An alternative approach: add `__enter__` / `__exit__` methods directly to\n      `PosixPipeInput` (and `Win32PipeInput` where relevant), where `__enter__`\n      returns `self` and `__exit__` calls `self.close()`.\n\n      The object yielded/returned inside the `with` block must still be a fully\n      functional `Input` instance (i.e., `send_text`, `send_bytes`, and all other\n      existing methods must keep working).",
+          "acceptance_tests": "All tests in tests/test_key_binding.py (test_feed_simple, test_feed_several,\n      test_common_prefix, test_remove_bindings, test_previous_key_sequence,\n      test_control_square_closed_any) and all tests in tests/test_cli.py that rely\n      on `set_dummy_app()` / `create_pipe_input()` as a context manager must pass\n      without `AttributeError: __enter__`."
+        },
+        {
+          "id": "2",
+          "location": "prompt_toolkit/styles/base.py — `Attrs` NamedTuple definition and\n      `DEFAULT_ATTRS` constant; also any callers that construct `Attrs` explicitly\n      (e.g., prompt_toolkit/styles/style.py, prompt_toolkit/styles/defaults.py,\n      prompt_toolkit/output/*, etc.)",
+          "description": "The `Attrs` NamedTuple currently has 8 fields:\n        color, bgcolor, bold, underline, italic, blink, reverse, hidden\n\n      Tests create `Attrs` instances with a `strike` keyword argument positioned\n      between `underline` and `italic`:\n\n          Attrs(color=..., bgcolor=..., bold=..., underline=..., strike=...,\n                italic=..., blink=..., reverse=..., hidden=...)\n\n      Because `strike` is absent from the definition, any direct construction of\n      `Attrs` with `strike=` raises `TypeError: Attrs.__new__() got an unexpected\n      keyword argument 'strike'`. This causes failures in test_style.py\n      (test_style_from_dict, test_class_combinations_1, test_class_combinations_2,\n      test_substyles, test_swap_light_and_dark_style_transformation) and\n      test_style_transformation.py (test_adjust_brightness_style_transformation).",
+          "contract": "Add a `strike` field (type `Optional[bool]`) to the `Attrs` NamedTuple,\n      inserted between `underline` and `italic` to match the order used in the\n      tests:\n\n          color, bgcolor, bold, underline, strike, italic, blink, reverse, hidden\n\n      `DEFAULT_ATTRS` must be updated to include `strike=False`.\n\n      Style parsing logic (wherever style strings like `\"bold underline strike\n      italic\"` are processed) must recognise the token `\"strike\"` and set\n      `strike=True` in the resulting `Attrs`.\n\n      All internal code that constructs `Attrs` instances positionally or by keyword\n      must be updated to include the new `strike` field, so that no existing\n      functionality breaks.",
+          "acceptance_tests": "tests/test_style.py::test_style_from_dict,\n      tests/test_style.py::test_class_combinations_1,\n      tests/test_style.py::test_class_combinations_2,\n      tests/test_style.py::test_substyles,\n      tests/test_style.py::test_swap_light_and_dark_style_transformation,\n      tests/test_style_transformation.py::test_adjust_brightness_style_transformation\n      must all pass without TypeError or ValueError related to `strike`."
+        },
+        {
+          "id": "3",
+          "location": "prompt_toolkit/history.py — `History.load()` method (and its override in\n      `ThreadedHistory`)",
+          "description": "The current `History.load(item_loaded_callback)` signature requires a\n      callback and is a regular synchronous method. Tests expect `load()` to be\n      callable with no arguments and to behave as an **async generator** that\n      yields history strings one by one:\n\n          async for item in history.load():\n              result.append(item)\n\n      Calling the current implementation without the callback raises:\n        `TypeError: History.load() missing 1 required positional argument:\n        'item_loaded_callback'`\n\n      This affects tests/test_history.py: test_in_memory_history, test_file_history,\n      test_threaded_file_history, test_threaded_in_memory_history.",
+          "contract": "`History.load()` must be redefined as an **async generator method** that takes\n      no arguments and yields history strings (newest first, consistent with\n      existing `load_history_strings()` ordering). Example call pattern:\n\n          async for item in history.load():\n              # item is a str\n              ...\n\n      Specifically:\n      - The base class `History.load()` must be an async generator (decorated with\n        `async def` and use `yield` to emit items).\n      - Items must be yielded newest-first (same order returned by\n        `load_history_strings()`).\n      - On repeated calls, already-loaded items must still be yielded (the in-memory\n        cache `_loaded_strings` should be consulted on subsequent calls).\n      - `ThreadedHistory.load()` must also conform to the same async generator\n        contract. Since `ThreadedHistory` runs loading in a thread, it must bridge\n        the synchronous thread-based loading into async iteration (e.g., using a\n        queue or similar mechanism).\n      - Internal callers of the old callback-based `load()` (e.g., inside\n        `Buffer`) must be updated to use the new async generator interface, or a\n        compatible compatibility shim must be provided so that the rest of the\n        application continues to work correctly.",
+          "acceptance_tests": "tests/test_history.py::test_in_memory_history,\n      tests/test_history.py::test_file_history,\n      tests/test_history.py::test_threaded_file_history,\n      tests/test_history.py::test_threaded_in_memory_history\n      must all pass. Ordering assertions (\"newest first\") must be satisfied."
+        },
+        {
+          "id": "4",
+          "location": "prompt_toolkit/completion/base.py — function `merge_completers` and class\n      `_MergedCompleter`",
+          "description": "`merge_completers(completers)` accepts no `deduplicate` keyword argument.\n      The test passes `deduplicate=True` or `deduplicate=False` to control whether\n      duplicate completions (same `text`) are filtered out before being returned.\n      Calling the function with this argument raises:\n        `TypeError: merge_completers() got an unexpected keyword argument 'deduplicate'`",
+          "contract": "`merge_completers` signature must be extended to accept an optional boolean\n      keyword argument `deduplicate` (default `False`):\n\n          def merge_completers(\n              completers: Sequence[Completer],\n              deduplicate: bool = False,\n          ) -> Completer: ...\n\n      Behaviour:\n      - When `deduplicate=False` (default): existing behaviour is preserved —\n        completions from all sub-completers are yielded in order, including\n        duplicates.\n      - When `deduplicate=True`: completions with the same `text` value that have\n        already been yielded must be suppressed. The first occurrence (from the\n        first matching sub-completer) is kept.\n\n      The deduplication must apply to both the synchronous `get_completions` path\n      and the async `get_completions_async` path.\n\n      Test expectations (with two WordCompleters sharing \"abc\" and \"def\",\n      and the second also containing two \"xyz\" entries):\n      - `deduplicate=False`: 8 completions total.\n      - `deduplicate=True`: 5 completions total (hello, world, abc, def, xyz).",
+          "acceptance_tests": "tests/test_completion.py::test_deduplicate_completer must pass."
+        },
+        {
+          "id": "5",
+          "location": "prompt_toolkit/widgets/base.py — class `Button`, method `__init__`",
+          "description": "`Button.__init__` only accepts `text`, `handler`, and `width`. The test\n      instantiates a button with custom bracket symbols:\n\n          Button(\"Exit\", left_symbol=\"[\", right_symbol=\"]\")\n\n      This raises:\n        `TypeError: Button.__init__() got an unexpected keyword argument 'left_symbol'`\n\n      The expected rendered text is `\"[   Exit   ]\"` instead of the default\n      `\"<   Exit   >\"`.",
+          "contract": "`Button.__init__` must accept two additional optional string keyword\n      arguments:\n      - `left_symbol: str` — the character(s) rendered to the left of the button\n        label. Default: `\"&lt;\"` (i.e., the `<` character, preserving current\n        appearance).\n      - `right_symbol: str` — the character(s) rendered to the right of the button\n        label. Default: `\">\"`.\n\n      The internal text-fragment generation method (`_get_text_fragments` or\n      equivalent) must use these symbol values instead of hard-coded `\"<\"` / `\">\"`.\n\n      When `left_symbol=\"[\"` and `right_symbol=\"]\"` are passed, the rendered text\n      for `Button(\"Exit\")` (default width 12) must be `\"[   Exit   ]\"`.",
+          "acceptance_tests": "tests/test_widgets.py::test_custom_button must pass (rendered text equals\n      `\"[   Exit   ]\"`).\n      tests/test_widgets.py::test_defaulf_button must continue to pass (rendered\n      text equals `\"&lt;   Exit   &gt;\"`)."
+        }
+      ]
+    }
+  ],
+  "task_analysis": {
+    "total_requirements": 5,
+    "primary_category": "bug_fix",
+    "categories": {
+      "bug_fix": 5,
+      "new_feature": 4,
+      "refactor": 0,
+      "api_change": 5,
+      "test_fix": 0,
+      "config": 3
+    },
+    "complexity": "high"
+  },
+  "last_updated": "2026-03-31T22:10:07",
+  "batch": "rll_full_batch_20",
+  "evoscore_detail": {
+    "m1": 0.9206,
+    "m2": 0.8413,
+    "m3": 1.0,
+    "m4": 0.0,
+    "m5": 1.0,
+    "overall": 0.7524
+  },
+  "evoscore": 0.7524,
+  "fix_rate": 84.1,
+  "env_limit_reason": null
+}
