@@ -10,9 +10,9 @@
   "solve_rate": 92.6,
   "zero_regression_rate": 93.8,
   "zero_regression_count": 76,
-  "avg_fix_rate": 94.7,
-  "avg_evoscore": 0.9604,
-  "avg_evoscore_completed": 0.9604,
+  "avg_fix_rate": 95.1,
+  "avg_evoscore": 0.9616,
+  "avg_evoscore_completed": 0.9616,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -229,7 +229,7 @@
       "batch": "rll_full_batch_21",
       "total": 4,
       "solved": 3,
-      "avg_evoscore": 0.8145,
+      "avg_evoscore": 0.84,
       "tasks": [
         "pycord-development__pycord__f7047c__510a44",
         "pydantic__pydantic-settings__e16290__0497ef",
@@ -1136,15 +1136,15 @@
       "task_id": "pyfilesystem__pyfilesystem2__f239fc__486cf3",
       "repo_name": "PyFilesystem/pyfilesystem2",
       "initial_gap": 172,
-      "final_gap": 72,
-      "num_epochs": 3,
-      "fix_rate": 58.1,
-      "evoscore": 0.6737,
+      "final_gap": 9,
+      "num_epochs": 5,
+      "fix_rate": 94.8,
+      "evoscore": 0.7759,
       "status": "improving",
       "batch": "rll_full_batch_21"
     }
   ],
-  "last_updated": "2026-04-01T05:14:19",
+  "last_updated": "2026-04-01T05:44:27",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
