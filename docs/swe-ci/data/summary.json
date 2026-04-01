@@ -1,18 +1,18 @@
 {
   "total_benchmark_tasks": 137,
-  "total_evaluated": 74,
-  "solved": 69,
+  "total_evaluated": 75,
+  "solved": 70,
   "env_limit": 3,
   "improving": 1,
   "stuck": 1,
-  "pending": 15,
-  "total_completed": 74,
-  "solve_rate": 93.2,
-  "zero_regression_rate": 93.2,
-  "zero_regression_count": 69,
-  "avg_fix_rate": 94.7,
-  "avg_evoscore": 0.9667,
-  "avg_evoscore_completed": 0.9667,
+  "pending": 14,
+  "total_completed": 75,
+  "solve_rate": 93.3,
+  "zero_regression_rate": 93.3,
+  "zero_regression_count": 70,
+  "avg_fix_rate": 94.8,
+  "avg_evoscore": 0.9671,
+  "avg_evoscore_completed": 0.9671,
   "batches": [
     {
       "batch": "rll_full_batch_01",
@@ -215,11 +215,12 @@
     },
     {
       "batch": "rll_full_batch_20",
-      "total": 1,
-      "solved": 1,
+      "total": 2,
+      "solved": 2,
       "avg_evoscore": 1.0,
       "tasks": [
-        "openai__openai-python__75a3aa__86aaa1"
+        "openai__openai-python__75a3aa__86aaa1",
+        "parcadei__continuous-claude-v2__584031__6cb087"
       ]
     },
     {
@@ -1050,9 +1051,20 @@
       "evoscore": 1.0,
       "status": "solved",
       "batch": "rll_full_batch_20"
+    },
+    {
+      "task_id": "parcadei__continuous-claude-v2__584031__6cb087",
+      "repo_name": "parcadei/Continuous-Claude-v2",
+      "initial_gap": 71,
+      "final_gap": 0,
+      "num_epochs": 2,
+      "fix_rate": 100.0,
+      "evoscore": 1.0,
+      "status": "solved",
+      "batch": "rll_full_batch_20"
     }
   ],
-  "last_updated": "2026-03-31T19:35:16",
+  "last_updated": "2026-03-31T20:02:48",
   "model": "claude-sonnet-4-6",
   "lisa_model": "codex-gpt-5.4",
   "agent": "RLL (Ralph-Lisa Loop)"
