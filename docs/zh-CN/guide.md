@@ -159,7 +159,7 @@ ralph-lisa auto --full-auto "implement login feature"
 | | `auto` | `auto --full-auto` |
 |--|--------|-------------------|
 | Ralph (Claude) | `claude` | `claude --dangerously-skip-permissions` |
-| Lisa (Codex) | `codex` | `codex --full-auto` |
+| Lisa (Codex) | `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | 权限提示 | 每次文件/命令操作需确认 | 跳过——agent 直接执行 |
 
 当你信任两个 agent 时使用 `--full-auto`。不加时，权限提示可能导致 watcher 误判 agent 卡住。

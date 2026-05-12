@@ -159,7 +159,7 @@ ralph-lisa auto --full-auto "implement login feature"
 | | `auto` | `auto --full-auto` |
 |--|--------|-------------------|
 | Ralph (Claude) | `claude` | `claude --dangerously-skip-permissions` |
-| Lisa (Codex) | `codex` | `codex --full-auto` |
+| Lisa (Codex) | `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | 許可プロンプト | ファイル/コマンド操作ごとに確認が必要 | スキップ — エージェントが自由に実行 |
 
 両エージェントを信頼できる場合は `--full-auto` を使用してください。付けない場合、許可プロンプトにより watcher がエージェントのスタックを誤検出する可能性があります。
