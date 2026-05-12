@@ -7,7 +7,7 @@
 # Usage: ./auto.sh [--full-auto] "task description"
 #
 # Options:
-#   --full-auto    Skip all permission prompts (claude --dangerously-skip-permissions + codex --full-auto)
+#   --full-auto    Skip all permission prompts (claude --dangerously-skip-permissions + codex --dangerously-bypass-approvals-and-sandbox)
 #
 # Requirements: tmux, fswatch (macOS) or inotifywait (Linux)
 #
@@ -42,7 +42,7 @@ fi
 # Build agent commands based on --full-auto
 if [[ "$FULL_AUTO" == true ]]; then
   CLAUDE_CMD="claude --dangerously-skip-permissions"
-  CODEX_CMD="codex --full-auto"
+  CODEX_CMD="codex --dangerously-bypass-approvals-and-sandbox"
 else
   CLAUDE_CMD="claude"
   CODEX_CMD="codex"

@@ -158,7 +158,7 @@ ralph-lisa auto --full-auto "implement login feature"
 | | `auto` | `auto --full-auto` |
 |--|--------|-------------------|
 | Ralph (Claude) | `claude` | `claude --dangerously-skip-permissions` |
-| Lisa (Codex) | `codex` | `codex --full-auto` |
+| Lisa (Codex) | `codex` | `codex --dangerously-bypass-approvals-and-sandbox` |
 | Permission prompts | Every file/command needs approval | Skipped — agents act freely |
 
 Use `--full-auto` when you trust both agents on the current task. Without it, permission prompts may cause the watcher to misidentify paused agents as stuck.

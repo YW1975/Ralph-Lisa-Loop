@@ -1726,7 +1726,7 @@ export function cmdStart(args: string[]): void {
   const task = filteredArgs.join(" ");
 
   const claudeCmd = fullAuto ? "claude --dangerously-skip-permissions" : "claude";
-  const codexCmd = fullAuto ? "codex --full-auto" : "codex";
+  const codexCmd = fullAuto ? "codex --dangerously-bypass-approvals-and-sandbox" : "codex";
 
   console.log(line());
   console.log("Ralph-Lisa Loop - Start");
@@ -1870,7 +1870,7 @@ export function cmdAuto(args: string[]): void {
   const task = filteredArgs.join(" ");
 
   const claudeCmd = fullAuto ? "claude --dangerously-skip-permissions" : "claude";
-  const codexCmd = fullAuto ? "codex --full-auto" : "codex";
+  const codexCmd = fullAuto ? "codex --dangerously-bypass-approvals-and-sandbox" : "codex";
 
   console.log(line());
   console.log("Ralph-Lisa Loop - Auto Mode");
